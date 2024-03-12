@@ -1,0 +1,180 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    min-height: 133.33vw; /* Adjust based on the background image's aspect ratio */
+    overflow-x: hidden; /* Prevent horizontal overflow */
+    position: relative; /* Needed for the pseudo-element to position absolutely within */
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 133.33vw; /* Match the body's min-height */
+    background: url('static/background.png') center center scroll;
+    background-size: 100% auto; /* Cover the width of the viewport */
+    filter: blur(3px);
+    opacity: 0.5;
+    z-index: -1;
+}
+
+.center-image {
+    width: 50vw;
+    height: 50vw;
+    position: absolute;
+    top: 10vw;
+    left: 25vw;
+    z-index: 1;
+}
+
+.nav-icon {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s ease;
+    text-decoration: none;
+    color: white;
+    background-color: rgb(128, 151, 152);
+    border-radius: 50%;
+    z-index: 2;
+    width: 10vw; /* Adjust size of icons */
+    height: 10vw; /* Adjust size of icons */
+    font-size: 2vw;
+}
+
+.nav-icon::before {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    top: -0.5vw; /* Slightly larger than the icon itself */
+    left: -0.5vw;
+    right: -0.5vw;
+    bottom: -0.5vw;
+    border: 2px solid black; /* Visible part of the arc */
+    opacity: 0; /* Start fully transparent */
+    box-sizing: border-box;
+}
+
+
+.nav-icon::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    top: -1vw; /* Slightly larger than the icon itself */
+    left: -1vw;
+    right: -1vw;
+    bottom: -1vw;
+    border: 2px solid black; /* Visible part of the arc */
+    opacity: 0; /* Start fully transparent */
+    box-sizing: border-box;
+}
+
+.nav-icon::before {
+    animation: rotate-clockwise 0.5s linear infinite paused;
+    border-color: black transparent transparent transparent; /* Only one quarter of the border is visible */
+}
+
+.nav-icon::after {
+    animation: rotate-counter 0.5s linear infinite paused;
+    border-color: transparent transparent black transparent; /* Only one quarter of the border is visible, opposite to ::before */
+}
+
+@keyframes rotate-clockwise {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(540deg);
+    }
+}
+
+@keyframes rotate-counter {
+    from {
+        transform: rotate(90deg);
+    }
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+.nav-icon:hover::before,
+.nav-icon:hover::after {
+    animation-play-state: running; /* Run the animation on hover */
+    opacity: 1; /* Make arcs fully visible */
+}
+
+/* Reset animation and hide arcs when not hovering */
+.nav-icon::before,
+.nav-icon::after {
+    animation: none;
+}
+
+.nav-icon:hover::before {
+    animation: rotate-clockwise 0.5s linear forwards; /* Ensure the animation completes and does not reset mid-way */
+}
+
+.nav-icon:hover::after {
+    animation: rotate-counter 0.5s linear forwards; /* Ensure the animation completes and does not reset mid-way */
+}
+
+.nav-icon:hover {
+    transform: scale(1.2);
+}
+
+/* Positioning icons around the top half of the center image */
+.coding-icon {
+    top: 24vw; /* Aligns with the top of the center image */
+    left: 18vw; /* Adjust as needed */
+}
+
+.athletics-icon {
+    top: 8vw; /* Aligns with the top of the center image */
+    left: 28vw; /* Adjust as needed */
+}
+
+.home-icon {
+    top: 2vw; /* Slightly above the center image */
+    left: 45vw;
+}
+
+.chess-icon {
+    top: 8vw; /* Aligns with the top of the center image */
+    left: 62vw; /* Adjust as needed */
+}
+
+.gallery-icon {
+    top: 24vw; /* Aligns with the top of the center image */
+    left: 72vw; /* Adjust as needed */
+}
+
+.content {
+    position: relative;
+    top: 60vw; /* Adjusted to start 15vw below the bottom of the .center-image */
+    width: 75vw; /* Adjust content width as needed */
+    margin: 0 auto; /* Centers the content */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+
+.contact-info {
+    position: fixed;
+    bottom: 0;
+    width: 100vw;
+    text-align: center;
+    background-color: #111;
+    color: white;
+    padding: 20px;
+}
+
+.contact-info a {
+    color: white;
+    text-decoration: none;
+    margin: 0 10px;
+}
