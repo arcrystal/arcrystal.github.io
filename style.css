@@ -17,7 +17,7 @@ body::before {
     background: url('static/background.png') center center scroll;
     background-size: 100% auto; /* Cover the width of the viewport */
     filter: blur(3px);
-    opacity: 0.5;
+    opacity: 0.25;
     z-index: -1;
 }
 
@@ -44,6 +44,9 @@ body::before {
     width: 10vw; /* Adjust size of icons */
     height: 10vw; /* Adjust size of icons */
     font-size: 2vw;
+    font-style: oblique;
+    font-weight: bolder;
+    letter-spacing: 0.2vw;
 }
 
 .nav-icon::before {
@@ -171,6 +174,7 @@ body::before {
     background-color: #111;
     color: white;
     padding: 20px;
+    z-index: 3;
 }
 
 .contact-info a {
