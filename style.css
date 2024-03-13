@@ -67,30 +67,29 @@ body::before {
     content: '';
     position: absolute;
     border-radius: 50%;
-    top: -1vw; /* Slightly larger than the icon itself */
+    top: -1vw;
     left: -1vw;
     right: -1vw;
     bottom: -1vw;
-    border: 2px solid black; /* Visible part of the arc */
-    opacity: 0; /* Start fully transparent */
+    border: 2px solid black;
+    opacity: 0;
     box-sizing: border-box;
 }
 
 .nav-icon::before {
     animation: rotate-clockwise 0.5s linear infinite paused;
-    border-color: black transparent transparent transparent; /* Only one quarter of the border is visible */
+    border-color: black transparent transparent transparent;
 }
 
 .nav-icon::after {
     animation: rotate-counter 0.5s linear infinite paused;
-    border-color: transparent transparent black transparent; /* Only one quarter of the border is visible, opposite to ::before */
+    border-color: transparent transparent black transparent;
 }
 
 @keyframes rotate-clockwise {
     from {
         transform: rotate(0deg);
-    }
-    to {
+    } to {
         transform: rotate(540deg);
     }
 }
@@ -98,49 +97,45 @@ body::before {
 @keyframes rotate-counter {
     from {
         transform: rotate(90deg);
-    }
-    to {
+    } to {
         transform: rotate(-360deg);
     }
 }
 
-.nav-icon:hover::before,
-.nav-icon:hover::after {
-    animation-play-state: running; /* Run the animation on hover */
-    opacity: 1; /* Make arcs fully visible */
+.nav-icon:hover::before, .nav-icon:hover::after {
+    animation-play-state: running;
+    opacity: 1;
 }
 
-/* Reset animation and hide arcs when not hovering */
 .nav-icon::before,
 .nav-icon::after {
     animation: none;
 }
 
 .nav-icon:hover::before {
-    animation: rotate-clockwise 0.5s linear forwards; /* Ensure the animation completes and does not reset mid-way */
+    animation: rotate-clockwise 0.5s linear forwards;
 }
 
 .nav-icon:hover::after {
-    animation: rotate-counter 0.5s linear forwards; /* Ensure the animation completes and does not reset mid-way */
+    animation: rotate-counter 0.5s linear forwards;
 }
 
 .nav-icon:hover {
     transform: scale(1.2);
 }
 
-/* Positioning icons around the top half of the center image */
 .coding-icon {
-    top: 24vw; /* Aligns with the top of the center image */
-    left: 18vw; /* Adjust as needed */
+    top: 24vw;
+    left: 18vw;
 }
 
 .athletics-icon {
-    top: 8vw; /* Aligns with the top of the center image */
-    left: 28vw; /* Adjust as needed */
+    top: 8vw;
+    left: 28vw;
 }
 
 .home-icon {
-    top: 2vw; /* Slightly above the center image */
+    top: 2vw;
     left: 45vw;
 }
 
@@ -164,7 +159,6 @@ body::before {
     align-items: center;
     text-align: center;
 }
-
 
 .contact-info {
     position: fixed;
