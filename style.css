@@ -1,32 +1,34 @@
 body, html {
     margin: 0;
     padding: 0;
-    width: 100vw;
-    min-height: 133.33vw; /* Adjust based on the background image's aspect ratio */
-    overflow-x: hidden; /* Prevent horizontal overflow */
-    position: relative; /* Needed for the pseudo-element to position absolutely within */
+    left: 20vw;
+    width: 60vw;
+    min-height: 200vw;
 }
 
 body::before {
     content: '';
     position: absolute;
     top: 0;
-    left: 0;
-    width: 100vw;
-    height: 133.33vw; /* Match the body's min-height */
+    left: 20vw;
+    width: 60vw;
+    height: 200vw;
     background: url('static/background.png') center center scroll;
-    background-size: 100% auto; /* Cover the width of the viewport */
+    background-size: 60% auto;
     filter: blur(3px);
-    opacity: 0.25;
+    opacity: 0.1;
     z-index: -1;
 }
 
 .center-image {
-    width: 50vw;
-    height: 50vw;
     position: absolute;
-    top: 10vw;
-    left: 25vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 35vw;
+    width: 35vw;
+    top: 6vw;
+    left: calc(49.6% - 17.5vw); /* Center horizontally */
     z-index: 1;
 }
 
@@ -41,22 +43,22 @@ body::before {
     background-color: rgb(128, 151, 152);
     border-radius: 50%;
     z-index: 2;
-    width: 10vw; /* Adjust size of icons */
-    height: 10vw; /* Adjust size of icons */
-    font-size: 2vw;
+    width: 6vw; /* Adjust size of icons */
+    height: 6vw; /* Adjust size of icons */
+    font-size: 1.2vw;
     font-style: oblique;
     font-weight: bolder;
-    letter-spacing: 0.2vw;
+    letter-spacing: 0.1vw;
 }
 
 .nav-icon::before {
     content: '';
     position: absolute;
     border-radius: 50%;
-    top: -0.5vw; /* Slightly larger than the icon itself */
-    left: -0.5vw;
-    right: -0.5vw;
-    bottom: -0.5vw;
+    top: -0.3vw; /* Slightly larger than the icon itself */
+    left: -0.3vw;
+    right: -0.3vw;
+    bottom: -0.3vw;
     border: 2px solid black; /* Visible part of the arc */
     opacity: 0; /* Start fully transparent */
     box-sizing: border-box;
@@ -67,22 +69,22 @@ body::before {
     content: '';
     position: absolute;
     border-radius: 50%;
-    top: -1vw;
-    left: -1vw;
-    right: -1vw;
-    bottom: -1vw;
+    top: -0.6vw;
+    left: -0.6vw;
+    right: -0.6vw;
+    bottom: -0.6vw;
     border: 2px solid black;
     opacity: 0;
     box-sizing: border-box;
 }
 
 .nav-icon::before {
-    animation: rotate-clockwise 0.5s linear infinite paused;
+    animation: rotate-clockwise 0.25s linear infinite paused;
     border-color: black transparent transparent transparent;
 }
 
 .nav-icon::after {
-    animation: rotate-counter 0.5s linear infinite paused;
+    animation: rotate-counter 0.25s linear infinite paused;
     border-color: transparent transparent black transparent;
 }
 
@@ -107,57 +109,60 @@ body::before {
     opacity: 1;
 }
 
-.nav-icon::before,
-.nav-icon::after {
-    animation: none;
-}
 
 .nav-icon:hover::before {
-    animation: rotate-clockwise 0.5s linear forwards;
+    animation: rotate-clockwise 0.25s linear forwards;
 }
 
 .nav-icon:hover::after {
-    animation: rotate-counter 0.5s linear forwards;
+    animation: rotate-counter 0.25s linear forwards;
 }
 
 .nav-icon:hover {
-    transform: scale(1.2);
+    transform: scale(1.1);
+}
+
+
+.temp-icon {
+    top: 18.5vw;
+    left: calc(32.5% - 3vw);
 }
 
 .coding-icon {
-    top: 24vw;
-    left: 18vw;
+    top: 11vw;
+    left: calc(35% - 3vw);
 }
 
 .athletics-icon {
-    top: 8vw;
-    left: 28vw;
+    top: 5vw;
+    left: calc(41% - 3vw);
 }
 
 .home-icon {
-    top: 2vw;
-    left: 45vw;
+    top: 2.5vw;
+    left: calc(50% - 3vw);
 }
 
 .chess-icon {
-    top: 8vw; /* Aligns with the top of the center image */
-    left: 62vw; /* Adjust as needed */
+    top: 5vw;
+    left: calc(59% - 3vw);
 }
 
 .gallery-icon {
-    top: 24vw; /* Aligns with the top of the center image */
-    left: 72vw; /* Adjust as needed */
+    top: 11vw;
+    left: calc(65% - 3vw);
+}
+
+.resume-icon {
+    top: 18.5vw;
+    left: calc(67.5% - 3vw);
 }
 
 .content {
     position: relative;
-    top: 60vw; /* Adjusted to start 15vw below the bottom of the .center-image */
-    width: 75vw; /* Adjust content width as needed */
-    margin: 0 auto; /* Centers the content */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+    top: 40vw;
+    left: 27.5vw;
+    width: 45vw;
 }
 
 .contact-info {

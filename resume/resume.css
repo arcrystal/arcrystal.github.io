@@ -1,0 +1,82 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    left: 20vw;
+    width: 60vw;
+    min-height: 200vw;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20vw;
+    width: 60vw;
+    height: 200vw;
+    background: url('../static/background.png') center center scroll;
+    background-size: 60% auto;
+    filter: blur(3px);
+    opacity: 0.1;
+    z-index: -1;
+}
+
+.container {
+    max-width: 50%; /* Adjust width as necessary */
+    margin: 40px auto;
+    background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent white with 0.1 opacity */
+    padding: 40px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+
+header, section {
+    position: relative;
+    padding-left: 40px; /* Space for the vertical line */
+    margin-bottom: 30px;
+}
+
+/* Vertical line next to sections */
+header:before, section:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #006699; /* Replace with the actual color used */
+}
+
+header {
+    text-align: center;
+}
+
+header h1 {
+    font-size: 48px; /* Adjust as needed */
+    color: #006699; /* Replace with the actual color used */
+    margin: 0 0 10px 0;
+}
+
+h2 {
+    font-size: 36px; /* Adjust as needed */
+    color: #333; /* Adjust color */
+    font-weight: normal;
+}
+
+.contact a, .education article, .work-experience article {
+    color: #006699; /* Replace with the actual color used */
+    text-decoration: none;
+}
+
+.contact a:hover, .contact a:focus {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .container {
+        width: 90%; /* Full-width on smaller screens */
+    }
+
+    header h1, h2 {
+        font-size: 24px;
+    }
+}
