@@ -55,6 +55,7 @@ body::before {
     font-style: oblique;
     font-weight: bolder;
     letter-spacing: 0.1vw;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.75);
 }
 
 .nav-icon::before {
@@ -166,9 +167,10 @@ body::before {
 
 .content {
     position: relative;
-    top: 40vw;
+    top: 38vw;
     left: 27.5vw;
     width: 45vw;
+    text-align: center;
 }
 
 .contact-info {
