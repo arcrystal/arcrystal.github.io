@@ -1,22 +1,28 @@
-body, html {
+html {
+    background-color: floralwhite;
+    z-index: -5;
+
+}
+
+body {
     margin: 0;
     padding: 0;
     left: 20vw;
     width: 60vw;
-    min-height: 200vw;
+    min-height: 350vw;
 }
 
 body::before {
     content: '';
     position: absolute;
     top: 0;
-    left: 20vw;
-    width: 60vw;
-    height: 200vw;
+    left: 0;
+    width: 100vw;
+    height: 350vw;
     background: url('static/background.png') center center scroll;
-    background-size: 60% auto;
+    background-size: 100% auto;
     filter: blur(3px);
-    opacity: 0.1;
+    opacity: 0.15;
     z-index: -1;
 }
 
