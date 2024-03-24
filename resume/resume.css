@@ -5,11 +5,11 @@ html {
 }
 
 body {
-    margin: 0;
-    padding: 0;
-    left: 20vw;
-    width: 60vw;
-    min-height: 350vw;
+    display: flex;
+    justify-content: center;
+    align-items: start; /* Use 'center' if you want to vertically center the container as well */
+    min-height: 100vh; /* Full viewport height */
+    flex-direction: column;
 }
 
 body::before {
@@ -22,19 +22,19 @@ body::before {
     background: url('../static/background.png') center center scroll;
     background-size: 100% auto;
     filter: blur(3px);
-    opacity: 0.15;
+    opacity: 0.1;
     z-index: -1;
 }
 
 .container {
-    max-width: 50vw; /* Adjust width as necessary */
-    margin: 40px auto;
-    background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent white with 0.1 opacity */
-    padding: 40px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    left: 20vw;
-    width: 60vw;
+    max-width: 50vw; /* Adjust this value if you need a wider or narrower container */
+    margin: 40px auto; /* Top and bottom margin with auto left and right margin for centering */
+    background-color: rgba(245, 230, 200, 0.65);
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
+
+
 
 
 header, section {
