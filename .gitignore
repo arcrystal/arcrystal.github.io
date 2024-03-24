@@ -6,7 +6,8 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
-/PSWD
+chess/PSWD
+chess/history/
 /*.DS_Store
 /history
 /history/*
