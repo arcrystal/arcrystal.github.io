@@ -27,32 +27,39 @@ body::before {
 }
 
 .container {
-    max-width: 50vw; /* Adjust this value if you need a wider or narrower container */
+    max-width: 60vw; /* Adjust this value if you need a wider or narrower container */
     margin: 40px auto; /* Top and bottom margin with auto left and right margin for centering */
     background-color: rgba(245, 230, 200, 0.65);
     padding: 20px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-
-
-
 header, section {
     position: relative;
     padding-left: 40px; /* Space for the vertical line */
     margin-bottom: 30px;
+}
 
+section {
+    background-color: rgba(229, 178, 84, 0.24);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    margin: 15px;
+    padding: 15px;
+}
+
+article {
+    position: relative;
 }
 
 /* Vertical line next to sections */
-header:before, section:before {
+article:before {
     content: '';
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background-color: #006699; /* Replace with the actual color used */
+    left: -9px; /* Start -5px before the article */
+    top: 0; /* Start at the top edge of the article */
+    bottom: 0; /* Stretch to the bottom edge of the article */
+    width: 3px;
+    background-color: #006699; /* Adjust the color as needed */
 }
 
 header {
@@ -66,12 +73,38 @@ header h1 {
 }
 
 h2 {
-    font-size: 36px; /* Adjust as needed */
-    color: #333; /* Adjust color */
-    font-weight: normal;
+    border-bottom: 2px solid #006699;
+    padding-bottom: 5px;
+    margin-bottom: 20px;
 }
 
-.contact a, .education article, .work-experience article {
+h3 {
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.skills-category, .skills, .licenses, .achievements, .projects .project {
+    margin-bottom: 15px;
+}
+
+.skills-category p, .project ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.licenses ul, .achievements ul {
+    list-style-type: none;
+    padding-left: 20px;
+}
+
+.licenses li::before, .achievements li::before {
+    content: '• ';
+    color: #006699;
+}
+
+
+.contact a {
     color: #006699; /* Replace with the actual color used */
     text-decoration: none;
 }
