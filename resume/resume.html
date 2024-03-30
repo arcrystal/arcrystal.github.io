@@ -7,17 +7,31 @@
     <link rel="stylesheet" href="resume.css">
 </head>
 <body>
+<nav class="navigation">
+    <ul>
+        <li><a href="#about-me">About Me</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="#publications">Publications</a></li>
+        <li><a href="#education">Education</a></li>
+        <li><a href="#work-experience">Work Experience</a></li>
+        <li><a href="#projects">Projects</a></li>
+        <li><a href="#skills">Skills</a></li>
+        <li><a href="#certifications">Certifications</a></li>
+        <li><a href="#achievements">Achievements</a></li>
+    </ul>
+</nav>
+
 <div class="container">
     <header>
         <h1>Alex Crystal</h1>
     </header>
 
-    <section class="about-me">
+    <section class="about-me" id="about-me">
         <h2>About me</h2>
-        <p>I love to tinker with new software tools test them building various personal projects. I enjoy keeping up to date on advances in hardware, software, and UI/UX and seeing how they fuel new technologies. My focus is NLP, but I'm intrigued by all domains of machine learning. Besides work, I'm an outdoor enthusiast—I love running, soccer, skiing, hiking, and biking. I'm avid chess player, Feel free to reach out and connect.</p>
+        <p>I love to tinker with new software tools and test them on personal projects. I enjoy keeping up to date with advances in hardware, software, and UI/UX and seeing how they fuel new technologies. My focus is NLP, but I'm intrigued by all domains of machine learning. Besides work, I'm an outdoor enthusiast—I love running, soccer, skiing, hiking, and biking. I'm also an avid chess player, albeit not very good. Feel free to reach out and connect!</p>
     </section>
 
-    <section class="contact">
+    <section class="contact" id="contact">
         <h2>Contact</h2>
         <p>+1 (617)-686-8810</p>
         <p><a href="mailto:crystal.a@northeastern.edu" target="_blank">crystal.a@northeastern.edu</a></p>
@@ -25,32 +39,36 @@
         <p><a href="https://github.com/arcrystal?tab=repositories&q=&type=&language=&sort=stargazers" target="_blank">GitHub</a></p>
     </section>
 
-    <section class="publications">
+    <section class="publications" id="publications">
         <h2>Publications</h2>
         <article>
             <h3>Executable Network Models of Integrated Multiomics Data</h3>
             <h4><a href="https://github.com/Thakar-Lab/mBONITA" target="_blank">mBONITA: multi-omics Boolean Omics Network Invariant-Time Analysis</a></h4>
-            <p><strong>Abstract</strong>: Multiomics profiling provides a holistic picture of a condition being
-                examined and captures the complexity of signaling events, beginning from the
-                original cause (environmental or genetic), to downstream functional changes at
-                multiple molecular layers. Pathway enrichment analysis has been used with multiomics
-                data sets to characterize signaling mechanisms. However, technical and biological
-                variability between these layered data limit an integrative computational analyses.
-                We present a Boolean network-based method, multiomics Boolean Omics Network
-                Invariant-Time Analysis (mBONITA), to integrate omics data sets that quantify
-                multiple molecular layers. mBONITA utilizes prior knowledge networks to perform
-                topology-based pathway analysis. In addition, mBONITA identifies genes that are
-                consistently modulated across molecular measurements by combining observed
-                fold-changes and variance, with a measure of node (i.e., gene or protein) influence
-                over signaling, and a measure of the strength of evidence for that gene across data
-                sets. We used mBONITA to integrate multiomics data sets from RAMOS B cells treated
-                with the immunosuppressant drug cyclosporine A under varying O2 tensions to identify
-                pathways involved in hypoxia-mediated chemotaxis. We compare mBONITA’s performance
-                with 6 other pathway analysis methods designed for multiomics data and show that
-                mBONITA identifies a set of pathways with evidence of modulation across all omics layers.</p>
+            <button id="toggleAbstract">Show Abstract</button>
+            <div class='abstract' id="abstract-content">
+                <p><strong>Abstract</strong>: Multiomics profiling provides a holistic picture of a condition being
+                    examined and captures the complexity of signaling events, beginning from the
+                    original cause (environmental or genetic), to downstream functional changes at
+                    multiple molecular layers. Pathway enrichment analysis has been used with multiomics
+                    data sets to characterize signaling mechanisms. However, technical and biological
+                    variability between these layered data limit an integrative computational analyses.
+                    We present a Boolean network-based method, multiomics Boolean Omics Network
+                    Invariant-Time Analysis (mBONITA), to integrate omics data sets that quantify
+                    multiple molecular layers. mBONITA utilizes prior knowledge networks to perform
+                    topology-based pathway analysis. In addition, mBONITA identifies genes that are
+                    consistently modulated across molecular measurements by combining observed
+                    fold-changes and variance, with a measure of node (i.e., gene or protein) influence
+                    over signaling, and a measure of the strength of evidence for that gene across data
+                    sets. We used mBONITA to integrate multiomics data sets from RAMOS B cells treated
+                    with the immunosuppressant drug cyclosporine A under varying O2 tensions to identify
+                    pathways involved in hypoxia-mediated chemotaxis. We compare mBONITA’s performance
+                    with 6 other pathway analysis methods designed for multiomics data and show that
+                    mBONITA identifies a set of pathways with evidence of modulation across all omics layers.</p>
+            </div>
+        </article>
     </section>
 
-    <section class="education">
+    <section class="education" id="education">
         <h2>Education</h2>
         <article>
             <h3>Northeastern University | MS in Artificial Intelligence</h3>
@@ -65,68 +83,106 @@
         </article>
     </section>
 
-    <section class="work-experience">
+    <section class="work-experience" id="work-experience">
         <h2>Work Experience</h2>
         <article>
             <h3>Artificial Intelligence Intern - MITRE Corporation</h3>
-            <p>Human Language Technology Department</p>
+            <sub>Human Language Technology Department</sub>
+            <p>2020-Present</p>
             <!-- Detailed descriptions can be added here -->
         </article>
         <article>
             <h3>Software Engineering Intern - BodesWell Inc.</h3>
-            <p>(Acquired by AmericanExpress)</p>
+            <sub>(Acquired by AmericanExpress)</sub>
+            <p>2019</p>
             <!-- Detailed descriptions can be added here -->
         </article>
         <!-- ... other entries ... -->
     </section>
 
+    <section class="projects" id="projects">
+        <h2>Projects</h2>
+        <h3>MITRE</h3>
+        <h4>TextCraft: (2023): LLM Research for Targeted Strategic Messaging</h4>
+        <ul>
+            <li>Trained Siamese network for authorship attribution with 97% success on 119 labels to categorize misinformation.</li>
+            <li>Designed reward signal for RL finetuned LLMs to minimize stylistic divergence in strategic messaging.</li>
+        </ul>
+
+        <h4>S&TI 2.0: (2022): Science and Technology Intelligence Knowledge Graph</h4>
+        <ul>
+            <li>Collaborated on Text-based knowledge graph for mapping the global landscape of science and technology intelligence.</li>
+            <li>Built deep topic models using TMNT to cluster academic papers for domain specific knowledge induction.</li>
+        </ul>
+
+        <h4>ASIAS (2022): Aviation Forecasting with Crash Prevention Software</h4>
+        <ul>
+            <li>Finetuned multivariate forecasting models using Bayesian Hyperband Optimization.</li>
+        </ul>
+
+        <h4>AM!TT (2021): Adversarial Misinformation - Tactics and Techniques</h4>
+        <ul>
+            <li>Deployed framework to enable fast, effective characterization of adversarial disinformation.</li>
+        </ul>
+
+        <h4>Bot Detector (2020) Social Media Bot Detection GAN</h4>
+        <ul>
+            <li>Implemented RoBERTa discriminator and GPT2 generator to identify social media misinformation.</li>
+        </ul>
+        <h3>Northeastern University</h3>
+        <h4>Civic AI Lab (2024): Culturally Aware Multi-Modal Models</h4>
+        <ul>
+            <li>Optimized asynchronous API calls for dataset curation</li>
+        </ul>
+        </article>
+    </section>
+
     <!-- ADD CODE HERE -->
-    <section class="skills">
+    <section class="skills" id="skills">
         <h2>Skills</h2>
         <div class="skills-category">
             <h3>Languages</h3>
             <p>Python, Java, SQL, HTML, CSS, Bash, R</p>
         </div>
         <div class="skills-category">
-            <h3>All things A.I.</h3>
-            <p>HuggingFace, Transformers (sentence-transformers, diffusers), Deep Reinforcement Learning (TRLX, Ray), RLHF, non-parametric models</p>
+            <h3>A.I. Tools</h3>
+            <p>HuggingFace, Transformers, Deep Reinforcement Learning (TrLX, Ray), RLHF</p>
         </div>
         <!-- Repeat for each category -->
     </section>
 
-    <section class="licenses">
-        <h2>Licenses & Certifications</h2>
+    <section class="certifications" id="certifications">
+        <h2>Certifications</h2>
         <ul>
             <li>IRB Human Subjects Research Certification</li>
             <!-- Repeat for each certification -->
         </ul>
     </section>
 
-    <section class="achievements">
-        <h2>Achievements & Extra-curriculars</h2>
+    <section class="achievements" id="achievements">
+        <h2>Achievements</h2>
+
+        <h3>MITRE</h3>
+        <ul>
+            <li>Summer Hackathon 2023: 1st place</li>
+        </ul>
+        <h3>Northeastern University</h3>
         <ul>
             <li>Khoury Master's Research Apprenticeship Selection</li>
-            <!-- Repeat for each achievement -->
+            <li>Graduate student mentor</li>
+        </ul>
+        <h3>University of Rochester</h3>
+        <ul>
+            <li>Wilder Leadership Scholarship Recipient</li>
+            <li>Goergen Institute for Data Science Research Fair Speaker</li>
+            <li>Hajim School of Engineering Full Spectrum Series Speaker</li>
         </ul>
     </section>
-
-    <section class="projects">
-        <h2>Projects</h2>
-        <article>
-            <h3>Culturally Aware Multi-Modal Models</h3>
-            <p>January 2024 - Present</p>
-            <ul>
-                <li>Optimized asynchronous API calls for dataset curation</li>
-                <!-- Repeat for each project detail -->
-            </ul>
-        </article>
-        <!-- Repeat for each project -->
-    </section>
-
 
     <footer>
         <!-- You might add copyright and additional contact info here -->
     </footer>
 </div>
+<script src="resume.js"></script>
 </body>
 </html>

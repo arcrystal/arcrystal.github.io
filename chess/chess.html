@@ -3,27 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home Page</title>
-    <link rel="stylesheet" href="../style.css">
+    <title>Custom Layout Webpage</title>
+    <link rel="stylesheet" href="chess.css">
 </head>
 <body>
-    <div class="content">
-        <div class="highlighted">
-            <h1>My ELO is 900</h1>
-            <p>This page is as much for me as it is for anyone reading this, so I can remember the fundamentals that may or may not get me to 1000.</p>
-            <ol>
-                <li>Develop pieces and castle as soon as possible</li>
-                <li>Connect your rooks</li>
-                <li>Rooks on the 7th rank are dangerous</li>
-                <li>Look for checks, captures, and attacks</li>
-                <li>Count attackers and defenders</li>
-                <li>Protect your pawns</li>
-                <li>Bishop pairs are strong- don't trade them for knights</li>
-                <li>Be wary of back-rank checkmates</li>
-                <li>When you're up material, play carefully and slowly</li>
-                <li>Forks, pins, knifes, and batteries are ways to go up material</li>
-            </ol>
-        </div>
+<div class="container">
+    <h2>Brilliants</h2>
+    <div class="top-row">
+        <div class="slideshow" id="slideshow"></div>
+        <div class="description">This is a description area next to the slideshow.</div>
     </div>
+    <h2>History</h2>
+    <div class="image-row">
+        <!-- EMBED WIDGET HERE -->
+    </div>
+    <h2>Expert Advice</h2>
+    <div class="audio-panel">
+        <button onclick="playAudio()">Play Audio</button>
+        <select id="audioSelect" onchange="changeAudio(this.value)">
+            <option value="audio1.mp3">Audio 1</option>
+            <option value="audio2.mp3">Audio 2</option>
+        </select>
+        <audio id="audioPlayer" src="audio1.mp3"></audio>
+    </div>
+</div>
+
+<script src="chess.js"></script>
 </body>
 </html>

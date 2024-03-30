@@ -27,9 +27,10 @@ body::before {
 }
 
 .container {
-    max-width: 60vw; /* Adjust this value if you need a wider or narrower container */
+    max-width: 70vw; /* Adjust this value if you need a wider or narrower container */
+    min-width: 550px;
     margin: 40px auto; /* Top and bottom margin with auto left and right margin for centering */
-    background-color: rgba(245, 230, 200, 0.65);
+    background-color: rgba(245, 230, 200, 0.32);
     padding: 20px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
@@ -41,7 +42,7 @@ header, section {
 }
 
 section {
-    background-color: rgba(229, 178, 84, 0.24);
+    background-color: rgba(245, 230, 200, 0.32);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     margin: 15px;
     padding: 15px;
@@ -120,5 +121,49 @@ h3 {
 
     header h1, h2 {
         font-size: 24px;
+    }
+}
+
+#abstract-content {
+    display: none;
+}
+
+#toggleAbstract {
+    cursor: pointer;
+    padding: 8px 15px;
+    background-color: #006699;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+#toggleAbstract:hover {
+    background-color: rgba(73, 121, 141, 0.8);
+}
+
+.navigation ul {
+    position: fixed;
+    top: 30px;
+    list-style: none;
+    background-color: rgba(151, 171, 171, 0.3);    padding: 0;
+    left: 0.5vw;
+    width: calc(14vw - 30px);
+}
+
+.navigation li a {
+    display: block;
+    padding: 8px;
+    text-decoration: none;
+    color: black;
+}
+
+.active {
+    background-color: rgba(132, 141, 141, 0.5); /* Light grey with a hint of sea green */
+    color: black;
+}
+
+@media (max-width: 900px) {
+    .navigation ul {
+        display: none;
     }
 }

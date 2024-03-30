@@ -1,0 +1,106 @@
+html {
+    background-color: floralwhite;
+    z-index: -5;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: start;
+    min-height: 100vh;
+    flex-direction: column;
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 350vw;
+    background: url('../static/background.png') center center scroll;
+    background-size: 100% auto;
+    filter: blur(3px);
+    opacity: 0.1;
+    z-index: -1;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 70vw;
+    min-width: 550px;
+    margin: 40px auto;
+    background-color: rgba(245, 230, 200, 0.65);
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    z-index: 10; /* Ensure content is above the blurred background */
+}
+
+.top-row {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.slideshow {
+    width: 55.56vw; /* Adjusted to 5/9 of the viewport width */
+    height: 400px;
+    background-color: #ddd;
+    margin-right: 20px; /* Space between slideshow and description */
+}
+
+.description {
+    width: 33.33vw; /* Adjusted to 3/9 of the viewport width */
+    background-color: #f0f0f0;
+    height: 400px;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Adjustments to the container to accommodate vertical layout */
+.image-row {
+    display: flex;
+    flex-direction: column; /* Align images vertically */
+    align-items: center; /* Center images */
+    width: 100%;
+    margin: 20px 0;
+}
+
+.image-row img {
+    width: 60vw; /* Larger images */
+    max-width: 700px; /* Maximum size to prevent overly large images */
+    height: auto; /* Maintain aspect ratio */
+    margin-bottom: 20px; /* Space between images */
+}
+
+
+.audio-panel {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.audio-panel button, .audio-panel select {
+    margin: 10px;
+}
+
+@media (max-width: 768px) {
+    .top-row, .image-row {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .slideshow, .description {
+        width: 90vw; /* Full width on smaller screens */
+        margin: 10px 0; /* Adjust margin for vertical stacking */
+    }
+
+    .audio-panel button, .audio-panel select {
+        margin: 5px;
+    }
+}
