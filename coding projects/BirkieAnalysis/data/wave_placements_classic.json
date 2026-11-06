@@ -1,0 +1,51 @@
+{
+  "race": "Birkebeiner Classic",
+  "forYear": 2026,
+  "waves": [
+    {
+      "wave": 1,
+      "cutoffs": {
+        "2025": { "timeUpper": "3:53:35", "pbeUpper": 50.5 },
+        "2023": { "timeUpper": "3:58:26", "pbeUpper": 38.5 },
+        "2022": { "timeUpper": "4:10:11", "pbeUpper": 45.5 }
+      }
+    },
+    {
+      "wave": 2,
+      "cutoffs": {
+        "2025": { "timeLower": "3:53:36", "timeUpper": "4:21:31", "pbeLower": 50.5, "pbeUpper": 68.5 },
+        "2023": { "timeLower": "3:58:27", "timeUpper": "4:32:51", "pbeLower": 38.5, "pbeUpper": 58.5 },
+        "2022": { "timeLower": "4:10:12", "timeUpper": "4:44:35", "pbeLower": 45.5, "pbeUpper": 65.5 }
+      }
+    },
+    {
+      "wave": 3,
+      "cutoffs": {
+        "2025": { "timeLower": "4:21:32", "timeUpper": "4:57:12", "pbeLower": 68.5, "pbeUpper": 91.5 },
+        "2023": { "timeLower": "4:32:52", "timeUpper": "5:09:01", "pbeLower": 58.5, "pbeUpper": 79.5 },
+        "2022": { "timeLower": "4:44:36", "timeUpper": "5:22:24", "pbeLower": 65.5, "pbeUpper": 87.5 }
+      }
+    },
+    {
+      "wave": 4,
+      "cutoffs": {
+        "2025": { "timeLower": "4:57:13", "timeUpper": "5:49:59", "pbeLower": 91.5, "pbeUpper": 125.5 },
+        "2023": { "timeLower": "5:09:02", "timeUpper": "5:55:29", "pbeLower": 79.5, "pbeUpper": 106.5 },
+        "2022": { "timeLower": "5:22:25", "timeUpper": "6:15:43", "pbeLower": 87.5, "pbeUpper": 118.5 }
+      }
+    },
+    {
+      "wave": 5,
+      "note": "Plus prior participants with no results from last 3 years, or only 2024 results or Open Track results",
+      "cutoffs": {
+        "2025": { "timeLower": "5:50:00", "pbeLower": 125.5 },
+        "2023": { "timeLower": "5:55:30", "pbeLower": 106.5 },
+        "2022": { "timeLower": "6:15:44", "pbeLower": 118.5 }
+      }
+    },
+    {
+      "wave": 6,
+      "note": "New participants"
+    }
+  ]
+}

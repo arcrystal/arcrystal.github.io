@@ -1,0 +1,71 @@
+{
+  "docTitle": "About Me — Alex Crystal",
+  "description": "Alex Crystal, generative AI engineer at MITRE: a timeline from 2019 to 2025, areas of focus, experience, education and links.",
+  "line": "Liquid chrome and iridescence: from a 2019 internship to generative AI engineering at MITRE.",
+  "lede": "Generative AI engineer at MITRE. Six milestones from 2019, three threads through the work, and the life outside it.",
+  "index": [
+    [
+      "#timeline",
+      "Timeline"
+    ],
+    [
+      "#biography",
+      "Biography"
+    ],
+    [
+      "#focus",
+      "Focus"
+    ],
+    [
+      "#experience",
+      "Experience"
+    ],
+    [
+      "#personal",
+      "Outside work"
+    ],
+    [
+      "#links",
+      "Links"
+    ]
+  ],
+  "module": null,
+  "styles": [
+    "about.css"
+  ],
+  "fragments": {},
+  "preview": {
+    "chips": [
+      [
+        "2019",
+        "BodesWell",
+        "Software intern"
+      ],
+      [
+        "2020–24",
+        "MITRE",
+        "Graduate AI intern"
+      ],
+      [
+        "2022",
+        "Rochester",
+        "BS, Data Science"
+      ],
+      [
+        "2023",
+        "TextCraft",
+        "Research & a paper"
+      ],
+      [
+        "2024",
+        "Northeastern",
+        "MS, Artificial Intelligence"
+      ],
+      [
+        "2025–",
+        "MITRE",
+        "Generative AI Engineer"
+      ]
+    ]
+  }
+}

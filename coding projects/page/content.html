@@ -1,0 +1,267 @@
+<section id="projects" class="code-section code-lead" aria-labelledby="projects-heading">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label">Selected work</p>
+      <h2 id="projects-heading">Case studies</h2>
+      <p class="lede measure">Three systems, each with the problem behind it, Alex’s part in it, what exists as a result and what supports it. Two run as standalone applications; the third is published research with public code.</p>
+    </header>
+    <nav class="case-index" aria-label="Case studies on this page">
+      <ol role="list">
+        <li><a href="#ai-power-map"><span class="n">01</span><span class="t">AI Power Map</span><span class="m">Interactive research · AI</span></a></li>
+        <li><a href="#birkie-race-intelligence"><span class="n">02</span><span class="t">Birkie Race Intelligence</span><span class="m">Data · Endurance</span></a></li>
+        <li><a href="#mbonita"><span class="n">03</span><span class="t">mBONITA</span><span class="m">Published research · Multiomics</span></a></li>
+      </ol>
+    </nav>
+  </div>
+</section>
+
+<article id="ai-power-map" class="code-section case" aria-labelledby="ai-power-map-heading">
+  <div class="wrap">
+    <header class="case-head">
+      <p class="label case-meta"><span class="n">01</span> Interactive research · AI</p>
+      <h3 class="case-title" id="ai-power-map-heading">AI Power Map</h3>
+      <p class="case-summary">A sourced, scrollable history of the models, agents, chips, companies and rules that moved the AI frontier, and redistributed strategic power.</p>
+    </header>
+
+    <figure class="case-figure case-figure--lead">
+      <picture>
+        <source media="(max-width: 767px)" srcset="/coding%20projects/page/images/aimap-phone.webp" width="860" height="1864">
+        <img src="/coding%20projects/page/images/aimap-explorer.webp" width="2400" height="1703" decoding="async" loading="lazy" alt="The AI Power Map's record with one moment open: November 30, 2022, ChatGPT turns an alignment technique into a mass-market interface. The open entry shows why it felt different, the development, the technical change, the contemporary reaction, who gained and lost power, and a source link.">
+      </picture>
+      <figcaption>The record with one moment open: ChatGPT, November 30, 2022, one of two moments the page marks as a felt inflection. Screenshot of the app; on a phone, the phone layout of the same record.</figcaption>
+    </figure>
+
+    <ul class="stats" role="list">
+      <li><strong>224</strong><span>dated moments</span></li>
+      <li><strong>312</strong><span>citations</span></li>
+      <li><strong>Aug 21, 2026</strong><span>last updated</span></li>
+    </ul>
+
+    <dl class="facts">
+      <div class="fact">
+        <dt>The problem</dt>
+        <dd><p>Releases, chips, company decisions and government rules each changed what AI could do. The Power Map asks which of those moments mattered, and who gained or lost leverage when they happened.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Alex’s contribution</dt>
+        <dd><p>Alex built the Power Map as a personal project: the research document and its sources, the script that turns that document into data, and the interactive explorer.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>The system</dt>
+        <dd><p>A dated record of 224 moments from 2021 to August 21, 2026. Every entry answers the same six questions: what happened, what technically changed, what it meant, how people reacted at the time, who gained or lost power, and where the sources are.</p>
+        <p>The explorer adds search, year, topic and actor filters, a short “When it felt different” strip, and model-family trend lines for the MMLU and SWE-bench benchmarks.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Evidence</dt>
+        <dd><ul class="plain" role="list">
+          <li>312 citations across the 224 entries, each entry with at least one source.</li>
+          <li>The build script converts the Markdown record to JSON and stops unless it finds exactly 224 events, each with sources, plus 18 power-balance rows and 8 structural shifts.</li>
+          <li>Method notes in the research document: “open weights” means downloadable parameters, not necessarily open training data or an open-source license, and vendor benchmark and speed figures are labeled as vendor claims unless independently verified.</li>
+          <li>The benchmark charts carry their own caution: harnesses, prompting and evaluation methods vary, so direction matters more than small gaps.</li>
+        </ul></dd>
+      </div>
+      <div class="fact">
+        <dt>Technology</dt>
+        <dd><ul class="chips" role="list"><li>Markdown</li><li>Ruby</li><li>JSON</li><li>JavaScript</li><li>HTML and CSS</li><li>Canvas charts</li></ul></dd>
+      </div>
+    </dl>
+
+    <div class="case-more">
+      <figure class="case-figure case-figure--wide">
+        <img src="/coding%20projects/page/images/aimap-benchmarks.webp" width="1800" height="911" decoding="async" loading="lazy" alt="Line chart of coding-agent results on SWE-bench Verified, resolved tasks in percent, for the OpenAI, Claude and Gemini model families from 2023 to 2026.">
+        <figcaption>Benchmark trend lines for coding agents (SWE-bench Verified). Screenshot of the app.</figcaption>
+      </figure>
+      <figure class="case-figure case-figure--phone">
+        <img src="/coding%20projects/page/images/aimap-phone.webp" width="860" height="1864" decoding="async" loading="lazy" alt="The AI Power Map at phone width: search and year, topic and actor filters stacked above the year buttons and the first moments of 2021.">
+        <figcaption>The same record at phone width. Screenshot of the app.</figcaption>
+      </figure>
+    </div>
+
+    <p class="case-links">
+      <a class="btn btn--primary" href="/ai-timeline/" data-router="off">Open the AI Power Map <span aria-hidden="true">↗</span></a>
+      <a class="btn" href="/ai-timeline/timeline.md" download>Download the sourced Markdown <span aria-hidden="true">↓</span></a>
+    </p>
+  </div>
+</article>
+
+<article id="birkie-race-intelligence" class="code-section case" aria-labelledby="birkie-race-intelligence-heading">
+  <div class="wrap">
+    <header class="case-head">
+      <p class="label case-meta"><span class="n">02</span> Data · Endurance</p>
+      <h3 class="case-title" id="birkie-race-intelligence-heading">Birkie Race Intelligence</h3>
+      <p class="case-summary">A full-field explorer for Skate and Classic results, starting waves, racer history, performance context and projected placement.</p>
+    </header>
+
+    <figure class="flow flow--birkie" aria-labelledby="birkie-flow-caption">
+      <div class="flow-tier">
+        <p class="flow-tag">Race results</p>
+        <ul role="list"><li>Skate results</li><li>Classic results</li></ul>
+      </div>
+      <div class="flow-core">
+        <strong>Full-field explorer</strong>
+        <span>Skate and Classic results</span>
+      </div>
+      <div class="flow-tier flow-tier--facets">
+        <p class="flow-tag">What it shows</p>
+        <ol role="list">
+          <li><span class="n">01</span>Starting waves</li>
+          <li><span class="n">02</span>Racer history</li>
+          <li><span class="n">03</span>Performance context</li>
+          <li><span class="n">04</span>Projected placement</li>
+        </ol>
+      </div>
+      <figcaption id="birkie-flow-caption">Diagram drawn for this portfolio from the project description. Not a screenshot of the app.</figcaption>
+    </figure>
+
+    <dl class="facts">
+      <div class="fact">
+        <dt>The problem</dt>
+        <dd><p>A results list shows where each racer finished. Birkie Race Intelligence is built for the questions around that line: which starting wave a racer was in, how that racer has performed before, what a performance means in context, and where it might place.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Alex’s contribution</dt>
+        <dd><p>Alex built the explorer as a standalone application.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>The system</dt>
+        <dd><p>A full-field explorer for the Birkebeiner’s Skate and Classic results. It covers starting waves, racer history, performance context and projected placement, and it runs as its own application, separate from this site.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Evidence</dt>
+        <dd><ul class="plain" role="list">
+          <li>A working application that opens from this page.</li>
+          <li>Covers both Skate and Classic results.</li>
+          <li>Shows starting waves, racer history, performance context and projected placement.</li>
+        </ul>
+        <p class="aside">The Birkebeiner is also a race on the <a href="/athletics/athletics.html">Racing</a> page.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Technology</dt>
+        <dd><ul class="chips" role="list"><li>Swift</li><li>JavaScript</li><li>JSON</li><li>Race analytics</li></ul></dd>
+      </div>
+    </dl>
+
+    <p class="case-links">
+      <a class="btn btn--primary" href="/coding%20projects/BirkieAnalysis/birkie.html" data-router="off">Open Birkie Race Intelligence <span aria-hidden="true">↗</span></a>
+    </p>
+  </div>
+</article>
+
+<article id="mbonita" class="code-section case" aria-labelledby="mbonita-heading">
+  <div class="wrap">
+    <header class="case-head">
+      <p class="label case-meta"><span class="n">03</span> Published research · Multiomics</p>
+      <h3 class="case-title" id="mbonita-heading">mBONITA</h3>
+      <p class="case-summary">Executable network models that integrate layered omics data, identify influential genes and perform topology-based pathway analysis.</p>
+    </header>
+
+    <figure class="flow flow--bonita" aria-labelledby="bonita-flow-caption">
+      <div class="bonita-planes">
+        <img src="/coding%20projects/page/diagrams/mbonita-planes.svg" width="640" height="520" alt="" decoding="async" loading="lazy">
+      </div>
+      <div class="bonita-steps">
+        <div class="step">
+          <p class="flow-tag">Prior knowledge</p>
+          <strong>Signaling network</strong>
+          <span>prior-knowledge topology</span>
+        </div>
+        <div class="step step--accent">
+          <p class="flow-tag">Boolean rules</p>
+          <strong class="rule">C = A AND NOT B</strong>
+          <span>example rule, placeholder nodes</span>
+        </div>
+        <ul class="bonita-outputs" role="list">
+          <li><strong>Influential genes</strong><span>node influence over signaling</span></li>
+          <li><strong>Pathway analysis</strong><span>topology-based</span></li>
+          <li><strong>Modulated genes</strong><span>consistent across omics layers</span></li>
+        </ul>
+      </div>
+      <figcaption id="bonita-flow-caption">Schematic drawn for this portfolio from the published method: one network, measured in several omics layers, becomes an executable Boolean model. Node names and the rule are placeholders.</figcaption>
+    </figure>
+
+    <ul class="stats" role="list">
+      <li><strong>2023</strong><span>Journal of Proteome Research</span></li>
+      <li><strong>6</strong><span>other methods compared</span></li>
+    </ul>
+
+    <dl class="facts">
+      <div class="fact">
+        <dt>The problem</dt>
+        <dd><p>Multiomics experiments measure one condition at several molecular layers. Pathway enrichment analysis is used to characterize signaling, but technical and biological variability between the layers limits joint analysis.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Alex’s contribution</dt>
+        <dd><p>Alex was a research assistant at the University of Rochester Medical Center from 2020 to 2021, researching biological-network analysis methods and contributing to the mBONITA package. Alex is a co-author of the 2023 paper.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>The system</dt>
+        <dd><p>mBONITA, multiomics Boolean Omics Network Invariant-Time Analysis, integrates data sets that measure several molecular layers into executable Boolean network models. It runs topology-based pathway analysis on prior-knowledge networks and flags genes that are consistently modulated across the layers, weighing observed change, variance, influence over signaling and the strength of evidence for each gene.</p></dd>
+      </div>
+      <div class="fact">
+        <dt>Evidence</dt>
+        <dd><ul class="plain" role="list">
+          <li>Published in the Journal of Proteome Research, 2023, volume 22, issue 5, pages 1546–1556: “Executable Network Models of Integrated Multiomics Data,” by Palshikar, Min, Crystal, Meng, Hilchey, Zand and Thakar.</li>
+          <li>Applied to multiomics data from RAMOS B cells treated with the immunosuppressant cyclosporine A under varying oxygen tensions, to identify pathways involved in hypoxia-mediated chemotaxis.</li>
+          <li>Compared by the authors with six other pathway analysis methods designed for multiomics data. According to the paper, mBONITA identifies a set of pathways with evidence of modulation across all omics layers.</li>
+        </ul></dd>
+      </div>
+      <div class="fact">
+        <dt>Technology</dt>
+        <dd><ul class="chips" role="list"><li>Boolean networks</li><li>Bioinformatics</li><li>Python</li></ul></dd>
+      </div>
+    </dl>
+
+    <p class="case-links">
+      <a class="btn btn--primary" href="https://doi.org/10.1021/acs.jproteome.2c00730" target="_blank" rel="noreferrer">Read the paper <span aria-hidden="true">↗</span></a>
+      <a class="btn" href="https://pubmed.ncbi.nlm.nih.gov/37000949/" target="_blank" rel="noreferrer">PubMed <span aria-hidden="true">↗</span></a>
+      <a class="btn" href="https://github.com/Thakar-Lab/mBONITA" target="_blank" rel="noreferrer">Code on GitHub <span aria-hidden="true">↗</span></a>
+    </p>
+  </div>
+</article>
+
+<section id="further-work" class="code-section further" aria-labelledby="further-work-heading">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label">More</p>
+      <h2 id="further-work-heading">Further work</h2>
+      <p class="lede measure">Shorter projects in language models, multimodal evaluation and applied LLM applications.</p>
+    </header>
+
+    <div class="work-list">
+      <article class="work" id="textcraft" aria-labelledby="textcraft-heading">
+        <p class="label">LLM research · MITRE · 2023</p>
+        <h3 id="textcraft-heading">TextCraft</h3>
+        <p>Authorship attribution and reward modeling for targeted strategic messaging. Alex trained a Siamese network that reached 97% success across 119 labels and designed a reward signal for language models fine-tuned with reinforcement learning.</p>
+        <ul class="chips" role="list"><li>Transformers</li><li>RL fine-tuning</li><li>NLP</li></ul>
+      </article>
+      <article class="work" id="culturally-aware-models" aria-labelledby="culturally-aware-models-heading">
+        <p class="label">Multimodal AI · Civic AI Lab · 2024</p>
+        <h3 id="culturally-aware-models-heading">Culturally Aware Models</h3>
+        <p>A curation and evaluation suite supporting the training and fine-tuning of culturally aware multimodal systems. Alex optimized the asynchronous API calls used for dataset curation.</p>
+        <ul class="chips" role="list"><li>Evaluation</li><li>Async APIs</li><li>Multimodal</li></ul>
+      </article>
+      <article class="work" id="cherub" aria-labelledby="cherub-heading">
+        <p class="label">LLM application · Northeastern · 2023</p>
+        <h3 id="cherub-heading">CherÜb</h3>
+        <p>An assistant for new parents, built with Slack, retrieval, automation and an LLM-centered application stack.</p>
+        <ul class="chips" role="list"><li>OpenAI</li><li>Pinecone</li><li>Slack</li><li>Zapier</li></ul>
+      </article>
+    </div>
+
+    <details id="older-experiments" class="older">
+      <summary>Older experiments</summary>
+      <ul class="older-list" role="list">
+        <li>
+          <h3>Bach-in-Business</h3>
+          <p>Biaxial LSTMs for AI music generation, a course project at Northeastern University in 2023.</p>
+          <a href="https://github.com/arcrystal/bach-in-business" target="_blank" rel="noreferrer">Code on GitHub <span aria-hidden="true">↗</span></a>
+        </li>
+        <li>
+          <h3>Bubble Trouble RL</h3>
+          <p>A compact Android experiment exploring reinforcement learning through a game-shaped interface.</p>
+          <a href="/coding%20projects/bubbletrouble/bubble-trouble-rl.apk" download>Download the APK <span aria-hidden="true">↓</span></a>
+        </li>
+      </ul>
+    </details>
+  </div>
+</section>

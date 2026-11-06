@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "site": "https://arcrystal.github.io",
+  "destinations": [
+    { "id": "chess", "title": "Chess", "dir": "chess", "url": "/chess/chess.html", "style": "sumi", "number": "01", "next": "racing" },
+    { "id": "racing", "title": "Racing", "dir": "athletics", "url": "/athletics/athletics.html", "style": "glass", "number": "02", "next": "coding" },
+    { "id": "coding", "title": "Coding", "dir": "coding projects", "url": "/coding%20projects/projects.html", "style": "neon", "number": "03", "next": "mountains" },
+    { "id": "mountains", "title": "Mountains", "dir": "image portfolio", "url": "/image%20portfolio/gallery.html", "style": "folio", "number": "04", "next": "about" },
+    { "id": "about", "title": "About Me", "dir": "about", "url": "/about/", "style": "chrome", "number": "05", "next": "chess" }
+  ],
+  "pages": [
+    { "id": "home", "title": "Alex Crystal", "url": "/", "style": "house" },
+    { "id": "resume", "title": "Résumé", "url": "/resume/resume.html", "style": "house" }
+  ],
+  "nav": ["chess", "racing", "coding", "mountains", "about", "resume", "contact"]
+}

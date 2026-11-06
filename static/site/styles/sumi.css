@@ -1,0 +1,103 @@
+/* Sumi — ink and washi. Warm paper, sumi black, one vermilion seal and a touch of indigo; a
+   hanging scroll, an ensō, ink-wash ridges in mist, Shippori Mincho and wide margins. Chess. */
+
+[data-style="sumi"] {
+  --c-bg: #F3EEE3; --c-surface: #FBF8F1; --c-fg: #1C1A17; --c-fg-mute: #6B645A;
+  --c-accent: #B3311A; --c-accent-2: #2F4A6B; --c-accent-3: #9A9389;
+  --c-rule: rgb(28 26 23 / 0.16); --c-link: #8E2614; --c-on-accent: #FBF8F1; --c-focus: #B3311A;
+  --font-display: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', Georgia, serif;
+  --w-display: 800; --tracking-display: -0.01em; --lh-display: 1.04;
+  --tracking-label: 0.28em; --radius-card: 0px; --radius-media: 0px;
+  --washi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011 .08' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .37 0 0 0 0 .3 0 0 0 .75 -.36'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --washi-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.008 .06' numOctaves='3' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .37 0 0 0 0 .3 0 0 0 .3 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --brush: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 22' preserveAspectRatio='none'%3E%3Cpath d='M3 13C36 6 92 3 168 4c26 0 52 2 68 5 3 1 2 5-2 5-44-1-108 1-170 5-26 2-46 3-58 3-5 0-6-6-3-9z' fill='%231C1A17'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+
+/* ---- Art: washi, a red sun and ridges in mist; the hero adds an ensō and the seal ---------- */
+.art--sumi { background: #F3EEE3; overflow: hidden; }
+.art--sumi .art-washi { position: absolute; inset: 0; background-image: var(--washi); opacity: 0.55; mix-blend-mode: multiply; }
+.art--sumi .art-mist { position: absolute; left: 0; bottom: 0; width: 100%; height: 58%; }
+.art--sumi .art-sun { fill: #B3311A; opacity: 0.88; }
+.art--sumi .art-enso, .art--sumi .art-seal { display: none; }
+.js:not(.motion-paused) .art--sumi .art-mist path:last-child { animation: sumi-drift 26s var(--ease-in-out) infinite alternate; }
+.js:not(.motion-paused) .art--sumi .art-mist path:nth-last-child(2) { animation: sumi-drift 34s var(--ease-in-out) -9s infinite alternate-reverse; }
+@keyframes sumi-drift { to { translate: -40px 0; } }
+
+/* ---- Panel: a hanging scroll with an ensō behind it and a seal ------------------------------ */
+.orn--behind { z-index: -1; }
+.orn-enso { position: absolute; left: 14%; top: 72%; width: 124%; max-width: none; translate: -50% -50%; fill: #1C1A17; opacity: 0.88; }
+.orn-rod { position: absolute; left: -5%; right: -5%; height: max(12px, 2.6%); border-radius: 4px; background: linear-gradient(#5A4636, #1E1712 55%, #3B2D22); box-shadow: 0 3px 6px rgb(28 26 23 / 0.3); }
+.orn-rod::before, .orn-rod::after { content: ""; position: absolute; top: 50%; width: max(10px, 3%); height: 150%; translate: 0 -50%; border-radius: 3px; background: linear-gradient(90deg, #8C6E45, #D2B27A 45%, #7A5E38); }
+.orn-rod::before { left: -3%; }
+.orn-rod::after { right: -3%; }
+.orn-rod--top { top: calc(max(12px, 2.6%) * -0.6); }
+.orn-rod--bottom { bottom: calc(max(12px, 2.6%) * -0.6); }
+.orn-cord { position: absolute; left: 50%; top: -6.4%; width: 26%; translate: -50% 0; overflow: visible; fill: none; stroke: #2A2118; stroke-width: 1.2; }
+.orn-cord circle { fill: #2A2118; stroke: none; }
+.orn-seal { position: absolute; right: 6.5%; top: 5.5%; width: 9.5%; rotate: 2deg; }
+.orn-seal .seal, .art-seal .seal { display: block; width: 100%; height: auto; }
+.sw[data-style="sumi"] > i { background: #FBF8F1; border-top: 4px solid #2A2118; border-bottom: 4px solid #2A2118; box-shadow: inset 0 0 0 1px rgb(28 26 23 / 0.35); }
+.sw[data-style="sumi"] > i::after { content: ""; position: absolute; right: 4px; top: 4px; width: 7px; height: 7px; background: #B3311A; }
+
+/* ---- Tile ------------------------------------------------------------------------------------ */
+.tile[data-style="sumi"] .tile-num::before { content: ""; width: 9px; height: 9px; background: #B3311A; align-self: center; }
+.tile[data-style="sumi"] .tile-title::after, main[data-style="sumi"] .d-title::after {
+  content: ""; display: block; width: min(68%, 360px); height: 0.2em; margin-top: 0.12em; background: var(--brush) left / 100% 100% no-repeat;
+}
+.js:not(.motion-paused) .tile[data-style="sumi"].is-active .tile-title { animation: sumi-bleed 1100ms var(--ease-out) both; }
+.js:not(.motion-paused) .tile[data-style="sumi"].is-active .tile-title::after { animation: sumi-paint 900ms 250ms var(--ease-in-out) both; }
+@keyframes sumi-bleed { from { opacity: 0; filter: blur(10px); letter-spacing: 0.04em; } to { opacity: 1; filter: blur(0); letter-spacing: var(--tracking-display); } }
+@keyframes sumi-paint { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* ---- Preview: the Scotch Game on a washi board ------------------------------------------- */
+.pv--chess { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: 4%; padding: 13% 11% 9%; text-align: center; }
+.pv--chess .pv-cap { display: grid; gap: 4px; font-family: 'Shippori Mincho', Georgia, serif; font-weight: 800; font-size: clamp(0.95rem, 0.7rem + 0.6vw, 1.35rem); line-height: 1.2; color: #1C1A17; }
+.pv--chess .pv-moves { font-family: var(--font); font-weight: 500; font-size: 0.6em; letter-spacing: 0.1em; color: var(--p-mute, #6B645A); }
+.pv--chess .pv-board-wrap { height: 100%; aspect-ratio: 1; min-height: 0; padding: 6px; background: #E8E0CF; border: 1px solid #1C1A17; }
+.pv-board { width: 100%; height: 100%; }
+.pv-sq-light { fill: #F8F3E9; }
+.pv-sq-dark { fill: #A1998C; }
+.pv-hl { fill: #B3311A; fill-opacity: 0.4; }
+.pv-board use { transition: transform 460ms var(--ease-out), opacity 300ms; }
+.pv--chess .pv-ratings { display: grid; grid-template-columns: repeat(3, auto); justify-content: center; gap: 0 clamp(16px, 3vw, 40px); }
+.pv--chess .pv-ratings dt { font-size: 0.6rem; letter-spacing: 0.26em; text-transform: uppercase; color: var(--p-mute, #6B645A); }
+.pv--chess .pv-ratings dd { margin: 2px 0 0; font-family: 'Shippori Mincho', Georgia, serif; font-weight: 800; font-size: clamp(1.1rem, 0.7rem + 1vw, 1.65rem); font-variant-numeric: tabular-nums; color: #1C1A17; }
+
+/* ---- Destination hero: an ensō beside the title -------------------------------------------- */
+main[data-style="sumi"] .d-hero .art--sumi .art-enso { display: block; max-width: none; position: absolute; right: max(-4vw, -60px); top: 46%; width: min(80vh, 58vw); translate: 0 -50%; fill: #1C1A17; opacity: 0.92; }
+main[data-style="sumi"] .d-hero .art--sumi .art-seal { display: block; position: absolute; right: calc(max(-4vw, -60px) + min(80vh, 58vw) * 0.16); top: calc(46% - min(80vh, 58vw) * 0.36); width: clamp(44px, 5vw, 72px); rotate: 3deg; }
+@media (max-width: 899px) {
+  main[data-style="sumi"] .d-hero .art--sumi .art-enso { top: 30%; right: -18vw; width: 88vw; }
+  main[data-style="sumi"] .d-hero .art--sumi .art-seal { right: 10vw; top: 9%; }
+}
+main[data-style="sumi"] .d-title { font-size: clamp(3.6rem, 1rem + 9vw, 10rem); }
+main[data-style="sumi"] .d-hero .art-mist { height: 40%; }
+main[data-style="sumi"] .d-kicker::before { content: ""; width: 10px; height: 10px; background: #B3311A; align-self: center; }
+main[data-style="sumi"] .d-index a { border-radius: 0; border-color: rgb(28 26 23 / 0.5); background: rgb(251 248 241 / 0.7); }
+main[data-style="sumi"] .d-index a:hover { background: #1C1A17; color: #FBF8F1; }
+.js:not(.motion-paused) main[data-style="sumi"] [data-hero].is-in .art-enso {
+  -webkit-mask: conic-gradient(from 212deg, #000 var(--sweep), transparent 0); mask: conic-gradient(from 212deg, #000 var(--sweep), transparent 0);
+  animation: sumi-sweep 1600ms var(--ease-in-out) both;
+}
+.js:not(.motion-paused) main[data-style="sumi"] [data-hero].is-in .art-seal { animation: sumi-stamp 500ms 1300ms var(--ease-out) both; }
+.js:not(.motion-paused) main[data-style="sumi"] [data-hero].is-in .d-title { animation: sumi-bleed 1300ms var(--ease-out) both; }
+.js:not(.motion-paused) main[data-style="sumi"] [data-hero].is-in .d-title::after { animation: sumi-paint 1000ms 400ms var(--ease-in-out) both; }
+@keyframes sumi-sweep { from { --sweep: 0deg; } to { --sweep: 360deg; } }
+@keyframes sumi-stamp { from { opacity: 0; scale: 1.6; } 70% { opacity: 1; scale: 0.94; } to { opacity: 1; scale: 1; } }
+
+/* ---- Content ----------------------------------------------------------------------------- */
+body[data-style="sumi"] { background: var(--washi-soft), #F3EEE3; }
+main[data-style="sumi"] .d-content h2 { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; }
+main[data-style="sumi"] .d-content h3 { font-family: var(--font-display); font-weight: 800; }
+main[data-style="sumi"] .d-content a { text-decoration-color: rgb(179 49 26 / 0.55); }
+
+.d-next[data-style="sumi"] .d-next-card { background: #FBF8F1; border: 1px solid rgb(28 26 23 / 0.5); border-top: 12px solid #2A2118; border-bottom: 12px solid #2A2118; border-radius: 0; box-shadow: 0 34px 70px -40px rgb(28 26 23 / 0.5); }
+.d-next[data-style="sumi"] .d-next-card::after { content: ""; position: absolute; right: 22px; bottom: 22px; width: 40px; height: 40px; background: #B3311A; rotate: 3deg; }
+.d-next[data-style="sumi"] .d-next-arrow { color: #B3311A; }
+
+/* ---- Expand: an ink stroke sweeps round, the seal stamps, the ink lifts ---------------------- */
+.xp-sumi { inset: 0; width: 100%; height: 100%; }
+.xp-sumi path { fill: none; stroke: #1C1A17; stroke-linecap: butt; }
+.xp-seal { width: 96px; height: 96px; }
+.xp-seal .seal { width: 100%; height: 100%; }

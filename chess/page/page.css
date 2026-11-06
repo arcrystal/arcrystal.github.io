@@ -1,0 +1,209 @@
+/* Chess page, in Sumi (static/site/styles/sumi.css): washi, sumi ink and one vermilion. Everything
+   is scoped under [data-destination="chess"] and uses the shared tokens. */
+[data-destination="chess"] {
+  --chess-light: #F7F2E8;          /* paper square */
+  --chess-dark: #9E968A;           /* ink-wash square */
+  --chess-line: var(--c-rule);
+  --chess-card: rgb(251 248 241 / 0.75);
+  --chess-link: var(--c-link);
+  --chess-radius: 0px;
+  --chess-hover: rgb(28 26 23 / 0.06);
+}
+
+[data-destination="chess"] .chess-section { padding-block: var(--section-gap); border-top: 1px solid var(--chess-line); }
+[data-destination="chess"] .chess-section:first-child { border-top: 0; }
+
+/* ---- section heads ---- */
+[data-destination="chess"] .section-head { margin-bottom: clamp(32px, 4vw, 64px); }
+[data-destination="chess"] .section-head .label { margin: 0 0 var(--s-4, 16px); }
+[data-destination="chess"] .section-head h2 {
+  margin: 0;
+  font-size: var(--t-h2);
+  font-weight: var(--w-medium);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-heading);
+  text-wrap: balance;
+}
+[data-destination="chess"] .lede {
+  margin: var(--s-5, 24px) 0 0;
+  font-size: var(--t-lede);
+  line-height: 1.4;
+  color: var(--c-fg-mute);
+  text-wrap: pretty;
+}
+[data-destination="chess"] h3 { margin: 0; font-size: var(--t-h3); font-weight: var(--w-medium); line-height: var(--lh-heading); letter-spacing: var(--tracking-heading); }
+[data-destination="chess"] a { color: var(--chess-link); text-underline-offset: 0.18em; }
+[data-destination="chess"] a:hover { color: var(--c-fg); }
+[data-destination="chess"] .data-note { margin: var(--s-4, 16px) 0 0; font-size: var(--t-small); line-height: 1.5; color: var(--c-fg-mute); max-width: var(--measure); }
+[data-destination="chess"] .data-note a { color: var(--chess-link); }
+
+/* ---- buttons and chips ---- */
+[data-destination="chess"] .link-button {
+  appearance: none; background: none; border: 0; padding: 8px 0; min-height: 44px; font: inherit; font-size: var(--t-small);
+  color: var(--chess-link); text-decoration: underline; text-underline-offset: 0.18em; cursor: pointer;
+}
+[data-destination="chess"] .link-button:hover { color: var(--c-fg); }
+[data-destination="chess"] .btn-small, [data-destination="chess"] .chip {
+  appearance: none; font: inherit; font-size: var(--t-small); color: var(--c-fg); background: transparent; cursor: pointer;
+  border: 1px solid var(--chess-line); border-radius: 999px; padding: 0 16px; min-height: 44px;
+  transition: background var(--d-short, 250ms) var(--ease-out, ease), border-color var(--d-short, 250ms) var(--ease-out, ease);
+}
+[data-destination="chess"] .btn-small:hover, [data-destination="chess"] .chip:hover { background: var(--chess-hover); border-color: rgb(28 26 23 / 0.4); }
+[data-destination="chess"] .chip[aria-pressed="true"] { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-on-accent); }
+[data-destination="chess"] button:focus-visible, [data-destination="chess"] a:focus-visible, [data-destination="chess"] summary:focus-visible,
+[data-destination="chess"] .replay-board:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 3px; }
+
+/* ---- data status ---- */
+[data-destination="chess"] .data-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: var(--s-6, 32px) 0 0; font-size: var(--t-small); line-height: 1.5; }
+[data-destination="chess"] .data-message { flex: 1 1 22ch; max-width: var(--measure); color: var(--c-fg); }
+[data-destination="chess"] .badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--chess-line);
+  font-size: var(--t-label); font-weight: var(--w-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; white-space: nowrap;
+}
+[data-destination="chess"] .badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+[data-destination="chess"] .badge[data-state="live"] { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-on-accent); }
+[data-destination="chess"] .badge[data-state="saved"] { border-color: var(--c-accent-2); color: var(--c-accent-2); }
+[data-destination="chess"] .badge[data-state="saved"]::before { border-radius: 2px; }
+[data-destination="chess"] .badge[data-state="unavailable"] { border-color: #9A4A12; color: #9A4A12; }
+[data-destination="chess"] .badge[data-state="unavailable"]::before { background: none; border: 2px solid currentColor; }
+[data-destination="chess"] .badge[data-state="empty"], [data-destination="chess"] .badge[data-state="static"], [data-destination="chess"] .badge[data-state="loading"] { color: var(--c-fg-mute); }
+[data-destination="chess"] .badge[data-state="empty"]::before, [data-destination="chess"] .badge[data-state="static"]::before { background: none; border: 1px solid currentColor; }
+
+/* ---- the board and the replay ---- */
+[data-destination="chess"] .replay-svg { display: block; width: 100%; height: auto; border-radius: 6px; box-shadow: 0 0 0 1px #1C1A17, 0 24px 50px -28px rgb(28 26 23 / 0.45); background: var(--chess-light); }
+[data-destination="chess"] .sq-light, [data-destination="chess"] .sq.sq-light { fill: var(--chess-light); }
+[data-destination="chess"] .sq-dark, [data-destination="chess"] .sq.sq-dark { fill: var(--chess-dark); }
+[data-destination="chess"] .hl { fill: var(--c-accent); fill-opacity: 0.36; }
+[data-destination="chess"] .chk { fill: none; stroke: var(--c-accent-2); stroke-width: 2.4; filter: drop-shadow(0 0 3px var(--c-accent)); }
+[data-destination="chess"] .coord { font: 600 9px var(--font); user-select: none; pointer-events: none; }
+[data-destination="chess"] .coord-on-light { fill: var(--chess-dark); }
+[data-destination="chess"] .coord-on-dark { fill: var(--chess-light); }
+
+[data-destination="chess"] .replay { container-type: inline-size; }
+[data-destination="chess"] .replay-layout { display: grid; gap: var(--s-5, 24px); align-items: start; }
+[data-destination="chess"] .replay-layout[hidden], [data-destination="chess"] .replay-empty[hidden] { display: none; }
+[data-destination="chess"] .replay-board { border-radius: 8px; max-width: 560px; width: 100%; }
+[data-destination="chess"] .replay-side { display: grid; gap: var(--s-4, 16px); min-width: 0; }
+[data-destination="chess"] .replay-caption { margin: 0; min-height: 3em; font-size: var(--t-small); line-height: 1.5; color: var(--c-fg); }
+[data-destination="chess"] .replay-caption strong { font-weight: var(--w-bold); margin-right: 0.25em; font-variant-numeric: tabular-nums; }
+[data-destination="chess"] .replay-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+[data-destination="chess"] .replay-btn {
+  appearance: none; display: inline-grid; place-items: center; width: 48px; height: 48px; padding: 0; color: var(--c-fg); cursor: pointer;
+  background: transparent; border: 1px solid var(--chess-line); border-radius: 12px;
+  transition: background var(--d-short, 250ms) var(--ease-out, ease);
+}
+[data-destination="chess"] .replay-btn:hover:not(:disabled) { background: var(--chess-hover); }
+[data-destination="chess"] .replay-btn:disabled { opacity: 0.32; cursor: default; }
+[data-destination="chess"] .replay-btn[aria-pressed="true"] { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-on-accent); }
+[data-destination="chess"] .replay-moves { list-style: none; margin: 0; padding: 0; max-height: 14rem; overflow: auto; position: relative; display: grid; gap: 2px; align-content: start; border: 1px solid var(--chess-line); border-radius: 12px; padding: 6px; font-variant-numeric: tabular-nums; }
+[data-destination="chess"] .mv { display: grid; grid-template-columns: 3.2ch 1fr 1fr; align-items: center; gap: 2px; }
+[data-destination="chess"] .mv-n, [data-destination="chess"] .mv-gap { padding-left: 6px; color: var(--c-fg-mute); font-size: var(--t-small); }
+[data-destination="chess"] .mv-b { appearance: none; font: inherit; font-size: var(--t-small); text-align: left; color: var(--c-fg); background: transparent; border: 0; border-radius: 8px; padding: 0 10px; min-height: 40px; cursor: pointer; }
+[data-destination="chess"] .mv-b:hover { background: var(--chess-hover); }
+[data-destination="chess"] .mv-b[aria-current="step"] { background: var(--c-accent); color: var(--c-on-accent); }
+[data-destination="chess"] .replay-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+[data-destination="chess"] .note-b { appearance: none; font: inherit; font-size: var(--t-small); line-height: 1.45; text-align: left; color: var(--c-fg-mute); background: transparent; border: 0; border-left: 2px solid var(--chess-line); padding: 6px 0 6px 12px; min-height: 44px; width: 100%; cursor: pointer; }
+[data-destination="chess"] .note-b:hover { color: var(--c-fg); }
+[data-destination="chess"] .note-b[aria-current="step"] { color: var(--c-fg); border-left-color: var(--c-accent); }
+[data-destination="chess"] .replay-summary, [data-destination="chess"] .replay-source { margin: 0; font-size: var(--t-small); line-height: 1.5; color: var(--c-fg-mute); }
+[data-destination="chess"] .replay-empty { margin: 0; padding: var(--s-6, 32px); border: 1px dashed var(--chess-line); border-radius: var(--chess-radius); color: var(--c-fg-mute); font-size: var(--t-small); }
+@container (min-width: 720px) {
+  [data-destination="chess"] .replay-layout { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--s-7, 40px); }
+}
+
+/* Static (no-JavaScript) demonstration: the same board and the moves as text. */
+[data-destination="chess"] .demo-kicker { margin: 0 0 var(--s-4, 16px); }
+[data-destination="chess"] .demo-static:not(.replay) { display: grid; gap: var(--s-5, 24px); align-items: start; grid-template-columns: minmax(0, 520px); }
+[data-destination="chess"] .demo-text .line { margin: 0 0 var(--s-3, 12px); font-size: var(--t-body); font-variant-numeric: tabular-nums; }
+[data-destination="chess"] .static-notes { margin: 0 0 var(--s-3, 12px); padding-left: 1.1em; font-size: var(--t-small); line-height: 1.5; color: var(--c-fg-mute); }
+@media (min-width: 900px) { [data-destination="chess"] .demo-static:not(.replay) { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: var(--s-7, 40px); } }
+
+/* ---- playing style ---- */
+[data-destination="chess"] .featured { display: grid; gap: var(--s-6, 32px); }
+[data-destination="chess"] .featured-head { display: grid; gap: var(--s-3, 12px); max-width: var(--measure); }
+[data-destination="chess"] .following { margin-top: clamp(40px, 6vw, 96px); max-width: var(--measure); padding-top: var(--s-5, 24px); border-top: 1px solid var(--chess-line); }
+[data-destination="chess"] .following p { margin: 0; }
+[data-destination="chess"] .following .label { margin-bottom: var(--s-3, 12px); }
+[data-destination="chess"] .following p:not(.label) { font-size: var(--t-body); line-height: var(--lh-body); }
+
+/* ---- current form ---- */
+[data-destination="chess"] .form-grid { display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 720px) { [data-destination="chess"] .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+[data-destination="chess"] .rating { padding: clamp(20px, 2.4vw, 32px); border: 1px solid var(--chess-line); border-radius: var(--chess-radius); background: var(--chess-card); display: grid; gap: var(--s-4, 16px); }
+[data-destination="chess"] .rating[data-state="none"] .rating-value { color: var(--c-fg-mute); }
+[data-destination="chess"] .rating h3 { font-size: var(--t-label); font-weight: var(--w-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+[data-destination="chess"] .rating-value { margin: 0; font-size: clamp(3.25rem, 2rem + 4vw, 6.5rem); font-weight: var(--w-medium); line-height: 1; letter-spacing: var(--tracking-display); font-variant-numeric: tabular-nums; }
+[data-destination="chess"] .rating-facts { margin: 0; display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--gap); font-size: var(--t-small); }
+[data-destination="chess"] .rating-facts dt { color: var(--c-fg-mute); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+[data-destination="chess"] .rating-facts dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { [data-destination="chess"] .rating-facts { grid-template-columns: 1fr 1fr; } }
+
+/* ---- repertoire ---- */
+[data-destination="chess"] .openings { display: grid; gap: var(--s-8, 56px) var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 1180px) { [data-destination="chess"] .openings { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+[data-destination="chess"] .chess-opening { display: grid; gap: var(--s-5, 24px); align-content: start; padding-top: var(--s-5, 24px); border-top: 1px solid var(--chess-line); min-width: 0; }
+[data-destination="chess"] .opening-head { display: grid; gap: var(--s-2, 8px); }
+[data-destination="chess"] .opening-head p { margin: 0; }
+[data-destination="chess"] .opening-moves code { font-family: var(--font-mono); font-size: var(--t-small); color: var(--c-fg-mute); }
+[data-destination="chess"] .said { margin: 0; display: grid; gap: var(--s-3, 12px); }
+[data-destination="chess"] .said p { margin: 0; font-size: var(--t-body); line-height: var(--lh-body); text-wrap: pretty; }
+[data-destination="chess"] .said footer { font-size: var(--t-label); }
+@media (min-width: 1180px) { [data-destination="chess"] .said p { min-height: calc(3 * var(--lh-body) * 1em); } }
+[data-destination="chess"] .opening-record { margin: 0; font-size: var(--t-small); line-height: 1.5; color: var(--c-fg-mute); min-height: 3em; }
+[data-destination="chess"] .opening-links { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: var(--t-small); align-items: center; }
+[data-destination="chess"] .chess-opening .demo-static:not(.replay) { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- selected games ---- */
+[data-destination="chess"] .picks { list-style: none; margin: var(--s-6, 32px) 0 0; padding: 0; display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 720px) { [data-destination="chess"] .picks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1180px) { [data-destination="chess"] .picks { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+[data-destination="chess"] .picks:empty { display: none; }
+[data-destination="chess"] .pick { display: grid; gap: var(--s-4, 16px); align-content: start; padding: clamp(20px, 2vw, 28px); border: 1px solid var(--chess-line); border-radius: var(--chess-radius); background: var(--chess-card); }
+[data-destination="chess"] .pick .label { margin: 0; color: var(--chess-link); }
+[data-destination="chess"] .pick-title { font-size: var(--t-h3); }
+[data-destination="chess"] .pick-facts { margin: 0; display: grid; gap: 6px; font-size: var(--t-small); }
+[data-destination="chess"] .pick-facts div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--chess-line); padding-bottom: 6px; }
+[data-destination="chess"] .pick-facts dt { color: var(--c-fg-mute); }
+[data-destination="chess"] .pick-facts dd { margin: 0; text-align: right; }
+[data-destination="chess"] .pick-rule { margin: 0; font-size: var(--t-small); color: var(--c-fg-mute); line-height: 1.5; }
+[data-destination="chess"] .pick .btn-small { justify-self: start; }
+
+[data-destination="chess"] .explorer { margin-top: var(--s-8, 56px); border-top: 1px solid var(--chess-line); border-bottom: 1px solid var(--chess-line); }
+[data-destination="chess"] .explorer > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 24px 0; min-height: 44px; cursor: pointer; font-size: var(--t-h3); font-weight: var(--w-medium); letter-spacing: var(--tracking-heading); }
+[data-destination="chess"] .explorer > summary::-webkit-details-marker { display: none; }
+[data-destination="chess"] .explorer > summary::after { content: ""; flex: none; width: 12px; height: 12px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-3px, -3px); transition: transform var(--d-short, 250ms) var(--ease-out, ease); }
+[data-destination="chess"] .explorer[open] > summary::after { transform: rotate(-135deg); }
+[data-destination="chess"] .explorer > summary > span:first-child { flex: 1; }
+[data-destination="chess"] .explorer-body { padding-bottom: var(--s-7, 40px); display: grid; gap: var(--s-6, 32px); }
+[data-destination="chess"] .filters { display: grid; gap: var(--s-3, 12px); }
+[data-destination="chess"] .chip-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+[data-destination="chess"] .chip-group .label { flex: 0 0 100%; }
+@media (min-width: 720px) { [data-destination="chess"] .chip-group .label { flex-basis: 9rem; } }
+[data-destination="chess"] .explorer-grid { display: grid; gap: var(--s-6, 32px); align-items: start; }
+@media (min-width: 1024px) { [data-destination="chess"] .explorer-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+[data-destination="chess"] .game-list { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--chess-line); }
+[data-destination="chess"] .game-item { border-bottom: 1px solid var(--chess-line); }
+[data-destination="chess"] .game-row {
+  appearance: none; display: grid; width: 100%; box-sizing: border-box; text-align: left; font: inherit; font-size: var(--t-small); color: var(--c-fg); background: transparent; border: 0; padding: 12px 8px; min-height: 56px; cursor: pointer;
+  grid-template-columns: 6.5rem 3.6rem minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline;
+}
+[data-destination="chess"] button.game-row:hover { background: var(--chess-hover); }
+[data-destination="chess"] .game-row[aria-current="true"] { background: rgb(179 49 26 / 0.1); box-shadow: inset 3px 0 0 var(--c-accent); }
+[data-destination="chess"] .g-date { color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+[data-destination="chess"] .g-res { font-weight: var(--w-bold); }
+[data-destination="chess"] .g-res[data-result="loss"] { color: var(--c-fg-mute); }
+[data-destination="chess"] .g-meta { grid-column: 3; color: var(--c-fg-mute); }
+[data-destination="chess"] .g-open { grid-column: 3; }
+[data-destination="chess"] .g-moves { grid-column: 4; grid-row: 1; color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+[data-destination="chess"] .g-link { grid-column: 3 / -1; }
+[data-destination="chess"] .game-item.is-unreadable .game-row { cursor: default; opacity: 0.8; }
+[data-destination="chess"] .game-more { padding: 12px 8px; color: var(--c-fg-mute); font-size: var(--t-small); }
+@media (max-width: 480px) {
+  [data-destination="chess"] .game-row { grid-template-columns: 5.6rem 3.2rem minmax(0, 1fr); }
+  [data-destination="chess"] .g-moves { grid-column: 3; grid-row: auto; }
+}
+[data-destination="chess"] .explorer-board { min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-destination="chess"] * { transition: none !important; scroll-behavior: auto !important; }
+}

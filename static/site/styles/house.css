@@ -1,0 +1,11 @@
+/* House — the neutral frame between the rooms: warm paper and near-black ink, DM Sans. The
+   homepage hero, contact, footer and the résumé. */
+
+[data-style="house"] {
+  --c-bg: #F4F2EE; --c-surface: #FFFFFF; --c-fg: #141416; --c-fg-mute: #5C5C63;
+  --c-accent: #1D1D22; --c-accent-2: #A39E93; --c-accent-3: #D9D4CA;
+  --c-rule: rgb(20 20 22 / 0.12); --c-link: #141416; --c-on-accent: #FFFFFF; --c-focus: #141416;
+  --w-display: 700; --tracking-display: -0.05em; --lh-display: 0.9;
+  color-scheme: light;
+}
+main[data-style="house"] .d-title { font-size: clamp(3.2rem, 1rem + 8vw, 9rem); }

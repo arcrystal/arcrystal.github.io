@@ -1,0 +1,162 @@
+/* Shared tokens, fonts and base rules. Every page loads this first. The six styles
+   (styles/*.css) set the colour tokens and type families on [data-style]; page stylesheets only
+   use these names, so a page re-themes by changing its style. */
+
+@font-face { font-family: 'DM Sans'; font-style: normal; font-weight: 100 1000; font-display: swap; src: url('/static/fonts/dm-sans-latin-1.woff2') format('woff2'); }
+@font-face { font-family: 'Shippori Mincho'; font-style: normal; font-weight: 500; font-display: swap; src: url('/static/fonts/shippori-mincho-500-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Shippori Mincho'; font-style: normal; font-weight: 800; font-display: swap; src: url('/static/fonts/shippori-mincho-800-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Krona One'; font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/krona-one-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Unbounded'; font-style: normal; font-weight: 200 900; font-display: swap; src: url('/static/fonts/unbounded-latin.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 100 800; font-display: swap; src: url('/static/fonts/jetbrains-mono-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Cormorant'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('/static/fonts/cormorant-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Cormorant'; font-style: italic; font-weight: 300 700; font-display: swap; src: url('/static/fonts/cormorant-italic-latin.woff2') format('woff2'); }
+
+/* Registered so they animate: the glass reveal's mask radius and the sumi ensō's sweep. */
+@property --xp-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --sweep { syntax: '<angle>'; inherits: false; initial-value: 360deg; }
+
+:root {
+  /* Colour: neutral defaults; each style replaces them. */
+  --c-bg: #F4F2EE;
+  --c-surface: #FFFFFF;
+  --c-fg: #141416;
+  --c-fg-mute: #5C5C63;
+  --c-accent: #1D1D22;
+  --c-accent-2: #A39E93;
+  --c-accent-3: #D9D4CA;
+  --c-rule: rgb(20 20 22 / 0.12);
+  --c-focus: var(--c-accent);
+  --c-mute: var(--c-fg-mute);
+  --c-link: var(--c-accent);
+
+  /* Type: each style names its families; sizes are shared and in rem. */
+  --font: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font);
+  --font-label: var(--font);
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --t-display: clamp(3rem, 1.4rem + 6.4vw, 9.5rem);
+  --t-h2: clamp(2rem, 1.2rem + 2.6vw, 4rem);
+  --t-h3: clamp(1.375rem, 1.1rem + 0.9vw, 2rem);
+  --t-lede: clamp(1.1875rem, 1.02rem + 0.6vw, 1.5rem);
+  --t-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  --t-small: 0.9375rem;
+  --t-label: 0.8125rem;
+  --lh-display: 0.95;
+  --lh-heading: 1.08;
+  --lh-body: 1.6;
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-bold: 650;
+  --w-display: 650;
+  --tracking-display: -0.035em;
+  --tracking-heading: -0.02em;
+  --tracking-label: 0.1em;
+
+  /* Layout: 12 columns on desktop, 4 on phones. */
+  --cols: 4;
+  --gutter: 20px;
+  --gap: 16px;
+  --measure: 66ch;
+  --wrap: 1480px;
+  --radius-media: 14px;
+  --radius-card: 18px;
+  --radius-control: 999px;
+  --header-h: 64px;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+  --section-gap: clamp(72px, 9vw, 160px);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121 24%, 1.149 26.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1);
+  --d-short: 250ms;
+  --d-medium: 420ms;
+}
+
+/* Every style starts from the same type and shape tokens, so an element in one style never inherits
+   another's (a next-page card inside a page in a different style). styles/*.css override them. */
+[data-style] {
+  --font-display: var(--font); --font-label: var(--font);
+  --t-label: 0.8125rem; --tracking-label: 0.1em;
+  --w-display: 650; --tracking-display: -0.035em; --lh-display: 0.95;
+  --t-lede: clamp(1.1875rem, 1.02rem + 0.6vw, 1.5rem);
+  --radius-card: 18px; --radius-media: 14px;
+}
+
+@media (min-width: 600px) { :root { --gutter: 32px; --gap: 20px; } }
+@media (min-width: 768px) { :root { --cols: 12; } }
+@media (min-width: 1024px) { :root { --gutter: 48px; --gap: 24px; } }
+
+/* ---- Base ---------------------------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: calc(var(--header-h) + 16px); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--c-bg);
+  color: var(--c-fg);
+  font-family: var(--font);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+img, svg, video, picture { display: block; max-width: 100%; }
+img { height: auto; }
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure, blockquote { margin: 0; }
+ul[role="list"], ol[role="list"] { list-style: none; padding: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--c-link); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 3px; border-radius: 3px; }
+/* Headings and regions focused by the router (tabindex=-1) take focus without a ring. */
+[tabindex="-1"]:focus { outline: none; }
+::selection { background: color-mix(in oklab, var(--c-accent) 32%, transparent); }
+code, kbd, pre { font-family: var(--font-mono); font-size: 0.92em; }
+table { border-collapse: collapse; }
+
+.wrap { width: 100%; max-width: var(--wrap); margin-inline: auto; padding-inline: var(--gutter); }
+.grid { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); column-gap: var(--gap); }
+.measure { max-width: var(--measure); }
+.label {
+  font-family: var(--font-label);
+  font-size: var(--t-label);
+  font-weight: var(--w-medium);
+  line-height: 1.3;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--c-fg-mute);
+}
+.lede { font-size: var(--t-lede); line-height: 1.45; color: var(--c-fg-mute); }
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.frag-alias { display: block; height: 0; overflow: hidden; }
+.skip-link {
+  position: fixed; top: 12px; left: 12px; z-index: 1000; padding: 10px 16px; border-radius: var(--radius-control);
+  background: var(--c-fg); color: var(--c-bg); font-weight: var(--w-medium); text-decoration: none;
+  transform: translateY(-160%); transition: transform var(--d-short) var(--ease-out);
+}
+.skip-link:focus { transform: none; }
+
+/* Scroll reveals (common.js adds .is-visible). Content never waits for JavaScript. */
+.js:not(.motion-paused) .reveal { opacity: 0; transform: translateY(18px); transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out); }
+.js:not(.motion-paused) .reveal.is-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.motion-playing) *, html:not(.motion-playing) *::before, html:not(.motion-playing) *::after { scroll-behavior: auto !important; }
+}
+.motion-paused *, .motion-paused *::before, .motion-paused *::after { animation-play-state: paused !important; }

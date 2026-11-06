@@ -1,0 +1,313 @@
+{
+  "version": 1,
+  "about": "The six styles of the site: five tile styles and the neutral house style. colors are the page tokens; panel is the material of the morphing preview panel on the homepage (radii in percent of its width / height, lengths in px, angles in deg). Read by the builder (theme-color, inline data), lerp.js (the homepage blend) and tools/site/contrast.mjs.",
+  "order": [
+    "house",
+    "sumi",
+    "glass",
+    "neon",
+    "folio",
+    "chrome"
+  ],
+  "styles": {
+    "house": {
+      "name": "House",
+      "scheme": "light",
+      "colors": {
+        "bg": "#F4F2EE",
+        "surface": "#FFFFFF",
+        "ink": "#141416",
+        "mute": "#5C5C63",
+        "accent": "#1D1D22",
+        "accent2": "#A39E93",
+        "accent3": "#D9D4CA",
+        "rule": "#1414161F"
+      },
+      "panel": {
+        "bg": "#FFFFFF",
+        "ink": "#141416",
+        "mute": "#5C5C63",
+        "border": "#14141620",
+        "borderW": 1,
+        "outline": "#14141600",
+        "outlineW": 0,
+        "outlineOff": 0,
+        "rh": [
+          3,
+          3,
+          3,
+          3
+        ],
+        "rv": [
+          2.4,
+          2.4,
+          2.4,
+          2.4
+        ],
+        "shadow": [
+          0,
+          24,
+          60,
+          0
+        ],
+        "shadowColor": "#1414161A",
+        "blur": 0,
+        "rot": 0
+      }
+    },
+    "sumi": {
+      "name": "Sumi",
+      "scheme": "light",
+      "colors": {
+        "bg": "#F3EEE3",
+        "surface": "#FBF8F1",
+        "ink": "#1C1A17",
+        "mute": "#6B645A",
+        "accent": "#B3311A",
+        "accent2": "#2F4A6B",
+        "accent3": "#9A9389",
+        "rule": "#1C1A1729"
+      },
+      "panel": {
+        "bg": "#FBF8F1",
+        "ink": "#1C1A17",
+        "mute": "#6B645A",
+        "border": "#1C1A17E6",
+        "borderW": 1,
+        "outline": "#1C1A1700",
+        "outlineW": 0,
+        "outlineOff": 0,
+        "rh": [
+          0.4,
+          0.4,
+          0.4,
+          0.4
+        ],
+        "rv": [
+          0.3,
+          0.3,
+          0.3,
+          0.3
+        ],
+        "shadow": [
+          0,
+          34,
+          70,
+          -10
+        ],
+        "shadowColor": "#1C1A1733",
+        "blur": 0,
+        "rot": 0
+      }
+    },
+    "glass": {
+      "name": "Glacier Glass",
+      "scheme": "light",
+      "colors": {
+        "bg": "#E8F0F6",
+        "surface": "#FFFFFF8C",
+        "ink": "#0A1E2C",
+        "mute": "#46596A",
+        "accent": "#1767C2",
+        "accent2": "#2BD9A8",
+        "accent3": "#FF5A3C",
+        "rule": "#0A1E2C1F"
+      },
+      "panel": {
+        "bg": "#FFFFFF75",
+        "ink": "#0A1E2C",
+        "mute": "#46596A",
+        "border": "#FFFFFFD9",
+        "borderW": 1,
+        "outline": "#FFFFFF00",
+        "outlineW": 0,
+        "outlineOff": 0,
+        "rh": [
+          6,
+          6,
+          6,
+          6
+        ],
+        "rv": [
+          4.8,
+          4.8,
+          4.8,
+          4.8
+        ],
+        "shadow": [
+          0,
+          30,
+          80,
+          0
+        ],
+        "shadowColor": "#0A2A442E",
+        "blur": 24,
+        "rot": 0
+      }
+    },
+    "neon": {
+      "name": "Neon Circuit",
+      "scheme": "dark",
+      "colors": {
+        "bg": "#07060E",
+        "surface": "#100E1E",
+        "ink": "#ECE9FF",
+        "mute": "#9A95C2",
+        "accent": "#22E6FF",
+        "accent2": "#FF3DCB",
+        "accent3": "#C8FF4D",
+        "rule": "#22E6FF38"
+      },
+      "panel": {
+        "bg": "#0A0915E6",
+        "ink": "#ECE9FF",
+        "mute": "#9A95C2",
+        "border": "#22E6FF",
+        "borderW": 1,
+        "outline": "#FF3DCB8C",
+        "outlineW": 1,
+        "outlineOff": -7,
+        "rh": [
+          0.8,
+          0.8,
+          0.8,
+          0.8
+        ],
+        "rv": [
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ],
+        "shadow": [
+          0,
+          0,
+          60,
+          0
+        ],
+        "shadowColor": "#22E6FF52",
+        "blur": 8,
+        "rot": 0
+      }
+    },
+    "folio": {
+      "name": "Naturalist’s Folio",
+      "scheme": "dark",
+      "colors": {
+        "bg": "#0F1913",
+        "surface": "#17251C",
+        "ink": "#ECE2CC",
+        "mute": "#B2AD95",
+        "accent": "#CDA562",
+        "accent2": "#7E9E6A",
+        "accent3": "#8E3A2E",
+        "rule": "#CDA56245"
+      },
+      "panel": {
+        "bg": "#EEE4CE",
+        "ink": "#2A2318",
+        "mute": "#5E5440",
+        "border": "#A7834A",
+        "borderW": 7,
+        "outline": "#A7834AE6",
+        "outlineW": 1,
+        "outlineOff": -16,
+        "rh": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "rv": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "shadow": [
+          0,
+          30,
+          70,
+          0
+        ],
+        "shadowColor": "#0000008C",
+        "blur": 0,
+        "rot": 0
+      }
+    },
+    "chrome": {
+      "name": "Liquid Chrome",
+      "scheme": "light",
+      "colors": {
+        "bg": "#ECEBF4",
+        "surface": "#FFFFFF",
+        "ink": "#14131C",
+        "mute": "#565469",
+        "accent": "#3D2BFF",
+        "accent2": "#FF4FD8",
+        "accent3": "#4FE3FF",
+        "rule": "#14131C1F"
+      },
+      "panel": {
+        "bg": "#FAFAFFE0",
+        "ink": "#14131C",
+        "mute": "#565469",
+        "border": "#FFFFFF",
+        "borderW": 2,
+        "outline": "#B7B6CC",
+        "outlineW": 1,
+        "outlineOff": 5,
+        "rh": [
+          12,
+          12,
+          12,
+          12
+        ],
+        "rv": [
+          9.6,
+          9.6,
+          9.6,
+          9.6
+        ],
+        "shadow": [
+          0,
+          30,
+          70,
+          0
+        ],
+        "shadowColor": "#5A48FF40",
+        "blur": 14,
+        "rot": 0
+      }
+    }
+  },
+  "contrast": [
+    [
+      "colors.ink",
+      "colors.bg",
+      4.5
+    ],
+    [
+      "colors.mute",
+      "colors.bg",
+      4.5
+    ],
+    [
+      "colors.accent",
+      "colors.bg",
+      4.5
+    ],
+    [
+      "panel.ink",
+      "panel.bg",
+      4.5,
+      "over bg"
+    ],
+    [
+      "panel.mute",
+      "panel.bg",
+      4.5,
+      "over bg"
+    ]
+  ]
+}

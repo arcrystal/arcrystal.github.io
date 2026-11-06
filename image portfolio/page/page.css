@@ -1,0 +1,199 @@
+/* Mountains page. Everything is scoped under [data-destination="mountains"] and uses the shared tokens
+   (static/cinema/tokens.css). A light scheme: calm reading layouts and large photographs; the
+   dramatic part lives in the film above. */
+[data-destination="mountains"] {
+  --mt-gap: clamp(12px, 1.6vw, 24px);
+  --mt-block: clamp(32px, 5vw, 80px);
+  --mt-cap: var(--c-fg-mute);
+  --mt-tile: color-mix(in srgb, var(--c-fg) 7%, var(--c-bg));
+}
+
+/* ---- section rhythm ------------------------------------------------------------------------------ */
+[data-destination="mountains"] .mt-open,
+[data-destination="mountains"] .mt-story,
+[data-destination="mountains"] .mt-album,
+[data-destination="mountains"] .mt-hiking { scroll-margin-top: calc(var(--header-h) + 16px); }
+
+[data-destination="mountains"] .mt-open { padding-block: clamp(40px, 6vw, 96px) 0; }
+[data-destination="mountains"] .mt-story,
+[data-destination="mountains"] .mt-album,
+[data-destination="mountains"] .mt-hiking { margin-top: var(--section-gap); }
+[data-destination="mountains"] .mt-story::before,
+[data-destination="mountains"] .mt-album::before,
+[data-destination="mountains"] .mt-hiking::before {
+  content: ""; display: block; height: 1px; margin-bottom: var(--section-gap); background: var(--c-rule);
+}
+[data-destination="mountains"] .mt-hiking { padding-bottom: var(--section-gap); }
+
+/* ---- headings and text --------------------------------------------------------------------------- */
+[data-destination="mountains"] h2 {
+  margin: 0;
+  font-size: var(--t-h2);
+  font-weight: var(--w-medium);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-heading);
+  text-wrap: balance;
+}
+[data-destination="mountains"] .mt-masthead-caption {
+  margin: 0 0 clamp(32px, 5vw, 72px);
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--c-accent-2);
+  max-width: var(--measure);
+  color: var(--mt-cap);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+[data-destination="mountains"] .mt-open-grid,
+[data-destination="mountains"] .mt-head,
+[data-destination="mountains"] .mt-hiking-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  column-gap: var(--gap);
+  row-gap: var(--s-5);
+  align-items: start;
+}
+[data-destination="mountains"] .mt-head .label { grid-column: 1 / -1; margin: 0; }
+[data-destination="mountains"] .mt-open-grid > h2,
+[data-destination="mountains"] .mt-head > h2,
+[data-destination="mountains"] .mt-hiking-grid > h2,
+[data-destination="mountains"] .mt-open-text,
+[data-destination="mountains"] .mt-head-text { grid-column: 1 / -1; }
+[data-destination="mountains"] .mt-head { margin-bottom: var(--mt-block); }
+
+[data-destination="mountains"] .mt-num { color: var(--c-accent); font-variant-numeric: tabular-nums; margin-right: var(--s-2); }
+[data-destination="mountains"] .mt-lede {
+  margin: 0 0 var(--s-6);
+  max-width: var(--measure);
+  font-size: var(--t-lede);
+  line-height: 1.4;
+}
+[data-destination="mountains"] .mt-head-text p,
+[data-destination="mountains"] .mt-hiking-grid p { margin: 0 0 var(--s-4); max-width: var(--measure); font-size: var(--t-body); line-height: var(--lh-body); }
+[data-destination="mountains"] .mt-places {
+  display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5);
+  margin: var(--s-5) 0 0; padding: 0; list-style: none;
+  color: var(--mt-cap); font-size: var(--t-small);
+}
+[data-destination="mountains"] .mt-places li::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: var(--s-2);
+  border-radius: 50%; background: var(--c-accent-2); vertical-align: 0.12em;
+}
+
+@media (min-width: 900px) {
+  [data-destination="mountains"] .mt-open-grid > h2,
+  [data-destination="mountains"] .mt-head > h2,
+  [data-destination="mountains"] .mt-hiking-grid > h2 { grid-column: 1 / span 6; }
+  [data-destination="mountains"] .mt-open-text,
+  [data-destination="mountains"] .mt-head-text { grid-column: 8 / -1; }
+  [data-destination="mountains"] .mt-hiking-grid > .mt-head-text { grid-column: 8 / -1; }
+  [data-destination="mountains"] .mt-open-grid,
+  [data-destination="mountains"] .mt-head,
+  [data-destination="mountains"] .mt-hiking-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+}
+
+/* ---- in-page links and text links ---------------------------------------------------------------- */
+[data-destination="mountains"] .mt-jump ul { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
+[data-destination="mountains"] .mt-jump a {
+  display: inline-block; padding: 9px 18px;
+  border: 1px solid var(--c-rule); border-radius: var(--radius-control);
+  color: var(--c-fg); font-size: var(--t-small); line-height: 1.2; text-decoration: none;
+  transition: border-color var(--d-short) var(--ease-out), background-color var(--d-short) var(--ease-out);
+}
+[data-destination="mountains"] .mt-jump a:hover { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 8%, transparent); }
+[data-destination="mountains"] .mt-link { color: var(--c-accent); font-weight: var(--w-medium); text-underline-offset: 0.2em; }
+[data-destination="mountains"] .mt-link:hover { text-decoration-thickness: 2px; }
+[data-destination="mountains"] a:focus-visible,
+[data-destination="mountains"] button:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 3px; }
+
+/* ---- photographs --------------------------------------------------------------------------------- */
+[data-destination="mountains"] .mt-block + .mt-block { margin-top: var(--mt-block); }
+[data-destination="mountains"] .mt-fig { margin: 0; min-width: 0; }
+[data-destination="mountains"] .mt-wide .mt-fig {
+  max-width: min(100%, calc(var(--ar) * 84vh));
+  max-width: min(100%, calc(var(--ar) * 84svh));
+  margin-inline: auto;
+}
+[data-destination="mountains"] .mt-pair {
+  display: flex; align-items: flex-start; gap: var(--mt-gap);
+  max-width: min(100%, calc(var(--sum) * 84vh));
+  max-width: min(100%, calc(var(--sum) * 84svh));
+  margin-inline: auto;
+}
+[data-destination="mountains"] .mt-pair .mt-fig { flex: var(--ar) 1 0; }
+[data-destination="mountains"] .mt-photo {
+  display: block; position: relative; overflow: hidden; line-height: 0;
+  background: var(--mt-tile); cursor: zoom-in;
+}
+[data-destination="mountains"] .mt-photo img { display: block; width: 100%; height: auto; }
+[data-destination="mountains"] .mt-fig figcaption {
+  margin-top: var(--s-3); color: var(--mt-cap); font-size: var(--t-small); line-height: 1.4;
+}
+[data-destination="mountains"] .mt-note { display: block; margin-top: 2px; }
+
+@media (max-width: 699px) {
+  [data-destination="mountains"] .mt-pair { flex-direction: column; gap: var(--mt-block); max-width: none; }
+  [data-destination="mountains"] .mt-pair .mt-fig { flex: none; width: 100%; }
+  [data-destination="mountains"] .mt-wide .mt-fig { max-width: none; }
+}
+
+/* ---- the complete album -------------------------------------------------------------------------- */
+[data-destination="mountains"] .mt-grid {
+  margin: 0; padding: 0; list-style: none;
+  columns: 3 260px; column-gap: 12px;
+}
+[data-destination="mountains"] .mt-tile { break-inside: avoid; margin: 0 0 12px; }
+[data-destination="mountains"] .mt-tile a { display: block; position: relative; overflow: hidden; line-height: 0; background: var(--mt-tile); cursor: zoom-in; }
+[data-destination="mountains"] .mt-tile img { display: block; width: 100%; height: auto; }
+[data-destination="mountains"] .mt-tile-cap {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 7px 10px;
+  background: rgb(14 17 20 / 0.72); color: #F3F3F5;
+  font-size: 0.8125rem; line-height: 1.3;
+  opacity: 0; transition: opacity var(--d-short) var(--ease-out);
+}
+[data-destination="mountains"] .mt-tile a:hover .mt-tile-cap,
+[data-destination="mountains"] .mt-tile a:focus-visible .mt-tile-cap { opacity: 1; }
+@media (max-width: 699px) {
+  [data-destination="mountains"] .mt-grid { columns: 2 140px; column-gap: 8px; }
+  [data-destination="mountains"] .mt-tile { margin-bottom: 8px; }
+  [data-destination="mountains"] .mt-tile-cap { display: none; }
+}
+
+/* ---- lightbox ------------------------------------------------------------------------------------ */
+html:has([data-destination="mountains"] .mt-lightbox[open]) { overflow: hidden; }
+[data-destination="mountains"] .mt-lightbox {
+  width: 100vw; max-width: none; height: 100vh; height: 100dvh; max-height: none;
+  margin: 0; padding: 0; border: 0; color: #F3F3F5; background: #0B0E10;
+}
+[data-destination="mountains"] .mt-lightbox::backdrop { background: rgb(8 10 12 / 0.92); }
+[data-destination="mountains"] .mt-lightbox[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+[data-destination="mountains"] .mt-lb-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); padding: var(--s-4) var(--gutter); }
+[data-destination="mountains"] .mt-lb-count { margin: 0; color: #9A9DA6; font-size: var(--t-small); font-variant-numeric: tabular-nums; letter-spacing: var(--tracking-label); }
+[data-destination="mountains"] .mt-lb-close,
+[data-destination="mountains"] .mt-lb-nav {
+  border: 1px solid rgb(243 243 245 / 0.32); background: transparent; color: inherit; cursor: pointer;
+  transition: background-color var(--d-short) var(--ease-out), border-color var(--d-short) var(--ease-out);
+}
+[data-destination="mountains"] .mt-lb-close { padding: 9px 20px; border-radius: var(--radius-control); font: inherit; font-size: var(--t-small); line-height: 1.2; }
+[data-destination="mountains"] .mt-lb-nav { width: 48px; height: 48px; border-radius: 50%; font: inherit; font-size: 1.25rem; line-height: 1; }
+[data-destination="mountains"] .mt-lb-nav[hidden] { display: none; }
+[data-destination="mountains"] .mt-lb-close:hover,
+[data-destination="mountains"] .mt-lb-nav:hover { background: rgb(243 243 245 / 0.12); border-color: rgb(243 243 245 / 0.6); }
+[data-destination="mountains"] .mt-lightbox button:focus-visible { outline: 3px solid var(--c-accent-2); outline-offset: 3px; }
+[data-destination="mountains"] .mt-lb-stage {
+  min-height: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center; gap: var(--s-4); padding: 0 var(--gutter) var(--s-5);
+}
+[data-destination="mountains"] .mt-lb-figure { margin: 0; min-width: 0; min-height: 0; display: grid; justify-items: center; gap: var(--s-3); }
+[data-destination="mountains"] .mt-lb-figure img {
+  display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 170px); max-height: calc(100dvh - 170px);
+  object-fit: contain; transition: opacity var(--d-short) var(--ease-out);
+}
+[data-destination="mountains"] .mt-lightbox[data-loading] .mt-lb-figure img { opacity: 0.35; }
+[data-destination="mountains"] .mt-lb-figure figcaption { color: #D8DADF; font-size: var(--t-small); line-height: 1.4; text-align: center; }
+@media (max-width: 699px) {
+  [data-destination="mountains"] .mt-lb-stage { grid-template-columns: 40px minmax(0, 1fr) 40px; gap: var(--s-2); padding-inline: var(--s-2); }
+  [data-destination="mountains"] .mt-lb-nav { width: 40px; height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-destination="mountains"] * { transition: none !important; }
+}

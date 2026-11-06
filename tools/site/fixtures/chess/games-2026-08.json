@@ -1,0 +1,62 @@
+{
+  "games": [
+    {
+      "url": "https://www.chess.com/game/live/900000000003",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.08.09\"]\n[Round \"-\"]\n[White \"opponent-dogwood\"]\n[Black \"example-player\"]\n[Result \"1/2-1/2\"]\n[CurrentPosition \"4rr1k/ppqbb1pp/2n1pn2/2pp2B1/3P4/2PB1N2/PP1NQPPP/R3R1K1 w - - 17 17\"]\n[Timezone \"UTC\"]\n[ECO \"C02\"]\n[ECOUrl \"https://www.chess.com/openings/French-Defense-Advance-Variation\"]\n[UTCDate \"2026.08.09\"]\n[UTCTime \"15:30:00\"]\n[WhiteElo \"1530\"]\n[BlackElo \"1497\"]\n[TimeControl \"900+10\"]\n[Termination \"Game drawn by repetition\"]\n[StartTime \"15:30:00\"]\n[EndDate \"2026.08.09\"]\n[EndTime \"15:36:50\"]\n[Link \"https://www.chess.com/game/live/900000000003\"]\n\n1. e4 {[%clk 0:14:57.4]} 1... e6 {[%clk 0:14:51.1]} 2. d4 {[%clk 0:15:01.1]} 2... d5 {[%clk 0:14:48.5]} 3. e5 {[%clk 0:14:52.2]} 3... f5 {[%clk 0:14:52.2]} 4. exf6 {[%clk 0:14:49.6]} 4... Nxf6 {[%clk 0:14:43.3]} 5. Nf3 {[%clk 0:14:53.3]} 5... Be7 {[%clk 0:14:40.7]} 6. Bd3 {[%clk 0:14:44.4]} 6... O-O {[%clk 0:14:44.4]} 7. O-O {[%clk 0:14:41.8]} 7... c5 {[%clk 0:14:35.5]} 8. c3 {[%clk 0:14:45.5]} 8... Nc6 {[%clk 0:14:32.9]} 9. Re1 {[%clk 0:14:36.6]} 9... Qc7 {[%clk 0:14:36.6]} 10. Bg5 {[%clk 0:14:34]} 10... Bd7 {[%clk 0:14:27.7]} 11. Nbd2 {[%clk 0:14:37.7]} 11... Rae8 {[%clk 0:14:25.1]} 12. Qe2 {[%clk 0:14:28.8]} 12... Kh8 {[%clk 0:14:28.8]} 13. Qd1 {[%clk 0:14:26.2]} 13... Kg8 {[%clk 0:14:19.9]} 14. Qe2 {[%clk 0:14:29.9]} 14... Kh8 {[%clk 0:14:17.3]} 15. Qd1 {[%clk 0:14:21]} 15... Kg8 {[%clk 0:14:21]} 16. Qe2 {[%clk 0:14:18.4]} 16... Kh8 {[%clk 0:14:12.1]} 1/2-1/2\n",
+      "time_control": "900+10",
+      "end_time": 1786289810,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000003",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "4rr1k/ppqbb1pp/2n1pn2/2pp2B1/3P4/2PB1N2/PP1NQPPP/R3R1K1 w - - 17 17",
+      "time_class": "rapid",
+      "rules": "chess",
+      "white": {
+        "rating": 1530,
+        "result": "repetition",
+        "@id": "https://api.chess.com/pub/player/opponent-dogwood",
+        "username": "opponent-dogwood",
+        "uuid": "00000000-0000-4000-8000-0000000000a4"
+      },
+      "black": {
+        "rating": 1497,
+        "result": "repetition",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "eco": "https://www.chess.com/openings/French-Defense-Advance-Variation"
+    },
+    {
+      "url": "https://www.chess.com/game/live/900000000004",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.08.23\"]\n[Round \"-\"]\n[White \"opponent-elm\"]\n[Black \"example-player\"]\n[Result \"0-1\"]\n[CurrentPosition \"r4rk1/pppqbpp1/2n4p/5b2/4NB2/1Q1P2P1/PP3PBP/R3R1K1 w - - 7 15\"]\n[Timezone \"UTC\"]\n[ECO \"A09\"]\n[ECOUrl \"https://www.chess.com/openings/Reti-Opening-Advance-Variation\"]\n[UTCDate \"2026.08.23\"]\n[UTCTime \"11:05:37\"]\n[WhiteElo \"1466\"]\n[BlackElo \"1503\"]\n[TimeControl \"600\"]\n[Termination \"example-player won by resignation\"]\n[StartTime \"11:05:37\"]\n[EndDate \"2026.08.23\"]\n[EndTime \"11:10:23\"]\n[Link \"https://www.chess.com/game/live/900000000004\"]\n\n1. Nf3 {[%clk 0:09:49.8]} 1... d5 {[%clk 0:09:45.6]} 2. g3 {[%clk 0:09:43.8]} 2... d4 {[%clk 0:09:35.4]} 3. c4 {[%clk 0:09:29.4]} 3... dxc3 {[%clk 0:09:29.4]} 4. Nxc3 {[%clk 0:09:19.2]} 4... Nf6 {[%clk 0:09:15]} 5. Bg2 {[%clk 0:09:13.2]} 5... e5 {[%clk 0:09:04.8]} 6. O-O {[%clk 0:08:58.8]} 6... e4 {[%clk 0:08:58.8]} 7. Ng5 {[%clk 0:08:48.6]} 7... Bf5 {[%clk 0:08:44.4]} 8. d3 {[%clk 0:08:42.6]} 8... exd3 {[%clk 0:08:34.2]} 9. exd3 {[%clk 0:08:28.2]} 9... h6 {[%clk 0:08:28.2]} 10. Nge4 {[%clk 0:08:18]} 10... Nxe4 {[%clk 0:08:13.8]} 11. Nxe4 {[%clk 0:08:12]} 11... Be7 {[%clk 0:08:03.6]} 12. Re1 {[%clk 0:07:57.6]} 12... O-O {[%clk 0:07:57.6]} 13. Qb3 {[%clk 0:07:47.4]} 13... Nc6 {[%clk 0:07:43.2]} 14. Bf4 {[%clk 0:07:41.4]} 14... Qd7 {[%clk 0:07:33]} 0-1\n",
+      "time_control": "600",
+      "end_time": 1787483423,
+      "rated": true,
+      "accuracies": {
+        "white": 66.1,
+        "black": 79.8
+      },
+      "uuid": "00000000-0000-4000-9000-000000000004",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "r4rk1/pppqbpp1/2n4p/5b2/4NB2/1Q1P2P1/PP3PBP/R3R1K1 w - - 7 15",
+      "time_class": "rapid",
+      "rules": "chess",
+      "white": {
+        "rating": 1466,
+        "result": "resigned",
+        "@id": "https://api.chess.com/pub/player/opponent-elm",
+        "username": "opponent-elm",
+        "uuid": "00000000-0000-4000-8000-0000000000a5"
+      },
+      "black": {
+        "rating": 1503,
+        "result": "win",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "eco": "https://www.chess.com/openings/Reti-Opening-Advance-Variation"
+    }
+  ]
+}

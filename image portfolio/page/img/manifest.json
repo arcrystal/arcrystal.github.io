@@ -1,0 +1,490 @@
+{
+ "t-perito-moreno-wide": {
+  "ref": "trips:perito-moreno-wide",
+  "source": "static/trips/perito-moreno-wide.jpg",
+  "native": [
+   2000,
+   708
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 55310,
+   "1600": 137560,
+   "2000": 253922
+  }
+ },
+ "t-torres-towers": {
+  "ref": "trips:torres-towers",
+  "source": "static/trips/torres-towers.jpg",
+  "native": [
+   1500,
+   2000
+  ],
+  "widths": [
+   960,
+   1500
+  ],
+  "bytes": {
+   "960": 212896,
+   "1500": 485420
+  }
+ },
+ "t-los-cuernos": {
+  "ref": "trips:los-cuernos",
+  "source": "static/trips/los-cuernos.jpg",
+  "native": [
+   1334,
+   2000
+  ],
+  "widths": [
+   960,
+   1334
+  ],
+  "bytes": {
+   "960": 324498,
+   "1334": 676012
+  }
+ },
+ "glacier": {
+  "ref": "plate:glacier",
+  "source": "static/IMG_1625.png",
+  "native": [
+   8064,
+   6048
+  ],
+  "widths": [
+   1600,
+   2400,
+   3200
+  ],
+  "bytes": {
+   "1600": 280574,
+   "2400": 558348,
+   "3200": 897040
+  }
+ },
+ "p33": {
+  "ref": "album:33",
+  "source": "static/top50/photo-33.jpg",
+  "native": [
+   2000,
+   1333
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 85520,
+   "1600": 186990,
+   "2000": 326310
+  }
+ },
+ "p34": {
+  "ref": "album:34",
+  "source": "static/top50/photo-34.jpg",
+  "native": [
+   2000,
+   1333
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 73842,
+   "1600": 159438,
+   "2000": 284072
+  }
+ },
+ "p38": {
+  "ref": "album:38",
+  "source": "static/top50/photo-38.jpg",
+  "native": [
+   2000,
+   1333
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 17994,
+   "1600": 36588,
+   "2000": 53472
+  }
+ },
+ "t-sounkyo-valley": {
+  "ref": "trips:sounkyo-valley",
+  "source": "static/trips/sounkyo-valley.jpg",
+  "native": [
+   2000,
+   1248
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 140234,
+   "1600": 326514,
+   "2000": 536534
+  }
+ },
+ "p06": {
+  "ref": "album:06",
+  "source": "static/top50/photo-06.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 89124,
+   "1600": 215948,
+   "2000": 398086
+  }
+ },
+ "p08": {
+  "ref": "album:08",
+  "source": "static/top50/photo-08.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 172232,
+   "1600": 425784,
+   "2000": 760890
+  }
+ },
+ "t-mount-fuji": {
+  "ref": "trips:mount-fuji",
+  "source": "static/trips/mount-fuji.jpg",
+  "native": [
+   1500,
+   2000
+  ],
+  "widths": [
+   960,
+   1500
+  ],
+  "bytes": {
+   "960": 87336,
+   "1500": 209152
+  }
+ },
+ "p04": {
+  "ref": "album:04",
+  "source": "static/top50/photo-04.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 162722,
+   "1600": 398356,
+   "2000": 734860
+  }
+ },
+ "p10": {
+  "ref": "album:10",
+  "source": "static/top50/photo-10.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 166880,
+   "1600": 407936,
+   "2000": 731810
+  }
+ },
+ "p02": {
+  "ref": "album:02",
+  "source": "static/top50/photo-02.jpg",
+  "native": [
+   1500,
+   2000
+  ],
+  "widths": [
+   960,
+   1500
+  ],
+  "bytes": {
+   "960": 348048,
+   "1500": 839034
+  }
+ },
+ "t-ninh-binh": {
+  "ref": "trips:ninh-binh",
+  "source": "static/trips/ninh-binh.jpg",
+  "native": [
+   2000,
+   1248
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 156508,
+   "1600": 385620,
+   "2000": 657040
+  }
+ },
+ "p20": {
+  "ref": "album:20",
+  "source": "static/top50/photo-20.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 85402,
+   "1600": 183256,
+   "2000": 323850
+  }
+ },
+ "p25": {
+  "ref": "album:25",
+  "source": "static/top50/photo-25.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 56554,
+   "1600": 133184,
+   "2000": 241288
+  }
+ },
+ "t-ha-giang": {
+  "ref": "trips:ha-giang",
+  "source": "static/trips/ha-giang.jpg",
+  "native": [
+   2000,
+   1256
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 75012,
+   "1600": 174618,
+   "2000": 302980
+  }
+ },
+ "p22": {
+  "ref": "album:22",
+  "source": "static/top50/photo-22.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 121496,
+   "1600": 294716,
+   "2000": 517932
+  }
+ },
+ "p19": {
+  "ref": "album:19",
+  "source": "static/top50/photo-19.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 223646,
+   "1600": 556696,
+   "2000": 1004682
+  }
+ },
+ "p30": {
+  "ref": "album:30",
+  "source": "static/top50/photo-30.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 51942,
+   "1600": 105894,
+   "2000": 177714
+  }
+ },
+ "p31": {
+  "ref": "album:31",
+  "source": "static/top50/photo-31.jpg",
+  "native": [
+   1333,
+   2000
+  ],
+  "widths": [
+   960,
+   1333
+  ],
+  "bytes": {
+   "960": 69146,
+   "1333": 131114
+  }
+ },
+ "p39": {
+  "ref": "album:39",
+  "source": "static/top50/photo-39.jpg",
+  "native": [
+   1500,
+   2000
+  ],
+  "widths": [
+   960,
+   1500
+  ],
+  "bytes": {
+   "960": 208430,
+   "1500": 535478
+  }
+ },
+ "p41": {
+  "ref": "album:41",
+  "source": "static/top50/photo-41.jpg",
+  "native": [
+   2000,
+   1333
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 38676,
+   "1600": 82758,
+   "2000": 127658
+  }
+ },
+ "p24": {
+  "ref": "album:24",
+  "source": "static/top50/photo-24.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 89432,
+   "1600": 199304,
+   "2000": 355084
+  }
+ },
+ "p54": {
+  "ref": "album:54",
+  "source": "static/top50/photo-54.jpg",
+  "native": [
+   1500,
+   2000
+  ],
+  "widths": [
+   960,
+   1500
+  ],
+  "bytes": {
+   "960": 46792,
+   "1500": 116856
+  }
+ },
+ "p56": {
+  "ref": "album:56",
+  "source": "static/top50/photo-56.jpg",
+  "native": [
+   1500,
+   2000
+  ],
+  "widths": [
+   960,
+   1500
+  ],
+  "bytes": {
+   "960": 133638,
+   "1500": 267184
+  }
+ },
+ "p55": {
+  "ref": "album:55",
+  "source": "static/top50/photo-55.jpg",
+  "native": [
+   2000,
+   1500
+  ],
+  "widths": [
+   960,
+   1600,
+   2000
+  ],
+  "bytes": {
+   "960": 8042,
+   "1600": 16802,
+   "2000": 24918
+  }
+ }
+}

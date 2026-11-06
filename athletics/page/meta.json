@@ -1,0 +1,73 @@
+{
+  "docTitle": "Racing — Alex Crystal",
+  "description": "Alex Crystal's racing: the American Birkebeiner, selected skiing and running results, training records, hiking and a pace calculator.",
+  "line": "Snow, speed and clear air: the Birkebeiner, results, hiking records and a pace calculator.",
+  "lede": "Nordic skiing and running, from the 50 km American Birkebeiner to the mile, with training records, the New Hampshire 48 and a pace calculator.",
+  "index": [
+    [
+      "#featured-race",
+      "Featured race"
+    ],
+    [
+      "#selected-results",
+      "Results"
+    ],
+    [
+      "#training-approach",
+      "Training"
+    ],
+    [
+      "#explore-data",
+      "Explore the data"
+    ],
+    [
+      "#archive",
+      "Archive"
+    ]
+  ],
+  "module": "page.js",
+  "styles": [
+    "page.css"
+  ],
+  "fragments": {
+    "#races": "#selected-results",
+    "#panel-races": "#selected-results",
+    "#tab-races": "#selected-results",
+    "#training": "#training-approach",
+    "#panel-training": "#training-approach",
+    "#tab-training": "#training-approach",
+    "#panel-hikes": "#hikes",
+    "#tab-hikes": "#hikes",
+    "#panel-ultra-8": "#ultra-8",
+    "#tab-ultra-8": "#ultra-8",
+    "#ultraEightList": "#ultra-8",
+    "#panel-nh-48": "#nh-48",
+    "#tab-nh-48": "#nh-48",
+    "#panel-soccer": "#soccer",
+    "#tab-soccer": "#soccer",
+    "#panel-calculator": "#calculator",
+    "#tab-calculator": "#calculator",
+    "#soccer-log-title": "#soccer"
+  },
+  "preview": {
+    "caption": "American Birkebeiner · Feb 21, 2026",
+    "time": "2:28:49",
+    "timeSuffix": ".04",
+    "timeLabel": "Official result",
+    "rows": [
+      [
+        "Last Nordic Skier Standing",
+        "84.05 mi"
+      ],
+      [
+        "Mt. Washington Road Race",
+        "4,736 ft"
+      ],
+      [
+        "Home Meet Mile",
+        "4:54"
+      ]
+    ],
+    "route": "static/site/route-birkie.json"
+  }
+}

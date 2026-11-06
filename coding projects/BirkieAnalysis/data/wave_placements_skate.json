@@ -1,0 +1,83 @@
+{
+  "race": "Birkebeiner Skate",
+  "forYear": 2026,
+  "waves": [
+    {
+      "wave": 1,
+      "cutoffs": {
+        "2025": { "timeUpper": "2:49:53", "pbeUpper": 38.0 },
+        "2023": { "timeUpper": "2:59:03", "pbeUpper": 42.5 },
+        "2022": { "timeUpper": "3:00:16", "pbeUpper": 41.5 }
+      }
+    },
+    {
+      "wave": 2,
+      "cutoffs": {
+        "2025": { "timeLower": "2:49:54", "timeUpper": "3:04:02", "pbeLower": 38.0, "pbeUpper": 49.5 },
+        "2023": { "timeLower": "2:59:04", "timeUpper": "3:11:37", "pbeLower": 42.5, "pbeUpper": 52.5 },
+        "2022": { "timeLower": "3:00:17", "timeUpper": "3:15:34", "pbeLower": 41.5, "pbeUpper": 53.5 }
+      }
+    },
+    {
+      "wave": 3,
+      "cutoffs": {
+        "2025": { "timeLower": "3:04:03", "timeUpper": "3:15:44", "pbeLower": 49.5, "pbeUpper": 59.0 },
+        "2023": { "timeLower": "3:11:38", "timeUpper": "3:24:11", "pbeLower": 52.5, "pbeUpper": 62.5 },
+        "2022": { "timeLower": "3:15:35", "timeUpper": "3:28:18", "pbeLower": 53.5, "pbeUpper": 63.5 }
+      }
+    },
+    {
+      "wave": 4,
+      "cutoffs": {
+        "2025": { "timeLower": "3:15:45", "timeUpper": "3:28:39", "pbeLower": 59.0, "pbeUpper": 69.5 },
+        "2023": { "timeLower": "3:24:12", "timeUpper": "3:38:00", "pbeLower": 62.5, "pbeUpper": 73.5 },
+        "2022": { "timeLower": "3:28:19", "timeUpper": "3:43:35", "pbeLower": 63.5, "pbeUpper": 75.5 }
+      }
+    },
+    {
+      "wave": 5,
+      "cutoffs": {
+        "2025": { "timeLower": "3:28:40", "timeUpper": "3:44:39", "pbeLower": 69.5, "pbeUpper": 82.5 },
+        "2023": { "timeLower": "3:38:01", "timeUpper": "3:54:20", "pbeLower": 73.5, "pbeUpper": 86.5 },
+        "2022": { "timeLower": "3:43:36", "timeUpper": "3:58:53", "pbeLower": 75.5, "pbeUpper": 87.5 }
+      }
+    },
+    {
+      "wave": 6,
+      "cutoffs": {
+        "2025": { "timeLower": "3:44:40", "timeUpper": "4:04:21", "pbeLower": 82.5, "pbeUpper": 98.5 },
+        "2023": { "timeLower": "3:54:21", "timeUpper": "4:11:56", "pbeLower": 86.5, "pbeUpper": 100.5 },
+        "2022": { "timeLower": "3:58:54", "timeUpper": "4:17:59", "pbeLower": 87.5, "pbeUpper": 102.5 }
+      }
+    },
+    {
+      "wave": 7,
+      "cutoffs": {
+        "2025": { "timeLower": "4:04:22", "timeUpper": "4:31:26", "pbeLower": 98.5, "pbeUpper": 120.5 },
+        "2023": { "timeLower": "4:11:57", "timeUpper": "4:38:19", "pbeLower": 100.5, "pbeUpper": 121.5 },
+        "2022": { "timeLower": "4:18:00", "timeUpper": "4:46:01", "pbeLower": 102.5, "pbeUpper": 124.5 }
+      }
+    },
+    {
+      "wave": 8,
+      "cutoffs": {
+        "2025": { "timeLower": "4:31:27", "timeUpper": "5:42:50", "pbeLower": 120.5, "pbeUpper": 178.5 },
+        "2023": { "timeLower": "4:38:20", "timeUpper": "5:42:24", "pbeLower": 121.5, "pbeUpper": 172.5 },
+        "2022": { "timeLower": "4:46:02", "timeUpper": "5:44:37", "pbeLower": 124.5, "pbeUpper": 170.5 }
+      }
+    },
+    {
+      "wave": 9,
+      "note": "Plus prior participants with no results from last 3 years, or only 2024 results or Open Track results",
+      "cutoffs": {
+        "2025": { "timeLower": "5:42:51", "pbeLower": 178.5 },
+        "2023": { "timeLower": "5:43:25", "pbeLower": 172.5 },
+        "2022": { "timeLower": "5:44:38", "pbeLower": 170.5 }
+      }
+    },
+    {
+      "wave": 10,
+      "note": "New participants"
+    }
+  ]
+}

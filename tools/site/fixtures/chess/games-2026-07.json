@@ -1,0 +1,58 @@
+{
+  "games": [
+    {
+      "url": "https://www.chess.com/game/live/900000000005",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.07.04\"]\n[Round \"-\"]\n[White \"example-player\"]\n[Black \"opponent-fir\"]\n[Result \"1-0\"]\n[CurrentPosition \"2b2rk1/2qn1ppp/5n2/2b5/Q3p3/5N2/PPPPBPPP/RNBQK2R w KQ - 0 10\"]\n[Timezone \"UTC\"]\n[ECO \"B01\"]\n[ECOUrl \"https://www.chess.com/openings/Scandinavian-Defense\"]\n[UTCDate \"2026.07.04\"]\n[UTCTime \"17:45:20\"]\n[WhiteElo \"1301\"]\n[BlackElo \"1322\"]\n[TimeControl \"60\"]\n[Termination \"example-player won by resignation\"]\n[StartTime \"17:45:20\"]\n[EndDate \"2026.07.04\"]\n[EndTime \"17:45:34\"]\n[Link \"https://www.chess.com/game/live/900000000005\"]\n\n1. e4 {[%clk 0:00:58.8]} 1... d5 {[%clk 0:00:59.6]} 2. exd5 {[%clk 0:00:58]} 2... c6 {[%clk 0:00:58.4]} 3. dxc6 {[%clk 0:00:57.6]} 3... Nf6 {[%clk 0:00:57.6]} 4. cxb7 {[%clk 0:00:56.4]} 4... Nbd7 {[%clk 0:00:57.2]} 5. bxa8=Q {[%clk 0:00:55.6]} 5... Qc7 {[%clk 0:00:56]} 6. Qxa7 {[%clk 0:00:55.2]} 6... e5 {[%clk 0:00:55.2]} 7. Nf3 {[%clk 0:00:54]} 7... Bc5 {[%clk 0:00:54.8]} 8. Qa4 {[%clk 0:00:53.2]} 8... O-O {[%clk 0:00:53.6]} 9. Be2 {[%clk 0:00:52.8]} 9... e4 {[%clk 0:00:52.8]} 1-0\n",
+      "time_control": "60",
+      "end_time": 1783187134,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000005",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "2b2rk1/2qn1ppp/5n2/2b5/Q3p3/5N2/PPPPBPPP/RNBQK2R w KQ - 0 10",
+      "time_class": "bullet",
+      "rules": "chess",
+      "white": {
+        "rating": 1301,
+        "result": "win",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "black": {
+        "rating": 1322,
+        "result": "resigned",
+        "@id": "https://api.chess.com/pub/player/opponent-fir",
+        "username": "opponent-fir",
+        "uuid": "00000000-0000-4000-8000-0000000000a6"
+      },
+      "eco": "https://www.chess.com/openings/Scandinavian-Defense"
+    },
+    {
+      "url": "https://www.chess.com/game/daily/900000000006",
+      "pgn": "[Event \"Let's Play!\"]\n[Site \"Chess.com\"]\n[Date \"2026.07.10\"]\n[Round \"-\"]\n[White \"opponent-ginkgo\"]\n[Black \"example-player\"]\n[Result \"0-1\"]\n[CurrentPosition \"2kr2nr/ppp2ppp/2n5/4P3/2P3bq/2B5/PP1K2PP/RN2QBnR w - - 8 12\"]\n[Timezone \"UTC\"]\n[ECO \"D08\"]\n[ECOUrl \"https://www.chess.com/openings/Queens-Gambit-Declined-Albin-Countergambit-Lasker-Trap\"]\n[UTCDate \"2026.07.10\"]\n[UTCTime \"08:00:00\"]\n[WhiteElo \"1240\"]\n[BlackElo \"1255\"]\n[TimeControl \"1/259200\"]\n[Termination \"example-player won by resignation\"]\n[StartTime \"08:00:00\"]\n[EndDate \"2026.07.14\"]\n[EndTime \"19:00:00\"]\n[Link \"https://www.chess.com/game/daily/900000000006\"]\n\n1. d4 d5 2. c4 e5 3. dxe5 d4 4. e3 Bb4+ 5. Bd2 dxe3 6. Bxb4 exf2+ 7. Ke2 fxg1=N+ 8. Ke1 Qh4+ 9. Kd2 Nc6 10. Bc3 Bg4 11. Qe1 O-O-O+ 0-1\n",
+      "time_control": "1/259200",
+      "end_time": 1784055600,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000006",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "2kr2nr/ppp2ppp/2n5/4P3/2P3bq/2B5/PP1K2PP/RN2QBnR w - - 8 12",
+      "time_class": "daily",
+      "rules": "chess",
+      "white": {
+        "rating": 1240,
+        "result": "resigned",
+        "@id": "https://api.chess.com/pub/player/opponent-ginkgo",
+        "username": "opponent-ginkgo",
+        "uuid": "00000000-0000-4000-8000-0000000000a7"
+      },
+      "black": {
+        "rating": 1255,
+        "result": "win",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "eco": "https://www.chess.com/openings/Queens-Gambit-Declined-Albin-Countergambit-Lasker-Trap"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "chess_rapid": {
+    "last": {
+      "rating": 1200,
+      "date": 1790500000,
+      "rd": 200
+    },
+    "record": {
+      "win": 1,
+      "loss": 2,
+      "draw": 0
+    }
+  },
+  "fide": 0,
+  "tactics": {},
+  "puzzle_rush": {}
+}

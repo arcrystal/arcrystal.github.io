@@ -1,0 +1,71 @@
+{
+  "docTitle": "Chess — Alex Crystal",
+  "description": "Chess by Alex Crystal: current Chess.com ratings, the opening repertoire and recent games, with a replay board.",
+  "line": "Ink on washi: live ratings, an opening repertoire and recent games, set down with a brush.",
+  "lede": "Rapid, blitz and bullet ratings read live from Chess.com, the three openings that anchor the repertoire, and recent games on a replay board.",
+  "index": [
+    [
+      "#playing-style",
+      "Playing style"
+    ],
+    [
+      "#current-form",
+      "Current form"
+    ],
+    [
+      "#repertoire",
+      "Repertoire"
+    ],
+    [
+      "#selected-games",
+      "Selected games"
+    ]
+  ],
+  "module": "page.js",
+  "styles": [
+    "page.css"
+  ],
+  "fragments": {
+    "#recent": "#selected-games",
+    "#openings": "#repertoire"
+  },
+  "preview": {
+    "caption": "The Scotch Game",
+    "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4",
+    "fen": "r1bqkbnr/pppp1ppp/2n5/8/3NP3/8/PPP2PPP/RNBQKB1R",
+    "last": [
+      "f3",
+      "d4"
+    ],
+    "plies": [
+      [
+        "e2",
+        "e4"
+      ],
+      [
+        "e7",
+        "e5"
+      ],
+      [
+        "g1",
+        "f3"
+      ],
+      [
+        "b8",
+        "c6"
+      ],
+      [
+        "d2",
+        "d4"
+      ],
+      [
+        "e5",
+        "d4"
+      ],
+      [
+        "f3",
+        "d4"
+      ]
+    ]
+  }
+}

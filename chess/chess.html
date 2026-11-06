@@ -1,33 +1,256 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Layout Webpage</title>
-    <link rel="stylesheet" href="chess.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess — Alex Crystal</title>
+<meta name="description" content="Chess by Alex Crystal: current Chess.com ratings, the opening repertoire and recent games, with a replay board.">
+<meta name="theme-color" content="#F3EEE3">
+<link rel="canonical" href="https://arcrystal.github.io/chess/chess.html">
+<link rel="icon" href="/static/crystal-mark.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Alex Crystal">
+<meta property="og:url" content="https://arcrystal.github.io/chess/chess.html">
+<meta property="og:title" content="Chess — Alex Crystal">
+<meta property="og:description" content="Chess by Alex Crystal: current Chess.com ratings, the opening repertoire and recent games, with a replay board.">
+<meta property="og:image" content="https://arcrystal.github.io/static/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" as="font" href="/static/fonts/dm-sans-latin-1.woff2" type="font/woff2" crossorigin>
+<link rel="preload" as="font" href="/static/fonts/shippori-mincho-800-latin.woff2" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/site/tokens.css?v=6373bbc964">
+<link rel="stylesheet" href="/static/site/site.css?v=08c7bc8ba2">
+<link rel="stylesheet" href="/static/site/styles/house.css?v=7dd5c11c60">
+<link rel="stylesheet" href="/static/site/styles/sumi.css?v=08c98a63f6">
+<link rel="stylesheet" href="/static/site/styles/glass.css?v=8f5bf1cb13">
+<link rel="stylesheet" href="/static/site/styles/neon.css?v=70373581c0">
+<link rel="stylesheet" href="/static/site/styles/folio.css?v=3a527f3e03">
+<link rel="stylesheet" href="/static/site/styles/chrome.css?v=d33dd89a6b">
+<link rel="stylesheet" href="/chess/page/page.css?v=50af1cdef4" data-page-style>
+<script>(function(){var d=document.documentElement;d.classList.add('js');try{var m=localStorage.getItem('ac-motion'),r=matchMedia('(prefers-reduced-motion: reduce)').matches;if(m==='paused'||(m!=='playing'&&r))d.classList.add('motion-paused');}catch(e){}setTimeout(function(){if(!d.classList.contains('app-ready'))d.classList.remove('js')},6000)})()</script>
+<script type="importmap">{"imports":{"/static/site/chrome.js":"/static/site/chrome.js?v=5cef108384","/static/site/effects.js":"/static/site/effects.js?v=33ea50f00f","/static/site/expand.js":"/static/site/expand.js?v=0ed71663b7","/static/site/hero.js":"/static/site/hero.js?v=494644ff9b","/static/site/lerp.js":"/static/site/lerp.js?v=6c1d87e541","/static/site/previews.js":"/static/site/previews.js?v=685c2f9f2b","/static/site/shell.js":"/static/site/shell.js?v=f190704c7f","/static/site/tiles.js":"/static/site/tiles.js?v=a2839f59a7","/static/site/lib/common.js":"/static/site/lib/common.js?v=8a4275071e","/static/site/lib/nav-core.js":"/static/site/lib/nav-core.js?v=185382ef11","/static/site/lib/router.js":"/static/site/lib/router.js?v=dd42c52a9a","/static/site/lib/routes.js":"/static/site/lib/routes.js?v=727c02d0b8","/static/site/lib/util.js":"/static/site/lib/util.js?v=1c45d26f33","/chess/page/page.js":"/chess/page/page.js?v=2401c7ab3e","/chess/page/lib/chesscom.js":"/chess/page/lib/chesscom.js?v=2ea5378bbd","/chess/page/lib/config.js":"/chess/page/lib/config.js?v=f76ad49d47","/chess/page/lib/openings.js":"/chess/page/lib/openings.js?v=c610bc48f5","/chess/page/lib/pgn.js":"/chess/page/lib/pgn.js?v=d99bad117e","/chess/page/lib/replay-model.js":"/chess/page/lib/replay-model.js?v=68c04de1be","/chess/page/lib/replay.js":"/chess/page/lib/replay.js?v=e0d6607fb8","/athletics/page/page.js":"/athletics/page/page.js?v=a618404636","/image%20portfolio/page/lightbox-core.js":"/image%20portfolio/page/lightbox-core.js?v=54b1a7c64d","/image%20portfolio/page/lightbox.js":"/image%20portfolio/page/lightbox.js?v=995cfbe28f","/image%20portfolio/page/page.js":"/image%20portfolio/page/page.js?v=0b9c78f96c","/athletics/calculator.js":"/athletics/calculator.js?v=81293aeb49","/resume/resume.js":"/resume/resume.js?v=604ddb6ae4","/static/vendor/chess/chess.js":"/static/vendor/chess/chess.js?v=3040003520"}}</script>
 </head>
-<body>
-<div class="container">
-    <h2>Brilliants</h2>
-    <div class="top-row">
-        <div class="slideshow" id="slideshow"></div>
-        <div class="description">This is a description area next to the slideshow.</div>
-    </div>
-    <h2>History</h2>
-    <div class="image-row">
-        <!-- EMBED WIDGET HERE -->
-    </div>
-    <h2>Expert Advice</h2>
-    <div class="audio-panel">
-        <button onclick="playAudio()">Play Audio</button>
-        <select id="audioSelect" onchange="changeAudio(this.value)">
-            <option value="audio1.mp3">Audio 1</option>
-            <option value="audio2.mp3">Audio 2</option>
-        </select>
-        <audio id="audioPlayer" src="audio1.mp3"></audio>
-    </div>
-</div>
+<body data-page="chess" data-style="sumi">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header" id="site-header">
+  <a class="brand" href="/" data-nav="home"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">Alex Crystal</span></a>
+  <nav class="site-nav" id="site-nav" aria-label="Primary">
+    <ul role="list">
+      <li><a href="/chess/chess.html" data-nav="chess" aria-current="page">Chess</a></li>
+      <li><a href="/athletics/athletics.html" data-nav="racing">Racing</a></li>
+      <li><a href="/coding%20projects/projects.html" data-nav="coding">Coding</a></li>
+      <li><a href="/image%20portfolio/gallery.html" data-nav="mountains">Mountains</a></li>
+      <li><a href="/about/" data-nav="about">About Me</a></li>
+      <li><a href="/resume/resume.html" data-nav="resume">Résumé</a></li>
+      <li><a href="#contact" data-nav="contact">Contact</a></li>
+    </ul>
+  </nav>
+  <div class="site-controls">
+    <button type="button" class="control motion-toggle" data-motion-toggle aria-pressed="true" hidden><span class="motion-dot" aria-hidden="true"></span>Motion</button>
+    <button type="button" class="control menu-toggle" data-menu-toggle aria-expanded="false" aria-controls="site-nav" hidden>Menu</button>
+  </div>
+</header>
+<main id="main" tabindex="-1" data-page="chess" data-style="sumi" data-title="Chess — Alex Crystal" data-destination="chess" data-module="/chess/page/page.js">
+<header class="d-hero" data-hero>
+  <div class="art art--sumi d-hero-art" aria-hidden="true"><i class="art-washi"></i>
+<svg class="art-mist" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="mist1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1C1A17" stop-opacity="0.1"/><stop offset=".55" stop-color="#1C1A17" stop-opacity="0"/></linearGradient><linearGradient id="mist2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1C1A17" stop-opacity="0.16"/><stop offset=".55" stop-color="#1C1A17" stop-opacity="0"/></linearGradient><linearGradient id="mist3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1C1A17" stop-opacity="0.26"/><stop offset=".55" stop-color="#1C1A17" stop-opacity="0"/></linearGradient><linearGradient id="mist4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1C1A17" stop-opacity="0.42"/><stop offset=".55" stop-color="#1C1A17" stop-opacity="0"/></linearGradient></defs><circle class="art-sun" cx="1180" cy="150" r="54"/><path d="M0 570L0 122.4L16 123.8L32 124.9L48 125.6L64 126.1L80 126.6L96 127.2L112 128L128 129.1L144 130.8L160 133L176 135.7L192 138.9L208 142.6L224 146.5L240 150.6L256 154.6L272 158.2L288 161.3L304 163.5L320 164.6L336 164.4L352 162.9L368 160.4L384 157.2L400 153.5L416 149.6L432 145.9L448 142.5L464 139.8L480 137.9L496 136.9L512 137L528 138.3L544 140.6L560 144.1L576 148.6L592 154L608 160.4L624 168.2L640 166.7L656 163.7L672 161.1L688 158.9L704 157L720 155.3L736 153.9L752 152.8L768 151.7L784 150.7L800 149.6L816 148.6L832 147.4L848 146.1L864 144.6L880 143.1L896 141.5L912 140L928 138.5L944 137.3L960 136.3L976 135.6L992 135.4L1008 135.6L1024 136.4L1040 137.7L1056 139.5L1072 141.7L1088 144.5L1104 147.5L1120 150.8L1136 154.3L1152 157.9L1168 161.5L1184 165.1L1200 168.7L1216 164.2L1232 158.8L1248 154.8L1264 152L1280 150L1296 148.6L1312 147.5L1328 146.7L1344 145.8L1360 144.7L1376 143.4L1392 141.8L1408 139.9L1424 137.8L1440 135.7L1456 133.6L1472 131.8L1488 130.3L1504 129.4L1520 129.2L1536 129.6L1552 130.8L1568 132.7L1584 135.2L1600 138.3L1600 570Z" fill="url(#mist1)"/><path d="M0 650L0 224.4L16 220.5L32 216.6L48 213.2L64 210.5L80 208.8L96 208.4L112 209.5L128 212.2L144 216.6L160 222.8L176 230.8L192 240.8L208 247.6L224 242.1L240 237.3L256 232.9L272 228.9L288 225.4L304 222.4L320 219.9L336 217.9L352 216.4L368 215.3L384 214.4L400 213.8L416 213.3L432 212.9L448 212.4L464 211.9L480 211.3L496 210.7L512 210.1L528 209.4L544 209L560 208.7L576 208.8L592 209.3L608 210.4L624 211.9L640 214.1L656 217L672 220.4L688 224.4L704 228.9L720 233.8L736 239.1L752 244.8L768 245.9L784 233.9L800 224.7L816 217.7L832 212.4L848 208.8L864 206.7L880 206L896 206.3L912 207.3L928 208.9L944 210.7L960 212.3L976 213.6L992 214.4L1008 214.6L1024 214.2L1040 213.2L1056 211.7L1072 210L1088 208.3L1104 206.7L1120 205.6L1136 205L1152 205.1L1168 205.8L1184 207.3L1200 209.4L1216 211.9L1232 214.7L1248 217.4L1264 219.7L1280 221.4L1296 222.1L1312 221.7L1328 220L1344 217L1360 212.8L1376 207.6L1392 201.8L1408 195.5L1424 189.3L1440 183.4L1456 178.1L1472 173.7L1488 170.4L1504 168.5L1520 167.9L1536 168.9L1552 171.2L1568 174.9L1584 179.8L1600 185.6L1600 650Z" fill="url(#mist2)"/><path d="M0 730L0 292.2L16 291.6L32 291.5L48 291.7L64 292.1L80 292.8L96 293.5L112 294.3L128 295L144 295.6L160 296.2L176 296.8L192 297.4L208 298L224 298.8L240 299.9L256 301.2L272 303L288 305.2L304 307.9L320 311.1L336 314.7L352 318.9L368 323.6L384 329.2L400 318.2L416 308.3L432 300.1L448 293.4L464 288.3L480 284.7L496 282.6L512 282L528 282.6L544 284.3L560 286.9L576 290L592 293.4L608 296.8L624 299.9L640 302.4L656 304.2L672 305L688 305L704 304.2L720 302.6L736 300.6L752 298.4L768 296.1L784 294L800 292.4L816 291.2L832 290.5L848 290.4L864 290.8L880 291.5L896 292.4L912 293.2L928 293.8L944 293.8L960 293.2L976 291.8L992 289.5L1008 286.4L1024 282.5L1040 278.2L1056 273.5L1072 268.8L1088 264.3L1104 260.4L1120 257.3L1136 255.2L1152 254.4L1168 254.9L1184 256.9L1200 260.4L1216 265.2L1232 271.3L1248 278.5L1264 286.7L1280 295.6L1296 305.1L1312 315.1L1328 326.1L1344 326.1L1360 322.2L1376 319.1L1392 316.4L1408 314.2L1424 312.3L1440 310.6L1456 309L1472 307.4L1488 305.8L1504 304.2L1520 302.4L1536 300.5L1552 298.6L1568 296.8L1584 295L1600 293.3L1600 730Z" fill="url(#mist3)"/><path d="M0 820L0 359.3L16 360.2L32 361.5L48 363.2L64 365L80 366.7L96 368.3L112 369.6L128 370.7L144 371.4L160 371.9L176 372.2L192 372.6L208 373.1L224 373.9L240 375.2L256 377L272 379.3L288 382.3L304 385.8L320 389.8L336 394.2L352 398.7L368 403.1L384 407.3L400 410.9L416 413.8L432 415.5L448 415.8L464 414.8L480 412.5L496 409.4L512 405.7L528 401.8L544 397.9L560 394.3L576 391.3L592 389L608 387.6L624 387.2L640 387.9L656 389.7L672 392.5L688 396.3L704 400.9L720 406.4L736 412.6L752 419.7L768 416.4L784 413.9L800 411.7L816 409.8L832 408.2L848 406.9L864 405.7L880 404.6L896 403.5L912 402.4L928 401.1L944 399.8L960 398.3L976 396.6L992 394.8L1008 393L1024 391.1L1040 389.3L1056 387.7L1072 386.4L1088 385.4L1104 384.8L1120 384.7L1136 385.1L1152 386.1L1168 387.6L1184 389.6L1200 392L1216 394.8L1232 397.9L1248 401.1L1264 404.5L1280 407.9L1296 411.2L1312 414.4L1328 417.5L1344 418L1360 412.6L1376 408.9L1392 406.1L1408 404L1424 402.2L1440 400.6L1456 399L1472 397.3L1488 395.3L1504 393L1520 390.6L1536 387.9L1552 385.3L1568 382.8L1584 380.5L1600 378.7L1600 820Z" fill="url(#mist4)"/></svg>
+<svg class="art-enso" viewBox="0 0 200 200" aria-hidden="true"><filter id="dry5" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.7 0.035" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.6"/></filter><path d="M30.1 56.3L32.1 52.9L34.4 49.6L36.8 46.4L39.4 43.3L42.1 40.4L45 37.6L48.1 35L51.3 32.6L54.6 30.4L58.1 28.3L61.6 26.5L65.3 24.9L69 23.4L72.8 22.2L76.7 21.2L80.5 20.4L84.4 19.7L88.4 19.3L92.3 19L96.2 19L100.1 19.1L104 19.3L107.9 19.7L111.8 20.3L115.6 21.1L119.4 22L123.1 23.1L126.8 24.3L130.4 25.7L133.9 27.2L137.4 28.9L140.8 30.8L144.1 32.8L147.3 35L150.4 37.3L153.4 39.9L156.2 42.5L158.9 45.3L161.4 48.3L163.8 51.4L165.9 54.6L167.9 57.9L169.7 61.3L171.3 64.8L172.8 68.4L174 72L175 75.7L175.8 79.4L176.5 83.1L176.9 86.9L177.2 90.7L177.3 94.4L177.3 98.2L177.1 101.9L176.7 105.6L176.2 109.3L175.5 112.9L174.6 116.5L173.7 120.1L172.5 123.6L171.2 127L169.8 130.4L168.2 133.7L166.5 137L164.6 140.1L162.6 143.2L160.5 146.2L158.1 149L155.7 151.7L153.1 154.3L150.4 156.8L147.5 159.1L144.6 161.3L141.5 163.3L138.3 165.1L135.1 166.7L131.8 168.2L128.4 169.5L124.9 170.6L121.4 171.6L117.9 172.4L114.4 173L110.8 173.4L107.2 173.7L103.7 173.8L100.1 173.7L96.5 173.5L93 173.2L89.5 172.7L86 172L82.6 171.2L79.1 170.2L75.8 169.1L72.5 167.9L69.2 166.5L66 164.9L62.9 163.2L59.9 161.4L57 159.4L54.2 157.3L51.4 155L48.8 152.6L46.3 150.1L44 147.4L41.8 144.7L39.7 141.8L37.8 138.8L36.1 135.7L34.5 132.6L33.1 129.3L31.9 126L30.8 122.7L29.9 119.3L29.1 115.8L28.6 112.4L28.2 108.9L28 105.4L27.9 101.9L28.1 98.5L28.5 95L31.8 95.2L32.1 98.5L32.4 101.8L32.8 105L33.4 108.3L34.2 111.4L35.1 114.5L36.1 117.6L37.3 120.5L38.6 123.5L40 126.3L41.5 129.1L43.2 131.8L45 134.4L46.8 136.9L48.8 139.3L50.9 141.6L53 143.9L55.3 146L57.6 148L60 149.9L62.5 151.7L65.1 153.4L67.8 155L70.5 156.4L73.3 157.8L76.1 158.9L79 159.9L81.9 160.8L84.9 161.5L87.9 162.1L91 162.5L94 162.8L97 162.8L100.1 162.8L103.1 162.6L106.1 162.2L109.1 161.6L112 161L114.9 160.2L117.7 159.2L120.5 158.2L123.3 157L125.9 155.7L128.5 154.3L131.1 152.8L133.6 151.2L136 149.4L138.3 147.6L140.6 145.7L142.8 143.8L144.9 141.7L146.9 139.5L148.8 137.3L150.6 134.9L152.3 132.5L153.9 130L155.4 127.4L156.7 124.7L157.9 122L159 119.2L159.9 116.3L160.7 113.4L161.3 110.5L161.7 107.5L161.9 104.5L162 101.5L162 98.5L161.8 95.5L161.4 92.6L160.8 89.6L160.2 86.7L159.3 83.9L158.4 81.1L157.3 78.3L156.1 75.6L154.8 72.9L153.4 70.4L151.9 67.8L150.3 65.4L148.6 63L146.8 60.6L144.9 58.4L142.9 56.2L140.8 54.1L138.6 52.1L136.3 50.2L133.9 48.3L131.5 46.6L128.9 45.1L126.3 43.6L123.6 42.3L120.8 41.1L118 40.1L115.1 39.3L112.1 38.6L109.1 38.1L106.1 37.8L103.1 37.6L100.1 37.7L97.1 37.9L94.1 38.2L91.2 38.8L88.3 39.4L85.4 40.3L82.6 41.2L79.8 42.3L77.2 43.5L74.5 44.9L72 46.3L69.5 47.8L67 49.4L64.7 51.2L62.4 53L60.2 54.9L58.1 56.8L56 58.9L54 61L52.2 63.2L50.4 65.6L48.7 68Z" filter="url(#dry5)"/></svg><span class="art-seal"><svg class="seal" viewBox="0 0 40 40" aria-hidden="true"><rect x="1.5" y="1.5" width="37" height="37" rx="2.5" fill="#B3311A"/><g fill="#FBF8F1"><path d="M8.6 9.2h22.6l-.3 3.4H8.9z"/><path d="M11 18.4h18l-.2 3.3H11.2z"/><path d="M7.4 28.2h25.4l-.4 3.7H7.6z"/><path d="M18.3 9.4h3.6l-.2 20.4h-3.5z"/></g><rect x="4.2" y="4.2" width="31.6" height="31.6" rx="1.2" fill="none" stroke="#FBF8F1" stroke-width="1.3"/></svg></span></div>
+  <div class="wrap d-hero-inner">
+    <p class="d-kicker"><span class="d-n">01</span><span class="d-style">Sumi</span></p>
+    <h1 class="d-title" data-title-fx>Chess</h1>
+    <p class="d-lede">Rapid, blitz and bullet ratings read live from Chess.com, the three openings that anchor the repertoire, and recent games on a replay board.</p>
+    <nav class="d-index" aria-label="On this page"><ol role="list"><li><a href="#playing-style">Playing style</a></li><li><a href="#current-form">Current form</a></li><li><a href="#repertoire">Repertoire</a></li><li><a href="#selected-games">Selected games</a></li></ol></nav>
+  </div>
+</header>
+<!-- content:start -->
+<div class="d-content" id="content">
+<section id="playing-style" class="chess-section" aria-labelledby="playing-style-heading">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label">01 · Playing style</p>
+      <h2 id="playing-style-heading">Playing style</h2>
+      <p class="lede measure">Three openings anchor the repertoire: the Réti, the Scotch Game and the O’Kelly Sicilian. The Scotch is defined by its third move, 3. d4, which opens the centre at once.</p>
+    </header>
 
-<script src="chess.js"></script>
+    <div class="featured" id="featured-game" data-featured aria-labelledby="featured-heading">
+      <div class="featured-head">
+        <h3 id="featured-heading">Featured game</h3>
+        <p class="data-note" data-featured-note>Until a game loads from Chess.com, this is a demonstration of the Scotch Game: a standard opening line, not a game Alex played.</p>
+      </div>
+      <div class="demo demo-featured">
+        <p class="demo-kicker label" data-featured-kicker>Opening demonstration · not a game</p>
+        <div class="demo-static" data-replay-root data-line="e4 e5 Nf3 Nc6 d4 exd4 Nxd4" data-label="Scotch Game demonstration line"><svg class="replay-svg" viewBox="0 0 360 360" role="img" aria-label="Position after 4. Nxd4 in the Scotch Game demonstration line"><rect class="sq-light" width="360" height="360"/><path class="sq-dark" d="M45 0h45v45h-45zM135 0h45v45h-45zM225 0h45v45h-45zM315 0h45v45h-45zM0 45h45v45h-45zM90 45h45v45h-45zM180 45h45v45h-45zM270 45h45v45h-45zM45 90h45v45h-45zM135 90h45v45h-45zM225 90h45v45h-45zM315 90h45v45h-45zM0 135h45v45h-45zM90 135h45v45h-45zM180 135h45v45h-45zM270 135h45v45h-45zM45 180h45v45h-45zM135 180h45v45h-45zM225 180h45v45h-45zM315 180h45v45h-45zM0 225h45v45h-45zM90 225h45v45h-45zM180 225h45v45h-45zM270 225h45v45h-45zM45 270h45v45h-45zM135 270h45v45h-45zM225 270h45v45h-45zM315 270h45v45h-45zM0 315h45v45h-45zM90 315h45v45h-45zM180 315h45v45h-45zM270 315h45v45h-45z"/><rect class="hl" x="225" y="225" width="45" height="45"/><rect class="hl" x="135" y="180" width="45" height="45"/><text class="coord coord-on-light" x="2.5" y="9.5">8</text><text class="coord coord-on-dark" x="42.5" y="357" text-anchor="end">a</text><text class="coord coord-on-dark" x="2.5" y="54.5">7</text><text class="coord coord-on-light" x="87.5" y="357" text-anchor="end">b</text><text class="coord coord-on-light" x="2.5" y="99.5">6</text><text class="coord coord-on-dark" x="132.5" y="357" text-anchor="end">c</text><text class="coord coord-on-dark" x="2.5" y="144.5">5</text><text class="coord coord-on-light" x="177.5" y="357" text-anchor="end">d</text><text class="coord coord-on-light" x="2.5" y="189.5">4</text><text class="coord coord-on-dark" x="222.5" y="357" text-anchor="end">e</text><text class="coord coord-on-dark" x="2.5" y="234.5">3</text><text class="coord coord-on-light" x="267.5" y="357" text-anchor="end">f</text><text class="coord coord-on-light" x="2.5" y="279.5">2</text><text class="coord coord-on-dark" x="312.5" y="357" text-anchor="end">g</text><text class="coord coord-on-dark" x="2.5" y="324.5">1</text><text class="coord coord-on-light" x="357.5" y="357" text-anchor="end">h</text><use href="/chess/page/pieces.svg#wR" x="0" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="0" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="0" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="0" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="45" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="45" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="45" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="90" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="90" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="90" y="90" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="90" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="90" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wQ" x="135" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="135" y="180" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="135" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bQ" x="135" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wK" x="180" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="180" y="180" width="45" height="45"/><use href="/chess/page/pieces.svg#bK" x="180" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="225" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="225" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="225" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="225" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="270" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="270" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="270" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wR" x="315" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="315" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="315" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="315" y="0" width="45" height="45"/></svg>
+          <div class="demo-text"><p class="line"><span class="sr-only">Moves: </span>1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4</p><ul class="static-notes"><li>3… exd4: the first capture, a pawn on d4.</li></ul><p class="replay-summary">Material is level after 4. Nxd4.</p></div>
+        </div>
+      </div>
+      <p class="data-note">Notes on a game are facts read from its moves: opening, move numbers, material and result. They are not engine evaluations.</p>
+    </div>
+
+    <aside class="following" aria-label="Chess I follow">
+      <p class="label">Following</p>
+      <p>Eric Rosen is the professional Alex follows most, mainly for his calm explanations and practical positions. <a href="https://imrosen.com/" target="_blank" rel="noopener noreferrer">Eric Rosen’s site <span aria-hidden="true">↗</span></a></p>
+    </aside>
+  </div>
+</section>
+
+<section id="current-form" class="chess-section" aria-labelledby="current-form-heading">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label">02 · Current form</p>
+      <h2 id="current-form-heading">Current form</h2>
+      <p class="lede measure">Rapid, blitz and bullet ratings, read from Chess.com when this page opens.</p>
+    </header>
+    <div class="form-grid" data-form>
+      <article class="rating" data-mode="rapid">
+        <h3>Rapid</h3>
+        <p class="rating-value" data-rating aria-label="rapid rating: not loaded">—</p>
+        <dl class="rating-facts"><div><dt>Peak</dt><dd data-peak>—</dd></div><div><dt>Record</dt><dd data-record>—</dd></div><div><dt>Last game</dt><dd data-last>—</dd></div></dl>
+      </article>
+      <article class="rating" data-mode="blitz">
+        <h3>Blitz</h3>
+        <p class="rating-value" data-rating aria-label="blitz rating: not loaded">—</p>
+        <dl class="rating-facts"><div><dt>Peak</dt><dd data-peak>—</dd></div><div><dt>Record</dt><dd data-record>—</dd></div><div><dt>Last game</dt><dd data-last>—</dd></div></dl>
+      </article>
+      <article class="rating" data-mode="bullet">
+        <h3>Bullet</h3>
+        <p class="rating-value" data-rating aria-label="bullet rating: not loaded">—</p>
+        <dl class="rating-facts"><div><dt>Peak</dt><dd data-peak>—</dd></div><div><dt>Record</dt><dd data-record>—</dd></div><div><dt>Last game</dt><dd data-last>—</dd></div></dl>
+      </article>
+    </div>
+    <div class="data-status" data-status="form" role="status" aria-live="polite">
+      <span class="badge" data-badge data-state="static">Not loaded</span>
+      <span class="data-message" data-message>Ratings load from Chess.com when JavaScript is available. They are never stored in this page.</span>
+      <button type="button" class="link-button" data-retry hidden>Try again</button>
+    </div>
+    <p class="data-note">Source: <a href="https://www.chess.com/news/view/published-data-api" target="_blank" rel="noopener noreferrer">Chess.com Published Data API <span aria-hidden="true">↗</span></a> · <a href="https://www.chess.com/member/thecrystalball" target="_blank" rel="noopener noreferrer">Chess.com profile <span aria-hidden="true">↗</span></a></p>
+  </div>
+</section>
+
+<span class="frag-alias" id="openings" aria-hidden="true"></span><section id="repertoire" class="chess-section" aria-labelledby="repertoire-heading">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label">03 · Opening repertoire</p>
+      <h2 id="repertoire-heading">Opening repertoire</h2>
+      <p class="lede measure">Réti, Scotch and O’Kelly Sicilian, each with a line to step through. How often each appears comes from recent games on Chess.com.</p>
+    </header>
+    <div class="openings">
+      <article class="chess-opening" id="opening-reti" data-opening="reti" data-family="Réti Opening">
+        <header class="opening-head">
+          <p class="label">01</p>
+          <h3>Réti</h3>
+          <p class="opening-moves"><code>1. Nf3</code></p>
+        </header>
+        <blockquote class="said"><p>I like the flexibility: develop first, decide on the pawn structure after seeing what Black commits to.</p><footer class="label">Alex Crystal, from the previous version of this page</footer></blockquote>
+        <p class="opening-record" data-opening-record>How often this opening came up in recent games appears here when the page’s scripts run.</p>
+        <div class="demo">
+          <p class="demo-kicker label">Demonstration line, not a game</p>
+          <div class="demo-static" data-replay-root data-line="Nf3 d5 c4" data-label="Réti demonstration line"><svg class="replay-svg" viewBox="0 0 360 360" role="img" aria-label="Position after 2. c4 in the Réti demonstration line"><rect class="sq-light" width="360" height="360"/><path class="sq-dark" d="M45 0h45v45h-45zM135 0h45v45h-45zM225 0h45v45h-45zM315 0h45v45h-45zM0 45h45v45h-45zM90 45h45v45h-45zM180 45h45v45h-45zM270 45h45v45h-45zM45 90h45v45h-45zM135 90h45v45h-45zM225 90h45v45h-45zM315 90h45v45h-45zM0 135h45v45h-45zM90 135h45v45h-45zM180 135h45v45h-45zM270 135h45v45h-45zM45 180h45v45h-45zM135 180h45v45h-45zM225 180h45v45h-45zM315 180h45v45h-45zM0 225h45v45h-45zM90 225h45v45h-45zM180 225h45v45h-45zM270 225h45v45h-45zM45 270h45v45h-45zM135 270h45v45h-45zM225 270h45v45h-45zM315 270h45v45h-45zM0 315h45v45h-45zM90 315h45v45h-45zM180 315h45v45h-45zM270 315h45v45h-45z"/><rect class="hl" x="90" y="270" width="45" height="45"/><rect class="hl" x="90" y="180" width="45" height="45"/><text class="coord coord-on-light" x="2.5" y="9.5">8</text><text class="coord coord-on-dark" x="42.5" y="357" text-anchor="end">a</text><text class="coord coord-on-dark" x="2.5" y="54.5">7</text><text class="coord coord-on-light" x="87.5" y="357" text-anchor="end">b</text><text class="coord coord-on-light" x="2.5" y="99.5">6</text><text class="coord coord-on-dark" x="132.5" y="357" text-anchor="end">c</text><text class="coord coord-on-dark" x="2.5" y="144.5">5</text><text class="coord coord-on-light" x="177.5" y="357" text-anchor="end">d</text><text class="coord coord-on-light" x="2.5" y="189.5">4</text><text class="coord coord-on-dark" x="222.5" y="357" text-anchor="end">e</text><text class="coord coord-on-dark" x="2.5" y="234.5">3</text><text class="coord coord-on-light" x="267.5" y="357" text-anchor="end">f</text><text class="coord coord-on-light" x="2.5" y="279.5">2</text><text class="coord coord-on-dark" x="312.5" y="357" text-anchor="end">g</text><text class="coord coord-on-dark" x="2.5" y="324.5">1</text><text class="coord coord-on-light" x="357.5" y="357" text-anchor="end">h</text><use href="/chess/page/pieces.svg#wR" x="0" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="0" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="0" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="0" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="45" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="45" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="45" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="45" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="90" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="90" y="180" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="90" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="90" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wQ" x="135" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="135" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="135" y="135" width="45" height="45"/><use href="/chess/page/pieces.svg#bQ" x="135" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wK" x="180" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="180" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="180" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bK" x="180" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="225" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="225" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="225" y="225" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="225" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="225" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="270" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="270" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="270" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wR" x="315" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="315" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="315" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="315" y="0" width="45" height="45"/></svg>
+            <div class="demo-text"><p class="line"><span class="sr-only">Moves: </span>1. Nf3 d5 2. c4</p><p class="replay-summary">Material is level after 2. c4.</p></div>
+          </div>
+        </div>
+        <p class="opening-links"><a href="https://www.chess.com/openings/Reti-Opening" target="_blank" rel="noopener noreferrer">Réti on Chess.com <span aria-hidden="true">↗</span></a>
+          <button type="button" class="link-button" data-show-games="Réti Opening" hidden>Show these in recent games</button></p>
+      </article>
+
+      <article class="chess-opening" id="opening-scotch" data-opening="scotch" data-family="Scotch Game">
+        <header class="opening-head">
+          <p class="label">02</p>
+          <h3>Scotch</h3>
+          <p class="opening-moves"><code>1. e4 e5 2. Nf3 Nc6 3. d4</code></p>
+        </header>
+        <blockquote class="said"><p>An open center and concrete decisions early. It tends to produce positions I enjoy playing.</p><footer class="label">Alex Crystal, from the previous version of this page</footer></blockquote>
+        <p class="opening-record" data-opening-record>How often this opening came up in recent games appears here when the page’s scripts run.</p>
+        <div class="demo">
+          <p class="demo-kicker label">Demonstration line, not a game</p>
+          <div class="demo-static" data-replay-root data-line="e4 e5 Nf3 Nc6 d4 exd4 Nxd4" data-label="Scotch demonstration line"><svg class="replay-svg" viewBox="0 0 360 360" role="img" aria-label="Position after 4. Nxd4 in the Scotch demonstration line"><rect class="sq-light" width="360" height="360"/><path class="sq-dark" d="M45 0h45v45h-45zM135 0h45v45h-45zM225 0h45v45h-45zM315 0h45v45h-45zM0 45h45v45h-45zM90 45h45v45h-45zM180 45h45v45h-45zM270 45h45v45h-45zM45 90h45v45h-45zM135 90h45v45h-45zM225 90h45v45h-45zM315 90h45v45h-45zM0 135h45v45h-45zM90 135h45v45h-45zM180 135h45v45h-45zM270 135h45v45h-45zM45 180h45v45h-45zM135 180h45v45h-45zM225 180h45v45h-45zM315 180h45v45h-45zM0 225h45v45h-45zM90 225h45v45h-45zM180 225h45v45h-45zM270 225h45v45h-45zM45 270h45v45h-45zM135 270h45v45h-45zM225 270h45v45h-45zM315 270h45v45h-45zM0 315h45v45h-45zM90 315h45v45h-45zM180 315h45v45h-45zM270 315h45v45h-45z"/><rect class="hl" x="225" y="225" width="45" height="45"/><rect class="hl" x="135" y="180" width="45" height="45"/><text class="coord coord-on-light" x="2.5" y="9.5">8</text><text class="coord coord-on-dark" x="42.5" y="357" text-anchor="end">a</text><text class="coord coord-on-dark" x="2.5" y="54.5">7</text><text class="coord coord-on-light" x="87.5" y="357" text-anchor="end">b</text><text class="coord coord-on-light" x="2.5" y="99.5">6</text><text class="coord coord-on-dark" x="132.5" y="357" text-anchor="end">c</text><text class="coord coord-on-dark" x="2.5" y="144.5">5</text><text class="coord coord-on-light" x="177.5" y="357" text-anchor="end">d</text><text class="coord coord-on-light" x="2.5" y="189.5">4</text><text class="coord coord-on-dark" x="222.5" y="357" text-anchor="end">e</text><text class="coord coord-on-dark" x="2.5" y="234.5">3</text><text class="coord coord-on-light" x="267.5" y="357" text-anchor="end">f</text><text class="coord coord-on-light" x="2.5" y="279.5">2</text><text class="coord coord-on-dark" x="312.5" y="357" text-anchor="end">g</text><text class="coord coord-on-dark" x="2.5" y="324.5">1</text><text class="coord coord-on-light" x="357.5" y="357" text-anchor="end">h</text><use href="/chess/page/pieces.svg#wR" x="0" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="0" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="0" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="0" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="45" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="45" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="45" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="90" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="90" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="90" y="90" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="90" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="90" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wQ" x="135" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="135" y="180" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="135" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bQ" x="135" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wK" x="180" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="180" y="180" width="45" height="45"/><use href="/chess/page/pieces.svg#bK" x="180" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="225" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="225" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="225" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="225" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="270" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="270" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="270" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wR" x="315" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="315" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="315" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="315" y="0" width="45" height="45"/></svg>
+            <div class="demo-text"><p class="line"><span class="sr-only">Moves: </span>1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4</p><ul class="static-notes"><li>3… exd4: the first capture, a pawn on d4.</li></ul><p class="replay-summary">Material is level after 4. Nxd4.</p></div>
+          </div>
+        </div>
+        <p class="opening-links"><a href="https://www.chess.com/openings/Scotch-Game" target="_blank" rel="noopener noreferrer">Scotch on Chess.com <span aria-hidden="true">↗</span></a>
+          <button type="button" class="link-button" data-show-games="Scotch Game" hidden>Show these in recent games</button></p>
+      </article>
+
+      <article class="chess-opening" id="opening-okelly" data-opening="okelly" data-family="Sicilian Defense: O’Kelly">
+        <header class="opening-head">
+          <p class="label">03</p>
+          <h3>O’Kelly Sicilian</h3>
+          <p class="opening-moves"><code>1. e4 c5 2. Nf3 a6</code></p>
+        </header>
+        <blockquote class="said"><p>My Sicilian sideline. The early …a6 changes White’s usual options and keeps …b5 available.</p><footer class="label">Alex Crystal, from the previous version of this page</footer></blockquote>
+        <p class="opening-record" data-opening-record>How often this opening came up in recent games appears here when the page’s scripts run.</p>
+        <div class="demo">
+          <p class="demo-kicker label">Demonstration line, not a game</p>
+          <div class="demo-static" data-replay-root data-line="e4 c5 Nf3 a6" data-label="O’Kelly Sicilian demonstration line"><svg class="replay-svg" viewBox="0 0 360 360" role="img" aria-label="Position after 2… a6 in the O’Kelly Sicilian demonstration line"><rect class="sq-light" width="360" height="360"/><path class="sq-dark" d="M45 0h45v45h-45zM135 0h45v45h-45zM225 0h45v45h-45zM315 0h45v45h-45zM0 45h45v45h-45zM90 45h45v45h-45zM180 45h45v45h-45zM270 45h45v45h-45zM45 90h45v45h-45zM135 90h45v45h-45zM225 90h45v45h-45zM315 90h45v45h-45zM0 135h45v45h-45zM90 135h45v45h-45zM180 135h45v45h-45zM270 135h45v45h-45zM45 180h45v45h-45zM135 180h45v45h-45zM225 180h45v45h-45zM315 180h45v45h-45zM0 225h45v45h-45zM90 225h45v45h-45zM180 225h45v45h-45zM270 225h45v45h-45zM45 270h45v45h-45zM135 270h45v45h-45zM225 270h45v45h-45zM315 270h45v45h-45zM0 315h45v45h-45zM90 315h45v45h-45zM180 315h45v45h-45zM270 315h45v45h-45z"/><rect class="hl" x="0" y="45" width="45" height="45"/><rect class="hl" x="0" y="90" width="45" height="45"/><text class="coord coord-on-light" x="2.5" y="9.5">8</text><text class="coord coord-on-dark" x="42.5" y="357" text-anchor="end">a</text><text class="coord coord-on-dark" x="2.5" y="54.5">7</text><text class="coord coord-on-light" x="87.5" y="357" text-anchor="end">b</text><text class="coord coord-on-light" x="2.5" y="99.5">6</text><text class="coord coord-on-dark" x="132.5" y="357" text-anchor="end">c</text><text class="coord coord-on-dark" x="2.5" y="144.5">5</text><text class="coord coord-on-light" x="177.5" y="357" text-anchor="end">d</text><text class="coord coord-on-light" x="2.5" y="189.5">4</text><text class="coord coord-on-dark" x="222.5" y="357" text-anchor="end">e</text><text class="coord coord-on-dark" x="2.5" y="234.5">3</text><text class="coord coord-on-light" x="267.5" y="357" text-anchor="end">f</text><text class="coord coord-on-light" x="2.5" y="279.5">2</text><text class="coord coord-on-dark" x="312.5" y="357" text-anchor="end">g</text><text class="coord coord-on-dark" x="2.5" y="324.5">1</text><text class="coord coord-on-light" x="357.5" y="357" text-anchor="end">h</text><use href="/chess/page/pieces.svg#wR" x="0" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="0" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="0" y="90" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="0" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="45" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="45" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="45" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="45" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="90" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="90" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="90" y="135" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="90" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wQ" x="135" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="135" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="135" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bQ" x="135" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wK" x="180" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="180" y="180" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="180" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bK" x="180" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wB" x="225" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="225" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#wN" x="225" y="225" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="225" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bB" x="225" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="270" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="270" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bN" x="270" y="0" width="45" height="45"/><use href="/chess/page/pieces.svg#wR" x="315" y="315" width="45" height="45"/><use href="/chess/page/pieces.svg#wP" x="315" y="270" width="45" height="45"/><use href="/chess/page/pieces.svg#bP" x="315" y="45" width="45" height="45"/><use href="/chess/page/pieces.svg#bR" x="315" y="0" width="45" height="45"/></svg>
+            <div class="demo-text"><p class="line"><span class="sr-only">Moves: </span>1. e4 c5 2. Nf3 a6</p><p class="replay-summary">Material is level after 2… a6.</p></div>
+          </div>
+        </div>
+        <p class="opening-links"><a href="https://www.chess.com/openings/Sicilian-Defense-OKelly-Variation" target="_blank" rel="noopener noreferrer">O’Kelly Sicilian on Chess.com <span aria-hidden="true">↗</span></a>
+          <button type="button" class="link-button" data-show-games="Sicilian Defense: O’Kelly" hidden>Show these in recent games</button></p>
+      </article>
+    </div>
+    <p class="data-note">Score counts a draw as half a point. The counts cover the latest public standard games on Chess.com, so an opening that did not come up in that stretch shows none.</p>
+  </div>
+</section>
+
+<span class="frag-alias" id="recent" aria-hidden="true"></span><section id="selected-games" class="chess-section" aria-labelledby="selected-games-heading">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label">04 · Selected games</p>
+      <h2 id="selected-games-heading">Selected games</h2>
+      <p class="lede measure">Four games picked by stated rules from the latest public standard games on Chess.com. Opponents’ names are left out.</p>
+    </header>
+    <div class="data-status" data-status="games" role="status" aria-live="polite">
+      <span class="badge" data-badge data-state="static">Not loaded</span>
+      <span class="data-message" data-message>Games load from Chess.com when JavaScript is available.</span>
+      <button type="button" class="link-button" data-retry hidden>Try again</button>
+    </div>
+    <ol class="picks" data-picks aria-label="Selected games"></ol>
+    <details class="explorer" id="recent-games" data-explorer>
+      <summary><span>Recent games explorer</span><span class="label" data-explorer-count></span></summary>
+      <div class="explorer-body">
+        <p class="data-note" data-explorer-static>The explorer lists the latest public standard games with a replay board. It needs JavaScript and a reachable Chess.com. All games are on the <a href="https://www.chess.com/member/thecrystalball" target="_blank" rel="noopener noreferrer">Chess.com profile <span aria-hidden="true">↗</span></a>.</p>
+        <div class="filters" data-filters hidden></div>
+        <div class="explorer-grid">
+          <ol class="game-list" data-game-list aria-label="Recent games" hidden></ol>
+          <div class="explorer-board" data-replay-root data-label="Game replay"></div>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+</div>
+<!-- content:end -->
+<nav class="d-next" data-style="glass" aria-label="Next page">
+  <div class="art art--glass d-next-art" aria-hidden="true"><i class="art-orb art-orb--1"></i><i class="art-orb art-orb--2"></i><i class="art-orb art-orb--3"></i><i class="art-grid"></i><i class="art-streak"></i></div>
+  <div class="wrap d-next-inner">
+    <p class="label d-next-label">Next</p>
+    <a class="d-next-card" href="/athletics/athletics.html" data-expand>
+      <span class="d-next-n">02 · Glacier Glass</span>
+      <span class="d-next-title">Racing</span>
+      <span class="d-next-line">Snow, speed and clear air: the Birkebeiner, results, hiking records and a pace calculator.</span>
+      <span class="d-next-arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+</nav>
+</main>
+<section class="contact" id="contact" aria-labelledby="contact-title">
+  <div class="wrap contact-inner">
+    <h2 class="contact-title" id="contact-title">Contact</h2>
+    <ul class="contact-links" role="list">
+      <li><a href="mailto:crystal.a@northeastern.edu"><span class="label">Email</span><span class="contact-value">crystal.a@northeastern.edu</span></a></li>
+      <li><a href="https://github.com/arcrystal" target="_blank" rel="noreferrer"><span class="label">GitHub</span><span class="contact-value">arcrystal <span aria-hidden="true">↗</span></span></a></li>
+      <li><a href="https://linkedin.com/in/alex-crystal-326b5a175/" target="_blank" rel="noreferrer"><span class="label">LinkedIn</span><span class="contact-value">Alex Crystal <span aria-hidden="true">↗</span></span></a></li>
+      <li><a href="/resume/resume.html"><span class="label">Résumé</span><span class="contact-value">Read the résumé <span aria-hidden="true">→</span></span></a></li>
+    </ul>
+  </div>
+</section>
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <p class="foot-name">© <span data-year>2026</span> Alex Crystal</p>
+    <nav class="foot-nav" aria-label="Footer"><ul role="list"><li><a href="/chess/chess.html">Chess</a></li><li><a href="/athletics/athletics.html">Racing</a></li><li><a href="/coding%20projects/projects.html">Coding</a></li><li><a href="/image%20portfolio/gallery.html">Mountains</a></li><li><a href="/about/">About Me</a></li><li><a href="/resume/resume.html">Résumé</a></li></ul></nav>
+    <a class="foot-top" href="#main">Back to top <span aria-hidden="true">↑</span></a>
+  </div>
+</footer>
+<script type="application/json" id="site-data">{"registry":{"version":2,"site":"https://arcrystal.github.io","destinations":[{"id":"chess","title":"Chess","dir":"chess","url":"/chess/chess.html","style":"sumi","number":"01","next":"racing"},{"id":"racing","title":"Racing","dir":"athletics","url":"/athletics/athletics.html","style":"glass","number":"02","next":"coding"},{"id":"coding","title":"Coding","dir":"coding projects","url":"/coding%20projects/projects.html","style":"neon","number":"03","next":"mountains"},{"id":"mountains","title":"Mountains","dir":"image portfolio","url":"/image%20portfolio/gallery.html","style":"folio","number":"04","next":"about"},{"id":"about","title":"About Me","dir":"about","url":"/about/","style":"chrome","number":"05","next":"chess"}],"pages":[{"id":"home","title":"Alex Crystal","url":"/","style":"house"},{"id":"resume","title":"Résumé","url":"/resume/resume.html","style":"house"}],"nav":["chess","racing","coding","mountains","about","resume","contact"]},"styles":{"version":1,"about":"The six styles of the site: five tile styles and the neutral house style. colors are the page tokens; panel is the material of the morphing preview panel on the homepage (radii in percent of its width / height, lengths in px, angles in deg). Read by the builder (theme-color, inline data), lerp.js (the homepage blend) and tools/site/contrast.mjs.","order":["house","sumi","glass","neon","folio","chrome"],"styles":{"house":{"name":"House","scheme":"light","colors":{"bg":"#F4F2EE","surface":"#FFFFFF","ink":"#141416","mute":"#5C5C63","accent":"#1D1D22","accent2":"#A39E93","accent3":"#D9D4CA","rule":"#1414161F"},"panel":{"bg":"#FFFFFF","ink":"#141416","mute":"#5C5C63","border":"#14141620","borderW":1,"outline":"#14141600","outlineW":0,"outlineOff":0,"rh":[3,3,3,3],"rv":[2.4,2.4,2.4,2.4],"shadow":[0,24,60,0],"shadowColor":"#1414161A","blur":0,"rot":0}},"sumi":{"name":"Sumi","scheme":"light","colors":{"bg":"#F3EEE3","surface":"#FBF8F1","ink":"#1C1A17","mute":"#6B645A","accent":"#B3311A","accent2":"#2F4A6B","accent3":"#9A9389","rule":"#1C1A1729"},"panel":{"bg":"#FBF8F1","ink":"#1C1A17","mute":"#6B645A","border":"#1C1A17E6","borderW":1,"outline":"#1C1A1700","outlineW":0,"outlineOff":0,"rh":[0.4,0.4,0.4,0.4],"rv":[0.3,0.3,0.3,0.3],"shadow":[0,34,70,-10],"shadowColor":"#1C1A1733","blur":0,"rot":0}},"glass":{"name":"Glacier Glass","scheme":"light","colors":{"bg":"#E8F0F6","surface":"#FFFFFF8C","ink":"#0A1E2C","mute":"#46596A","accent":"#1767C2","accent2":"#2BD9A8","accent3":"#FF5A3C","rule":"#0A1E2C1F"},"panel":{"bg":"#FFFFFF75","ink":"#0A1E2C","mute":"#46596A","border":"#FFFFFFD9","borderW":1,"outline":"#FFFFFF00","outlineW":0,"outlineOff":0,"rh":[6,6,6,6],"rv":[4.8,4.8,4.8,4.8],"shadow":[0,30,80,0],"shadowColor":"#0A2A442E","blur":24,"rot":0}},"neon":{"name":"Neon Circuit","scheme":"dark","colors":{"bg":"#07060E","surface":"#100E1E","ink":"#ECE9FF","mute":"#9A95C2","accent":"#22E6FF","accent2":"#FF3DCB","accent3":"#C8FF4D","rule":"#22E6FF38"},"panel":{"bg":"#0A0915E6","ink":"#ECE9FF","mute":"#9A95C2","border":"#22E6FF","borderW":1,"outline":"#FF3DCB8C","outlineW":1,"outlineOff":-7,"rh":[0.8,0.8,0.8,0.8],"rv":[0.6,0.6,0.6,0.6],"shadow":[0,0,60,0],"shadowColor":"#22E6FF52","blur":8,"rot":0}},"folio":{"name":"Naturalist’s Folio","scheme":"dark","colors":{"bg":"#0F1913","surface":"#17251C","ink":"#ECE2CC","mute":"#B2AD95","accent":"#CDA562","accent2":"#7E9E6A","accent3":"#8E3A2E","rule":"#CDA56245"},"panel":{"bg":"#EEE4CE","ink":"#2A2318","mute":"#5E5440","border":"#A7834A","borderW":7,"outline":"#A7834AE6","outlineW":1,"outlineOff":-16,"rh":[0,0,0,0],"rv":[0,0,0,0],"shadow":[0,30,70,0],"shadowColor":"#0000008C","blur":0,"rot":0}},"chrome":{"name":"Liquid Chrome","scheme":"light","colors":{"bg":"#ECEBF4","surface":"#FFFFFF","ink":"#14131C","mute":"#565469","accent":"#3D2BFF","accent2":"#FF4FD8","accent3":"#4FE3FF","rule":"#14131C1F"},"panel":{"bg":"#FAFAFFE0","ink":"#14131C","mute":"#565469","border":"#FFFFFF","borderW":2,"outline":"#B7B6CC","outlineW":1,"outlineOff":5,"rh":[12,12,12,12],"rv":[9.6,9.6,9.6,9.6],"shadow":[0,30,70,0],"shadowColor":"#5A48FF40","blur":14,"rot":0}}},"contrast":[["colors.ink","colors.bg",4.5],["colors.mute","colors.bg",4.5],["colors.accent","colors.bg",4.5],["panel.ink","panel.bg",4.5,"over bg"],["panel.mute","panel.bg",4.5,"over bg"]]}}</script>
+<script type="module" src="/static/site/shell.js?v=f190704c7f"></script>
 </body>
 </html>

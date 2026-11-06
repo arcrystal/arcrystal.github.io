@@ -1,0 +1,60 @@
+{
+  "docTitle": "Mountains — Alex Crystal",
+  "description": "Mountain photographs by Alex Crystal from Patagonia, Japan and Vietnam: three place stories, a short selection and the complete 56-photograph album.",
+  "line": "A naturalist’s folio: granite, ice and cloud from Patagonia, Japan and Vietnam.",
+  "lede": "Granite and ice in Patagonia, volcanic ground and alpine valleys in Japan, karst and farmed valleys in Vietnam, and the complete album of 56 photographs.",
+  "index": [
+    [
+      "#patagonia",
+      "Patagonia"
+    ],
+    [
+      "#japan",
+      "Japan"
+    ],
+    [
+      "#vietnam",
+      "Vietnam"
+    ],
+    [
+      "#selected",
+      "Selected frames"
+    ],
+    [
+      "#top-50",
+      "The album"
+    ]
+  ],
+  "module": "page.js",
+  "styles": [
+    "page.css"
+  ],
+  "fragments": {
+    "#sources": "#stories"
+  },
+  "preview": {
+    "plates": [
+      [
+        "img/pv-torres-towers.webp",
+        420,
+        560,
+        "Plate I",
+        "Torres del Paine · Chile"
+      ],
+      [
+        "img/pv-mount-fuji.webp",
+        560,
+        350,
+        "Plate II",
+        "Mount Fuji · Japan"
+      ],
+      [
+        "img/pv-ninh-binh.webp",
+        420,
+        560,
+        "Plate III",
+        "Ninh Bình · Vietnam"
+      ]
+    ]
+  }
+}
