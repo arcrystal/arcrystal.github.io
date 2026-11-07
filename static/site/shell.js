@@ -9,12 +9,15 @@ import { createRoutes } from './lib/routes.js';
 import { createRouter } from './lib/router.js';
 import { mountChrome } from './chrome.js';
 import { createExpand } from './expand.js';
+import { getScene } from './scene/scene.js';
 
 let data = {};
 try { data = JSON.parse(document.getElementById('site-data')?.textContent || '{}'); } catch (err) { console.error(err); }
 const { registry, styles } = data;
 
 document.documentElement.classList.add('app-ready');
+// The scene canvas lives for the whole visit, outside <main>; it compiles once the page has painted.
+getScene();
 const shellScope = makeScope();
 const chrome = mountChrome({ scope: shellScope });
 const expand = createExpand({ motion });

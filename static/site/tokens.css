@@ -11,9 +11,8 @@
 @font-face { font-family: 'Cormorant'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('/static/fonts/cormorant-latin.woff2') format('woff2'); }
 @font-face { font-family: 'Cormorant'; font-style: italic; font-weight: 300 700; font-display: swap; src: url('/static/fonts/cormorant-italic-latin.woff2') format('woff2'); }
 
-/* Registered so they animate: the glass reveal's mask radius and the sumi ensō's sweep. */
+/* Registered so it animates: the glass reveal's mask radius (effects.js, without WebGL). */
 @property --xp-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
-@property --sweep { syntax: '<angle>'; inherits: false; initial-value: 360deg; }
 
 :root {
   /* Colour: neutral defaults; each style replaces them. */

@@ -1,5 +1,6 @@
-/* Neon Circuit — cyberpunk, hypermodern. Ink black with cyan, magenta and acid accents; a grid
-   floor running to a glowing horizon, scanlines, Unbounded capitals and JetBrains Mono. Coding. */
+/* Signal — hypermodern cyberpunk. Ink black with cyan and magenta, acid only for what is live; the
+   scene draws a field of dot-matrix glyphs with pulses, a scan sweep and glitch bands (the dot field
+   below stands in without WebGL). A heads-up card, Unbounded capitals and JetBrains Mono. Coding. */
 
 [data-style="neon"] {
   --c-bg: #07060E; --c-surface: #100E1E; --c-fg: #ECE9FF; --c-fg-mute: #9A95C2;
@@ -12,57 +13,81 @@
   color-scheme: dark;
 }
 
-/* ---- Art: a grid floor to a glowing horizon ------------------------------------------------ */
-.art--neon { background: radial-gradient(110% 55% at 50% 62%, #2A0F45 0%, #0C0818 48%, #07060E 75%); overflow: hidden; perspective: 520px; perspective-origin: 50% 62%; }
-.art--neon .art-sun {
-  position: absolute; left: 50%; top: 62%; width: 120vmax; height: 2px; translate: -50% -1px;
-  background: linear-gradient(90deg, transparent, #FF3DCB 30%, #22E6FF 50%, #FF3DCB 70%, transparent);
-  box-shadow: 0 0 30px 6px rgb(255 61 203 / 0.45), 0 0 120px 40px rgb(34 230 255 / 0.18);
-}
+/* ---- Art without WebGL: a dot field, scanlines and a sweep ------------------------------------ */
+.art--neon { background: radial-gradient(60% 50% at 86% 14%, rgb(34 230 255 / 0.1), transparent 70%), radial-gradient(50% 45% at 8% 94%, rgb(255 61 203 / 0.09), transparent 70%), #07060E; overflow: hidden; }
+.art--neon .art-sun { display: none; }
 .art--neon .art-floor {
-  position: absolute; left: -60%; right: -60%; top: 62%; height: 90%; transform-origin: 50% 0; transform: rotateX(76deg);
-  background-image: linear-gradient(rgb(34 230 255 / 0.6) 1.5px, transparent 1.5px), linear-gradient(90deg, rgb(255 61 203 / 0.45) 1.5px, transparent 1.5px);
-  background-size: 64px 64px;
-  -webkit-mask: linear-gradient(transparent, #000 18%, #000 70%, transparent); mask: linear-gradient(transparent, #000 18%, #000 70%, transparent);
+  position: absolute; inset: 0; background-image: radial-gradient(circle, rgb(34 230 255 / 0.32) 0 1px, transparent 1.6px); background-size: 7px 7px;
+  -webkit-mask: radial-gradient(ellipse 70% 60% at 60% 45%, #000, transparent 85%); mask: radial-gradient(ellipse 70% 60% at 60% 45%, #000, transparent 85%);
 }
-.js:not(.motion-paused) .art--neon .art-floor { animation: neon-floor 2.4s linear infinite; }
-@keyframes neon-floor { to { background-position: 0 64px; } }
 .art--neon .art-scan {
   position: absolute; inset: 0; pointer-events: none;
   background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 3px);
 }
-.art--neon .art-scan::after { content: ""; position: absolute; left: 0; right: 0; height: 18vh; background: linear-gradient(transparent, rgb(34 230 255 / 0.06), transparent); top: -20vh; }
+.art--neon .art-scan::after { content: ""; position: absolute; left: 0; right: 0; height: 18vh; background: linear-gradient(transparent, rgb(34 230 255 / 0.07), transparent); top: -20vh; }
 .js:not(.motion-paused) .art--neon .art-scan::after { animation: neon-sweep 7s linear infinite; }
 @keyframes neon-sweep { to { top: 110vh; } }
 
-/* ---- Panel ornaments: corner brackets and a status tag ---------------------------------- */
-.orn--neon > i { position: absolute; width: 18px; height: 18px; border: 0 solid #22E6FF; filter: drop-shadow(0 0 4px #22E6FF); }
-.orn--neon > i:nth-child(1) { left: -9px; top: -9px; border-width: 2px 0 0 2px; }
-.orn--neon > i:nth-child(2) { right: -9px; top: -9px; border-width: 2px 2px 0 0; }
-.orn--neon > i:nth-child(3) { right: -9px; bottom: -9px; border-width: 0 2px 2px 0; }
-.orn--neon > i:nth-child(4) { left: -9px; bottom: -9px; border-width: 0 0 2px 2px; }
-.orn--neon .orn-tag { position: absolute; right: 0; top: -26px; font: 600 0.62rem/1 'JetBrains Mono', monospace; letter-spacing: 0.14em; color: #FF3DCB; }
 .sw[data-style="neon"] > i { background: #0A0915; border: 1px solid #22E6FF; border-radius: 2px; box-shadow: 0 0 10px rgb(34 230 255 / 0.6), inset 0 0 0 3px #0A0915, inset 0 0 0 4px rgb(255 61 203 / 0.6); }
 
-/* ---- Tile ------------------------------------------------------------------------------------ */
-.tile[data-style="neon"] .tile-title, main[data-style="neon"] .d-title, .d-next[data-style="neon"] .d-next-title {
-  text-transform: uppercase; text-shadow: 0 0 28px rgb(34 230 255 / 0.45), 2px 0 0 rgb(255 61 203 / 0.7), -2px 0 0 rgb(34 230 255 / 0.7);
+/* ---- Tile: the title decodes out of glyphs, left to right; it glitches away ------------------- */
+.tile[data-style="neon"] .tile-title, main[data-style="neon"] .d-title, .d-next[data-style="neon"] .d-next-title { text-transform: uppercase; }
+.d-next[data-style="neon"] .d-next-title { text-shadow: 0 0 28px rgb(34 230 255 / 0.45), 2px 0 0 rgb(255 61 203 / 0.7), -2px 0 0 rgb(34 230 255 / 0.7); }
+.tile[data-style="neon"] .ch, main[data-style="neon"] .d-title .ch {
+  position: relative;
+  --real: clamp(0, (var(--ci) - 0.62) * 40, 1);
+  color: rgb(236 233 255 / var(--real));
+  text-shadow: 0 0 28px rgb(34 230 255 / calc(0.45 * var(--real))), calc(2px + var(--sp, 0px)) 0 0 rgb(255 61 203 / calc(0.7 * var(--real))), calc(-2px - var(--sp, 0px)) 0 0 rgb(34 230 255 / calc(0.7 * var(--real)));
+  --sp: calc(var(--v, 0) * 3px);
+  translate: calc(var(--co) * var(--r) * 0.6em) 0;
+  opacity: calc(1 - clamp(0, var(--co) * 1.5 - 0.3, 1));
+}
+.tile[data-style="neon"] .ch::before, main[data-style="neon"] .d-title .ch::before {
+  content: attr(data-g); position: absolute; inset: 0; text-align: center; color: #22E6FF;
+  opacity: calc(clamp(0, var(--ci) * 30, 1) * (1 - var(--real)));
 }
 .tile[data-style="neon"] .tile-num { color: #C8FF4D; }
 .tile[data-style="neon"] .tile-num::before { content: "//"; color: #FF3DCB; }
 .tile[data-style="neon"] .tile-cta { font-family: var(--font-label); text-transform: uppercase; letter-spacing: 0.12em; }
-.js:not(.motion-paused) .tile[data-style="neon"].is-active .tile-title { animation: neon-flicker 700ms steps(1, end) both; }
-@keyframes neon-flicker { 0% { opacity: 0; } 10% { opacity: 1; } 18% { opacity: 0.2; } 26% { opacity: 1; } 40% { opacity: 0.55; } 48%, 100% { opacity: 1; } }
+
+/* ---- Card: a heads-up frame. It prints in from the top behind a scan line; it collapses to a line,
+   then a point, like a screen switching off. ---------------------------------------------------- */
+.tile[data-style="neon"] .tile-card {
+  background: rgb(7 6 14 / 0.84); border: 1px solid rgb(34 230 255 / 0.55); border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(255 61 203 / 0.18), 0 0 70px -12px rgb(34 230 255 / 0.4);
+  clip-path: inset(0 0 calc((1 - var(--cin)) * 100%) 0);
+  transform: scaleY(calc(1 - clamp(0, var(--cout) * 1.9, 1) * 0.985)) scaleX(calc(1 - clamp(0, var(--cout) * 2.6 - 1.4, 1) * 0.98));
+  opacity: calc(1 - clamp(0, var(--cout) * 4 - 3, 1));
+}
+.tile[data-style="neon"] .tile-card::before {
+  content: ""; position: absolute; inset: 7px; z-index: 2; pointer-events: none;
+  --b: linear-gradient(#22E6FF, #22E6FF);
+  background: var(--b) top left / 16px 2px no-repeat, var(--b) top left / 2px 16px no-repeat, var(--b) top right / 16px 2px no-repeat, var(--b) top right / 2px 16px no-repeat,
+    var(--b) bottom left / 16px 2px no-repeat, var(--b) bottom left / 2px 16px no-repeat, var(--b) bottom right / 16px 2px no-repeat, var(--b) bottom right / 2px 16px no-repeat;
+  filter: drop-shadow(0 0 4px #22E6FF);
+}
+.tile[data-style="neon"] .tile-card::after {
+  content: ""; position: absolute; left: 0; right: 0; top: calc(var(--cin) * 100% - 2px); height: 2px; z-index: 3; pointer-events: none;
+  background: #E9FDFF; box-shadow: 0 0 14px 3px rgb(34 230 255 / 0.85);
+  opacity: clamp(0, (1 - var(--cin)) * 30, 1);
+}
 
 /* ---- Preview: a terminal over the AI Power Map --------------------------------------------- */
-.pv--code { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; padding-bottom: 7%; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: clamp(0.6rem, 0.48rem + 0.36vw, 0.8rem); line-height: 1.5; }
-.pv--code .pv-bar { display: flex; align-items: center; gap: 7px; padding: 4.2% 6%; border-bottom: 1px solid rgb(34 230 255 / 0.25); color: var(--p-mute); }
+.pv--code .pv-hud { display: flex; justify-content: space-between; padding: 4.6% 7% 0; font: 600 0.6rem/1 'JetBrains Mono', monospace; letter-spacing: 0.14em; color: #FF3DCB; }
+.pv--code .pv-rec { color: #C8FF4D; }
+.js:not(.motion-paused) .tile.is-active .pv--code .pv-rec { animation: neon-caret 1.4s steps(1) infinite; }
+.pv--code { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; padding-bottom: 7%; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: clamp(0.6rem, 0.48rem + 0.36vw, 0.8rem); line-height: 1.5; }
+.pv--code .pv-bar { display: flex; align-items: center; gap: 7px; padding: 4.2% 6%; border-bottom: 1px solid rgb(34 230 255 / 0.25); color: var(--c-fg-mute); }
 .pv--code .pv-bar i { width: 8px; height: 8px; border-radius: 50%; background: #FF3DCB; flex: none; }
 .pv--code .pv-bar i:nth-child(2) { background: #C8FF4D; }
 .pv--code .pv-bar i:nth-child(3) { background: #22E6FF; }
 .pv--code .pv-bar span { margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pv--code .pv-shot { position: relative; min-height: 0; margin: 6% 6% 0; border: 1px solid rgb(34 230 255 / 0.4); overflow: hidden; background: #0A0915; }
 .pv--code .pv-shot img { width: 100%; height: 100%; object-fit: cover; object-position: top left; filter: saturate(0.6) contrast(1.08) brightness(0.92); }
+/* The screenshot resolves under a scan when its tile arrives. */
+.pv--code .pv-shot::before { content: ""; position: absolute; inset: 0; z-index: 1; background: repeating-linear-gradient(to bottom, #0A0915 0 2px, #12102A 2px 4px); transform-origin: 50% 100%; transform: scaleY(0); }
+.js:not(.motion-paused) .tile.is-active .pv--code .pv-shot::before { animation: neon-resolve 900ms 150ms cubic-bezier(0.6, 0, 0.3, 1) backwards; }
+@keyframes neon-resolve { from { transform: scaleY(1); } to { transform: scaleY(0); } }
 .pv--code .pv-shot::after {
   content: ""; position: absolute; inset: 0;
   background: repeating-linear-gradient(to bottom, rgb(7 6 14 / 0.18) 0 1px, transparent 1px 3px), linear-gradient(140deg, rgb(255 61 203 / 0.28), rgb(34 230 255 / 0.22) 60%, rgb(7 6 14 / 0.6));
@@ -71,7 +96,7 @@
 .pv--code .pv-prompt { margin: 5% 6% 2%; color: #ECE9FF; white-space: nowrap; }
 .pv--code .pv-ps { color: #C8FF4D; }
 .pv--code .pv-caret { display: inline-block; width: 0.6em; height: 1.1em; margin-left: 2px; vertical-align: -0.18em; background: #22E6FF; box-shadow: 0 0 8px #22E6FF; }
-.js:not(.motion-paused) .pv--code .pv-caret { animation: neon-caret 1s steps(1) infinite; }
+.js:not(.motion-paused) .tile.is-active .pv--code .pv-caret { animation: neon-caret 1s steps(1) infinite; }
 @keyframes neon-caret { 50% { opacity: 0; } }
 .pv--code .pv-ls { display: grid; gap: 3px; margin: 0 6%; padding: 0; }
 .pv--code .pv-ls li { display: grid; grid-template-columns: 2.6ch minmax(0, auto) minmax(0, 1fr); gap: 1.4ch; white-space: nowrap; }
@@ -81,7 +106,7 @@
 .pv--code.is-armed:not(.is-typed) .pv-ls li { opacity: 0; translate: -8px 0; transition-delay: 0ms; }
 .pv--code .pv-n { color: #FF3DCB; }
 .pv--code .pv-k { color: #22E6FF; }
-.pv--code .pv-v { color: var(--p-mute); overflow: hidden; text-overflow: ellipsis; }
+.pv--code .pv-v { color: var(--c-fg-mute); overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- Destination hero ------------------------------------------------------------------------ */
 main[data-style="neon"] .d-title { font-size: clamp(3rem, 0.8rem + 9vw, 10rem); }
@@ -93,17 +118,13 @@ main[data-style="neon"] .d-index a {
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 main[data-style="neon"] .d-index a:hover { background: rgb(34 230 255 / 0.14); color: #fff; }
-.backdrops .art--neon { perspective-origin: 50% 76%; }
-.backdrops .art--neon .art-floor, .backdrops .art--neon .art-sun { top: 76%; }
-main[data-style="neon"] .d-hero .art--neon { perspective-origin: 50% 70%; }
-main[data-style="neon"] .d-hero .art--neon .art-floor, main[data-style="neon"] .d-hero .art--neon .art-sun { top: 70%; }
 main[data-style="neon"] .d-content h2 { font-family: var(--font-display); font-weight: 650; letter-spacing: -0.02em; }
 main[data-style="neon"] .d-content .label { font-family: var(--font-label); color: #22E6FF; }
 
 .d-next[data-style="neon"] .d-next-card { background: rgb(10 9 21 / 0.88); border: 1px solid #22E6FF; border-radius: 2px; box-shadow: 0 0 60px rgb(34 230 255 / 0.25), inset 0 0 0 4px #0A0915, inset 0 0 0 5px rgb(255 61 203 / 0.45); }
 .d-next[data-style="neon"] .d-next-n { color: #C8FF4D; }
 
-/* ---- Expand: signal lock --------------------------------------------------------------------- */
+/* ---- Expand without WebGL: signal lock --------------------------------------------------------------------- */
 .xp-trace { inset: 0; width: 100%; height: 100%; fill: none; }
 .xp-trace rect { stroke-width: 2; }
 .xp-trace .c { stroke: #22E6FF; filter: drop-shadow(0 0 6px #22E6FF); }

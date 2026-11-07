@@ -1,4 +1,4 @@
-/* Chess page, in Sumi (static/site/styles/sumi.css): washi, sumi ink and one vermilion. Everything
+/* Chess page, in Ink & Mist (static/site/styles/ink.css): warm paper, ink and one indigo. Everything
    is scoped under [data-destination="chess"] and uses the shared tokens. */
 [data-destination="chess"] {
   --chess-light: #F7F2E8;          /* paper square */
@@ -188,7 +188,7 @@
   grid-template-columns: 6.5rem 3.6rem minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline;
 }
 [data-destination="chess"] button.game-row:hover { background: var(--chess-hover); }
-[data-destination="chess"] .game-row[aria-current="true"] { background: rgb(179 49 26 / 0.1); box-shadow: inset 3px 0 0 var(--c-accent); }
+[data-destination="chess"] .game-row[aria-current="true"] { background: rgb(47 74 107 / 0.1); box-shadow: inset 3px 0 0 var(--c-accent); }
 [data-destination="chess"] .g-date { color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
 [data-destination="chess"] .g-res { font-weight: var(--w-bold); }
 [data-destination="chess"] .g-res[data-result="loss"] { color: var(--c-fg-mute); }

@@ -69,8 +69,11 @@ function playChess(pv) {
     pieces.innerHTML = frag.join('');
     marks.innerHTML = '';
   };
+  // The move's squares take an indigo wash; where the piece lands, a drop of ink blooms.
   const mark = (from, to) => {
-    marks.innerHTML = [from, to].map(sq => { const [x, y] = at(sq); return `<rect class="pv-hl" x="${x}" y="${y}" width="45" height="45"/>`; }).join('');
+    const [dx, dy] = at(to);
+    marks.innerHTML = [from, to].map(sq => { const [x, y] = at(sq); return `<rect class="pv-hl" x="${x}" y="${y}" width="45" height="45"/>`; }).join('')
+      + `<circle class="pv-drop" cx="${dx + 22.5}" cy="${dy + 22.5}" r="16"/>`;
   };
 
   (async () => {
@@ -100,21 +103,27 @@ function playChess(pv) {
 }
 
 // Live ratings, read once per visit when the stage comes into view; the Chess page's saved copy
-// fills in when Chess.com cannot be reached. Without either, the dashes stay.
+// fills in when Chess.com cannot be reached. Without either, a line points to Chess.com.
 async function loadRatings(stage, scope) {
   const cells = Object.fromEntries(MODES.map(m => [m, stage.querySelector(`[data-rating="${m}"]`)]));
   if (!cells.rapid) return;
-  const show = ratings => MODES.forEach(m => { if (ratings[m] != null && cells[m]) cells[m].textContent = String(ratings[m]); });
+  const list = stage.querySelector('[data-ratings]');
+  let shown = false;
+  const show = ratings => MODES.forEach(m => { if (ratings[m] != null && cells[m]) { cells[m].textContent = String(ratings[m]); shown = true; } });
+  // Neither Chess.com nor a saved copy: say where the live ratings are instead of showing dashes.
+  const settle = () => { if (!shown) list?.classList.add('is-offline'); };
   try {
     const saved = JSON.parse(localStorage.getItem(SAVED) || 'null');
     if (saved?.data?.modes) show(Object.fromEntries(MODES.map(m => [m, saved.data.modes[m]?.rating ?? null])));
   } catch (_) { /* no saved copy */ }
   try {
     const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(ACCOUNT)}/stats`, { signal: scope.signal });
-    if (!res.ok) return;
-    const json = await res.json();
-    show(Object.fromEntries(MODES.map(m => [m, Number.isFinite(json?.[`chess_${m}`]?.last?.rating) ? json[`chess_${m}`].last.rating : null])));
+    if (res.ok) {
+      const json = await res.json();
+      show(Object.fromEntries(MODES.map(m => [m, Number.isFinite(json?.[`chess_${m}`]?.last?.rating) ? json[`chess_${m}`].last.rating : null])));
+    }
   } catch (_) { /* offline or blocked: keep what shows */ }
+  if (!scope.disposed) settle();
 }
 
 // ---- Racing: the official time counts up --------------------------------------------------------

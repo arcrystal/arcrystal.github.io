@@ -1,4 +1,5 @@
 // Click to expand. Plugs into the router as travel / beforeSwap / afterSwap / status:
+//   The scene (scene/scene.js) draws the effect where WebGL is ready; effects.js stands in otherwise.
 //   1. A click on a tile (or a next-page card, or any link to a destination) starts the fetch and,
 //      at the same time, the destination style's effect from the element's rectangle.
 //   2. The router swaps the page in once the effect covers the viewport (beforeSwap).
@@ -6,6 +7,7 @@
 // Back to the homepage folds the page back into its tile; other history steps, links to the
 // house pages and reduced motion use a plain fade in the destination's colour.
 import { open } from './effects.js';
+import { getScene } from './scene/scene.js';
 
 export function createExpand({ motion }) {
   const root = document.documentElement;
@@ -25,10 +27,12 @@ export function createExpand({ motion }) {
     }, { capture: true });
   }
 
+  const cardOf = link => link?.closest('.tile')?.querySelector('.tile-card') || link?.closest('.d-next-card') || link || null;
+
   function originRect(link, vw, vh) {
     let r = null;
-    if (link?.closest('.tile')) r = document.querySelector('.stage-frame .panel')?.getBoundingClientRect();
-    else if (link) r = (link.closest('.d-next-card') || link).getBoundingClientRect();
+    const el = cardOf(link);
+    if (el) r = el.getBoundingClientRect();
     if (!r || r.width < 2 || r.bottom < 0 || r.top > vh) {
       const w = Math.min(vw * 0.3, 280), h = w * 1.25;
       r = { left: (vw - w) / 2, top: (vh - h) / 2, width: w, height: h };
@@ -56,7 +60,12 @@ export function createExpand({ motion }) {
     const at = point || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     point = null;
     if (current) { current.cancel(); finish(current); }
-    const run = open(kind, { rect, point: at, vw, vh, from, to });
+    const scene = getScene();
+    const el = cardOf(link);
+    const cardR = el ? parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0 : 24;
+    const run = scene?.ready && kind !== 'fade'
+      ? scene.open(kind, { rect, point: at, from, cardR })
+      : open(kind, { rect, point: at, vw, vh, from, to });
     current = run;
     runs.set(intent, run);
     root.dataset.xp = kind;
@@ -77,7 +86,8 @@ export function createExpand({ motion }) {
     const run = runs.get(intent);
     if (!run) return;
     runs.delete(intent);
-    await run.reveal({ panelRect: () => document.querySelector('.stage-frame .panel')?.getBoundingClientRect() || null });
+    const card = () => document.querySelector('.tile.is-active .tile-card');
+    await run.reveal({ card, panelRect: () => card()?.getBoundingClientRect() || null });
     finish(run);
   }
 

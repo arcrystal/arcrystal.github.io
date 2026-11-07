@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "about": "The six styles of the site: five tile styles and the neutral house style. colors are the page tokens; panel is the material of the morphing preview panel on the homepage (radii in percent of its width / height, lengths in px, angles in deg). Read by the builder (theme-color, inline data), lerp.js (the homepage blend) and tools/site/contrast.mjs.",
+  "about": "The six styles of the site: five tile styles and the neutral house style. colors are the page tokens; scene is the style's id in the WebGL scene (static/site/scene). Read by the builder (theme-color, inline data), the homepage (header and rail inks), and tools/site/contrast.mjs.",
   "order": [
     "house",
-    "sumi",
+    "ink",
     "glass",
     "neon",
     "folio",
@@ -23,85 +23,25 @@
         "accent3": "#D9D4CA",
         "rule": "#1414161F"
       },
-      "panel": {
-        "bg": "#FFFFFF",
-        "ink": "#141416",
-        "mute": "#5C5C63",
-        "border": "#14141620",
-        "borderW": 1,
-        "outline": "#14141600",
-        "outlineW": 0,
-        "outlineOff": 0,
-        "rh": [
-          3,
-          3,
-          3,
-          3
-        ],
-        "rv": [
-          2.4,
-          2.4,
-          2.4,
-          2.4
-        ],
-        "shadow": [
-          0,
-          24,
-          60,
-          0
-        ],
-        "shadowColor": "#1414161A",
-        "blur": 0,
-        "rot": 0
-      }
+      "scene": 0
     },
-    "sumi": {
-      "name": "Sumi",
+    "ink": {
+      "name": "Ink & Mist",
       "scheme": "light",
       "colors": {
         "bg": "#F3EEE3",
         "surface": "#FBF8F1",
         "ink": "#1C1A17",
         "mute": "#6B645A",
-        "accent": "#B3311A",
-        "accent2": "#2F4A6B",
+        "accent": "#2F4A6B",
+        "accent2": "#8E877C",
         "accent3": "#9A9389",
         "rule": "#1C1A1729"
       },
-      "panel": {
-        "bg": "#FBF8F1",
-        "ink": "#1C1A17",
-        "mute": "#6B645A",
-        "border": "#1C1A17E6",
-        "borderW": 1,
-        "outline": "#1C1A1700",
-        "outlineW": 0,
-        "outlineOff": 0,
-        "rh": [
-          0.4,
-          0.4,
-          0.4,
-          0.4
-        ],
-        "rv": [
-          0.3,
-          0.3,
-          0.3,
-          0.3
-        ],
-        "shadow": [
-          0,
-          34,
-          70,
-          -10
-        ],
-        "shadowColor": "#1C1A1733",
-        "blur": 0,
-        "rot": 0
-      }
+      "scene": 1
     },
     "glass": {
-      "name": "Glacier Glass",
+      "name": "Glacier",
       "scheme": "light",
       "colors": {
         "bg": "#E8F0F6",
@@ -113,40 +53,10 @@
         "accent3": "#FF5A3C",
         "rule": "#0A1E2C1F"
       },
-      "panel": {
-        "bg": "#FFFFFF75",
-        "ink": "#0A1E2C",
-        "mute": "#46596A",
-        "border": "#FFFFFFD9",
-        "borderW": 1,
-        "outline": "#FFFFFF00",
-        "outlineW": 0,
-        "outlineOff": 0,
-        "rh": [
-          6,
-          6,
-          6,
-          6
-        ],
-        "rv": [
-          4.8,
-          4.8,
-          4.8,
-          4.8
-        ],
-        "shadow": [
-          0,
-          30,
-          80,
-          0
-        ],
-        "shadowColor": "#0A2A442E",
-        "blur": 24,
-        "rot": 0
-      }
+      "scene": 2
     },
     "neon": {
-      "name": "Neon Circuit",
+      "name": "Signal",
       "scheme": "dark",
       "colors": {
         "bg": "#07060E",
@@ -158,37 +68,7 @@
         "accent3": "#C8FF4D",
         "rule": "#22E6FF38"
       },
-      "panel": {
-        "bg": "#0A0915E6",
-        "ink": "#ECE9FF",
-        "mute": "#9A95C2",
-        "border": "#22E6FF",
-        "borderW": 1,
-        "outline": "#FF3DCB8C",
-        "outlineW": 1,
-        "outlineOff": -7,
-        "rh": [
-          0.8,
-          0.8,
-          0.8,
-          0.8
-        ],
-        "rv": [
-          0.6,
-          0.6,
-          0.6,
-          0.6
-        ],
-        "shadow": [
-          0,
-          0,
-          60,
-          0
-        ],
-        "shadowColor": "#22E6FF52",
-        "blur": 8,
-        "rot": 0
-      }
+      "scene": 3
     },
     "folio": {
       "name": "Naturalist’s Folio",
@@ -203,37 +83,7 @@
         "accent3": "#8E3A2E",
         "rule": "#CDA56245"
       },
-      "panel": {
-        "bg": "#EEE4CE",
-        "ink": "#2A2318",
-        "mute": "#5E5440",
-        "border": "#A7834A",
-        "borderW": 7,
-        "outline": "#A7834AE6",
-        "outlineW": 1,
-        "outlineOff": -16,
-        "rh": [
-          0,
-          0,
-          0,
-          0
-        ],
-        "rv": [
-          0,
-          0,
-          0,
-          0
-        ],
-        "shadow": [
-          0,
-          30,
-          70,
-          0
-        ],
-        "shadowColor": "#0000008C",
-        "blur": 0,
-        "rot": 0
-      }
+      "scene": 4
     },
     "chrome": {
       "name": "Liquid Chrome",
@@ -248,37 +98,7 @@
         "accent3": "#4FE3FF",
         "rule": "#14131C1F"
       },
-      "panel": {
-        "bg": "#FAFAFFE0",
-        "ink": "#14131C",
-        "mute": "#565469",
-        "border": "#FFFFFF",
-        "borderW": 2,
-        "outline": "#B7B6CC",
-        "outlineW": 1,
-        "outlineOff": 5,
-        "rh": [
-          12,
-          12,
-          12,
-          12
-        ],
-        "rv": [
-          9.6,
-          9.6,
-          9.6,
-          9.6
-        ],
-        "shadow": [
-          0,
-          30,
-          70,
-          0
-        ],
-        "shadowColor": "#5A48FF40",
-        "blur": 14,
-        "rot": 0
-      }
+      "scene": 5
     }
   },
   "contrast": [
@@ -298,14 +118,14 @@
       4.5
     ],
     [
-      "panel.ink",
-      "panel.bg",
+      "colors.ink",
+      "colors.surface",
       4.5,
       "over bg"
     ],
     [
-      "panel.mute",
-      "panel.bg",
+      "colors.mute",
+      "colors.surface",
       4.5,
       "over bg"
     ]

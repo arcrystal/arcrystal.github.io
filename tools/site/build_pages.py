@@ -299,35 +299,8 @@ def ridge(width, base, amp, seed, step=16):
     return f'M0 {base + 400}L' + 'L'.join(pts) + f'L{width} {base + 400}Z'
 
 
-def enso(cx=100, cy=100, r=70, sweep=332, start=212, w0=22, w1=3.5, steps=120):
-    """An ensō: one brush circle, heavy where the brush lands and dry and thin where it lifts."""
-    outer, inner = [], []
-    for i in range(steps + 1):
-        t = i / steps
-        a = math.radians(start + sweep * t)
-        w = (w0 * (1 - t) ** 0.7 + w1 * t) * (1 + 0.08 * math.sin(t * 23))
-        rr = r * (1 + 0.025 * math.sin(t * 5.3 + 1))
-        outer.append((cx + (rr + w / 2) * math.cos(a), cy + (rr + w / 2) * math.sin(a)))
-        inner.append((cx + (rr - w / 2) * math.cos(a), cy + (rr - w / 2) * math.sin(a)))
-    return 'M' + 'L'.join(f'{f1(x)} {f1(y)}' for x, y in outer + inner[::-1]) + 'Z'
-
-
-ENSO_D = enso()
-# The seal (hanko): 王, the king, cut in vermilion inside a border.
-SEAL = ('<svg class="seal" viewBox="0 0 40 40" aria-hidden="true"><rect x="1.5" y="1.5" width="37" height="37" rx="2.5" fill="#B3311A"/>'
-        '<g fill="#FBF8F1"><path d="M8.6 9.2h22.6l-.3 3.4H8.9z"/><path d="M11 18.4h18l-.2 3.3H11.2z"/><path d="M7.4 28.2h25.4l-.4 3.7H7.6z"/>'
-        '<path d="M18.3 9.4h3.6l-.2 20.4h-3.5z"/></g><rect x="4.2" y="4.2" width="31.6" height="31.6" rx="1.2" fill="none" stroke="#FBF8F1" stroke-width="1.3"/></svg>')
-
-
-def enso_svg(cls):
-    f = uid('dry')
-    return (f'<svg class="{cls}" viewBox="0 0 200 200" aria-hidden="true"><filter id="{f}" x="-10%" y="-10%" width="120%" height="120%">'
-            f'<feTurbulence type="fractalNoise" baseFrequency="0.7 0.035" numOctaves="2" seed="5" result="n"/>'
-            f'<feDisplacementMap in="SourceGraphic" in2="n" scale="2.6"/></filter><path d="{ENSO_D}" filter="url(#{f})"/></svg>')
-
-
-def sumi_art():
-    """Washi, a red sun and ink-wash ridges fading into mist; the hero adds an ensō and the seal."""
+def ink_art():
+    """Ink-wash ridges fading into mist on plain paper (the CSS stand-in for the Ink & Mist scene)."""
     layers = [(170, 90, 1.2, 0.10), (250, 120, 2.9, 0.16), (330, 110, 4.4, 0.26), (420, 90, 0.7, 0.42)]
     defs, paths = [], []
     for base, amp, seed, alpha in layers:
@@ -335,9 +308,8 @@ def sumi_art():
         defs.append(f'<linearGradient id="{g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1C1A17" stop-opacity="{alpha}"/>'
                     f'<stop offset=".55" stop-color="#1C1A17" stop-opacity="0"/></linearGradient>')
         paths.append(f'<path d="{ridge(1600, base, amp, seed)}" fill="url(#{g})"/>')
-    mist = (f'<svg class="art-mist" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMax slice"><defs>{"".join(defs)}</defs>'
-            f'<circle class="art-sun" cx="1180" cy="150" r="54"/>{"".join(paths)}</svg>')
-    return f'<i class="art-washi"></i>\n{mist}\n{enso_svg("art-enso")}<span class="art-seal">{SEAL}</span>'
+    return (f'<svg class="art-mist" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMax slice"><defs>{"".join(defs)}</defs>'
+            f'{"".join(paths)}</svg>')
 
 
 def glass_art():
@@ -395,23 +367,44 @@ def chrome_art():
     return f'<i class="art-iris"></i>{blobs}{sparks}'
 
 
-ART = {'sumi': sumi_art, 'glass': glass_art, 'neon': neon_art, 'folio': folio_art, 'chrome': chrome_art}
+ART = {'ink': ink_art, 'glass': glass_art, 'neon': neon_art, 'folio': folio_art, 'chrome': chrome_art}
 
-# Filigree corner for the folio frame: a bracket, an inner line, a bead and a curl with a leaf.
-FILIGREE = ('<svg viewBox="0 0 64 64"><path d="M3 62V16Q3 3 16 3H62"/><path d="M9 62V21Q9 9 21 9H62"/>'
-            '<circle cx="16.5" cy="16.5" r="3.2"/><path d="M22 22C34 23 38 33 31 37C25 40 21 33 27 31"/>'
-            '<path d="M40 9C44 14 50 14 54 9M9 40C14 44 14 50 9 54"/></svg>')
-def panel_frame():
-    corners = ''.join(f'<i class="orn-corner orn-corner--{c}">{FILIGREE}</i>' for c in ('tl', 'tr', 'br', 'bl'))
-    return f'''<div class="panel" aria-hidden="true" data-panel>
-  <div class="orn orn--sumi orn--behind">{enso_svg('orn-enso')}</div>
-  <div class="panel-surface"></div>
-  <div class="orn orn--sumi"><svg class="orn-cord" viewBox="0 0 100 30"><path d="M6 29L50 3L94 29"/><circle cx="50" cy="3" r="2.6"/></svg><i class="orn-rod orn-rod--top"></i><i class="orn-rod orn-rod--bottom"></i><span class="orn-seal">{SEAL}</span></div>
-  <div class="orn orn--glass"><i class="orn-spec"></i></div>
-  <div class="orn orn--neon"><i></i><i></i><i></i><i></i><span class="orn-tag">SYS.03 // LIVE</span></div>
-  <div class="orn orn--folio">{corners}</div>
-  <div class="orn orn--chrome"><i class="orn-sheen"></i><i class="orn-gloss"></i><i class="orn-spark orn-spark--1"></i><i class="orn-spark orn-spark--2"></i><i class="orn-spark orn-spark--3"></i></div>
-</div>'''
+GLYPHS = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&*+<>/=\\'
+
+
+def letters(text):
+    """A title as one span per letter (--i, a jitter --r and a decoy glyph for the Signal decode),
+    for the per-letter choreography. Screen readers get the real text from a visually hidden copy."""
+    i, words = 0, []
+    for word in text.split(' '):
+        chars = []
+        for ch in word:
+            r = ((i * 7919 + 3) % 13) / 6 - 1
+            chars.append(f'<span class="ch" style="--i:{i};--r:{r:.2f}" data-g="{esc(GLYPHS[(i * 11 + len(text)) % len(GLYPHS)])}">{esc(ch)}</span>')
+            i += 1
+        words.append(f'<span class="w">{"".join(chars)}</span>')
+    return f'<span class="sr-only">{esc(text)}</span><span class="tt" aria-hidden="true" style="--n:{max(i, 1)}">{" ".join(words)}</span>'
+
+
+# The facets' colours in the crystal's stand-in, in tile order (Ink, Glacier, Signal, Folio, Chrome).
+FACETS = [('#F3EEE3', '#8E877C'), ('#F4F9FC', '#7DBBF0'), ('#07060E', '#22E6FF'), ('#0F1913', '#CDA562'), ('#FFFFFF', '#8E91A6')]
+
+
+def crystal_svg():
+    """The homepage crystal as a still: until the scene draws it, and wherever WebGL is missing."""
+    def pt(k, r):
+        a = math.radians(72 * k)
+        return f'{f1(100 + r * math.sin(a))},{f1(100 - r * math.cos(a))}'
+    grads, faces = [], []
+    for k, (c0, c1) in enumerate(FACETS):
+        g = f'cf{k}'
+        grads.append(f'<linearGradient id="{g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{c0}"/><stop offset="1" stop-color="{c1}"/></linearGradient>')
+        faces.append(f'<polygon points="{pt(k, 42)} {pt(k, 100)} {pt(k + 1, 100)} {pt(k + 1, 42)}" fill="url(#{g})"/>')
+    table = ' '.join(pt(k, 42) for k in range(5))
+    outline = ' '.join(pt(k, 100) for k in range(5))
+    return (f'<svg class="crystal-still" viewBox="0 0 200 200" aria-hidden="true"><defs>{"".join(grads)}</defs>{"".join(faces)}'
+            f'<polygon points="{table}" fill="#FBFAF8"/><g fill="none" stroke="#fff" stroke-width="0.8"><polygon points="{outline}"/>'
+            f'<polygon points="{table}"/>{"".join(f'<line x1="{pt(k, 42).split(",")[0]}" y1="{pt(k, 42).split(",")[1]}" x2="{pt(k, 100).split(",")[0]}" y2="{pt(k, 100).split(",")[1]}"/>' for k in range(5))}</g></svg>')
 
 
 # ---- previews (homepage panel content, real content only) ------------------------------------------
@@ -438,8 +431,12 @@ def board_svg(fen, last=(), cls='pv-board'):
             code = ('w' if ch.isupper() else 'b') + ch.upper()
             pieces.append(f'<use href="#{code}" width="45" height="45" transform="translate({c * 45} {r * 45})" data-sq="{FILES[c]}{8 - r}"/>')
             c += 1
-    return (f'<svg class="{cls}" viewBox="0 0 360 360" aria-hidden="true"><rect class="pv-sq-light" width="360" height="360"/>'
-            f'<path class="pv-sq-dark" d="{"".join(squares)}"/><g data-marks>{"".join(marks)}</g><g data-pieces>{"".join(pieces)}</g></svg>')
+    # The dark squares and the edge are brushed: a little displacement makes the wash uneven.
+    return (f'<svg class="{cls}" viewBox="0 0 360 360" aria-hidden="true"><defs><filter id="pv-wash" x="-4%" y="-4%" width="108%" height="108%">'
+            f'<feTurbulence type="fractalNoise" baseFrequency="0.055" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="3.5"/></filter></defs>'
+            f'<rect class="pv-sq-light" width="360" height="360"/><path class="pv-sq-dark" d="{"".join(squares)}" filter="url(#pv-wash)"/>'
+            f'<rect class="pv-edge" x="1" y="1" width="358" height="358" filter="url(#pv-wash)"/>'
+            f'<g data-marks>{"".join(marks)}</g><g data-pieces>{"".join(pieces)}</g></svg>')
 
 
 def preview_chess(pkg):
@@ -521,12 +518,12 @@ def tile(pkg, i):
     return f'''<article class="tile" id="t-{pkg.id}" data-tile="{i}" data-style="{pkg.style}" aria-labelledby="t-{pkg.id}-title">
   <div class="tile-text">
     <p class="tile-num"><span class="tile-n">{reg['number']}</span><span class="tile-style">{esc(st['name'])}</span></p>
-    <h2 class="tile-title" id="t-{pkg.id}-title"><a class="tile-link" href="{reg['url']}" data-expand>{esc(reg['title'])}</a></h2>
+    <h2 class="tile-title" id="t-{pkg.id}-title"><a class="tile-link" href="{reg['url']}" data-expand>{letters(reg['title'])}</a></h2>
     <p class="tile-line">{esc(pkg.meta['line'])}</p>
     <p class="tile-cta" aria-hidden="true"><span>Open</span><span class="tile-arrow">→</span></p>
   </div>
   <div class="tile-stage">
-    <a class="tile-preview" href="{reg['url']}" tabindex="-1" aria-hidden="true" data-expand>
+    <a class="tile-card" href="{reg['url']}" tabindex="-1" aria-hidden="true" data-expand>
 {PREVIEW[pkg.id](pkg)}
     </a>
   </div>
@@ -553,6 +550,7 @@ def home_page(packages):
     <p class="hero-lede">{esc(HOME_LEDE)}</p>
     <ol class="hero-index" role="list" aria-label="The five pages">{index}</ol>
   </div>
+  <div class="crystal" aria-hidden="true">{crystal_svg()}</div>
   <p class="hero-cue" aria-hidden="true"><span>Scroll</span><i></i></p>
 </section>
 <!-- Old homepage fragments land on the tiles. -->
@@ -564,14 +562,13 @@ def home_page(packages):
     <div class="backdrops" aria-hidden="true">
 {backdrops}
     </div>
-    <div class="stage-frame" aria-hidden="true"><div class="tile-stage">{panel_frame()}</div></div>
     <div class="tiles">
 {tiles}
     </div>
     <nav class="rail" aria-label="Tiles"><ol role="list">{rail}</ol></nav>
     <p class="stage-count" aria-hidden="true"><span data-count-now>01</span> / 05</p>
   </div>
-  <div class="stage-stops" aria-hidden="true">{''.join(f'<i id="tile-{d["id"]}"></i>' for d in DESTS)}</div>
+  <div class="stage-stops" aria-hidden="true">{''.join(f'<i id="tile-{d["id"]}" style="--k:{k}"></i>' for k, d in enumerate(DESTS))}</div>
 </section>'''
     return page(title='Alex Crystal', description=HOME_DESCRIPTION, canonical='/', style='house', styles=[],
                 current='home', page_id='home', main_attrs='', main_html=main_html,
@@ -607,7 +604,7 @@ def hero(pkg):
   <div class="art art--{pkg.style} d-hero-art" aria-hidden="true">{ART[pkg.style]()}</div>
   <div class="wrap d-hero-inner">
     <p class="d-kicker"><span class="d-n">{reg['number']}</span><span class="d-style">{esc(st['name'])}</span></p>
-    <h1 class="d-title" data-title-fx>{esc(reg['title'])}</h1>
+    <h1 class="d-title">{letters(reg['title'])}</h1>
     <p class="d-lede">{esc(pkg.meta['lede'])}</p>
     <nav class="d-index" aria-label="On this page"><ol role="list">{index}</ol></nav>
   </div>
@@ -631,7 +628,7 @@ def next_card(pkg, packages):
 </nav>'''
 
 
-PRELOAD = {'sumi': 'shippori-mincho-800-latin.woff2', 'neon': 'unbounded-latin.woff2', 'folio': 'cormorant-latin.woff2',
+PRELOAD = {'ink': 'shippori-mincho-800-latin.woff2', 'neon': 'unbounded-latin.woff2', 'folio': 'cormorant-latin.woff2',
            'chrome': 'krona-one-latin.woff2'}
 
 

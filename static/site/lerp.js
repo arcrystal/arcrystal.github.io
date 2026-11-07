@@ -1,10 +1,17 @@
-// The style blend: pure functions that turn two styles of static/site/styles.json and a mix t into
-// the custom properties the homepage writes while it scrolls. Colours mix in OKLab, so a blend
-// from lacquer black to ice white passes through clean greys instead of muddy browns. No DOM:
-// the homepage and the Node tests (tools/site/tests/lerp.test.mjs) share it.
+// The stage's motion maths: pure functions shared by the homepage (tiles.js) and the Node tests
+// (tools/site/tests/lerp.test.mjs). No DOM.
+//
+// Scrolling sets a target position p; the visible position chases it (approach), which is what makes
+// the stage glide instead of step. Each tile holds its style for HOLD of its segment, and the
+// handoff to the next style runs in between; the outgoing title leaves over the first part of the
+// handoff and the incoming one arrives over the last part, overlapping in the middle so the screen
+// is never empty. The header and rail inks mix in OKLab.
 
 export const clamp01 = x => Math.max(0, Math.min(1, x));
 export const smoothstep = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
+export const easeInOutCubic = x => { x = clamp01(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+
+// ---- Colour ----------------------------------------------------------------------------------
 
 // '#RRGGBB' or '#RRGGBBAA' → [r, g, b, a] with channels 0..1.
 export function parseHex(hex) {
@@ -35,65 +42,53 @@ const fix = (x, d) => Number(x.toFixed(d));
 export const oklabCss = ([L, a, b, alpha]) =>
   `oklab(${fix(L, 4)} ${fix(a, 4)} ${fix(b, 4)}${alpha < 1 ? ` / ${fix(alpha, 3)}` : ''})`;
 
-const mix = (x, y, t) => x + (y - x) * t;
-const mixVec = (u, v, t) => u.map((x, i) => mix(x, v[i], t));
+// Two OKLab colours mixed by t → CSS.
+export const mixOklab = (u, v, t) => oklabCss(u.map((x, i) => x + (v[i] - x) * clamp01(t)));
 
-// Colour tokens (custom property → path in a style) and numeric panel tokens.
-export const COLORS = {
-  '--l-bg': 'colors.bg', '--l-surface': 'colors.surface', '--l-ink': 'colors.ink', '--l-mute': 'colors.mute',
-  '--l-accent': 'colors.accent', '--l-accent-2': 'colors.accent2', '--l-rule': 'colors.rule',
-  '--p-bg': 'panel.bg', '--p-ink': 'panel.ink', '--p-mute': 'panel.mute',
-  '--p-border': 'panel.border', '--p-outline': 'panel.outline', '--p-shadow-color': 'panel.shadowColor',
-};
-const get = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
+// ---- The stage -------------------------------------------------------------------------------
 
-// A style compiled once: OKLab colours and the panel numbers as flat arrays.
-export function compile(style) {
-  const colors = {};
-  for (const [prop, path] of Object.entries(COLORS)) colors[prop] = toOklab(get(style, path));
-  const p = style.panel;
-  return {
-    colors,
-    radii: [...p.rh, ...p.rv],
-    shadow: [...p.shadow],
-    scalars: [p.borderW, p.outlineW, p.outlineOff, p.blur, p.rot],
-  };
+// Fraction of each segment a tile holds its style before the handoff starts (split between the
+// two ends), and the scroll length of a segment in viewport heights.
+export const HOLD = 0.45;
+export const SEGMENT = 1.5;
+
+// frac: 0..1 from one tile to the next → handoff 0..1, flat at both ends.
+export function handoff(frac, hold = HOLD) {
+  return smoothstep((frac - hold / 2) / (1 - hold));
 }
 
-// Blend of two compiled styles → { '--prop': 'css value' }.
-export function blend(a, b, t) {
-  t = clamp01(t);
-  const out = {};
-  for (const prop of Object.keys(COLORS)) out[prop] = oklabCss(mixVec(a.colors[prop], b.colors[prop], t));
-  const r = mixVec(a.radii, b.radii, t).map(v => `${fix(v, 2)}%`);
-  out['--p-radius'] = `${r.slice(0, 4).join(' ')} / ${r.slice(4).join(' ')}`;
-  const [sx, sy, sb, ss] = mixVec(a.shadow, b.shadow, t).map(v => fix(v, 1));
-  out['--p-shadow'] = `${sx}px ${sy}px ${sb}px ${ss}px`;
-  const [bw, ow, oo, blur, rot] = mixVec(a.scalars, b.scalars, t);
-  out['--p-border-w'] = `${fix(bw, 2)}px`;
-  out['--p-outline-w'] = `${fix(ow, 2)}px`;
-  out['--p-outline-off'] = `${fix(oo, 1)}px`;
-  out['--p-blur'] = `${fix(blur, 1)}px`;
-  out['--p-rot'] = `${fix(rot, 2)}deg`;
-  return out;
-}
-
-// Each tile holds its own style for `hold` of its scroll; the change happens in between.
-// frac: 0..1 from one tile to the next → mix 0..1.
-export function holdEase(frac, hold = 0.6) {
-  const edge = hold / 2;
-  return smoothstep((frac - edge) / (1 - hold));
-}
-
-// Continuous position p over a sequence of n styles → the pair to blend and the mix.
+// Continuous position p over a sequence of n styles → the pair in view and the fraction between.
 export function pairAt(p, n) {
   const x = Math.max(0, Math.min(n - 1, p));
   const i = Math.min(n - 2, Math.floor(x));
   return { i, j: i + 1, frac: x - i };
 }
 
-// Crossfade of the two tiles in view: the outgoing one fades out over the first half of the mix,
-// the incoming one in over the second, so two sets of text never overlap.
-export function crossfade(t) {
-  return { out: 1 - smoothstep(t * 2), in: smoothstep(t * 2 - 1) };
+// The outgoing title leaves over [0, OUT_END] of the handoff; the incoming one arrives over
+// [IN_START, 1]. They overlap, so some letters are always on screen.
+export const OUT_END = 0.6;
+export const IN_START = 0.3;
+export const exitOf = h => clamp01(h / OUT_END);
+export const enterOf = h => clamp01((h - IN_START) / (1 - IN_START));
+
+// Exponential approach of the visible position to the target: frame-rate independent.
+export function approach(current, target, dt, tau) {
+  if (!(tau > 0)) return target;
+  const next = target + (current - target) * Math.exp(-dt / tau);
+  return Math.abs(next - target) < 1e-4 ? target : next;
 }
+
+// After scrolling stops inside a handoff, the stage glides to the nearer tile. In the entry (the
+// dive from the hero, p in (-1, 0)) it glides on to the first tile once past most of the way.
+// Returns the tile index, or null to stay put.
+export function settleTarget(p, n) {
+  if (p <= -1 || p >= n - 1 + 1e-3) return null;
+  if (p < 0) return p > -0.55 && p < -0.02 ? 0 : null;
+  const k = Math.floor(p), frac = p - k;
+  const edge = HOLD / 2;
+  if (frac <= edge + 0.02 || frac >= 1 - edge - 0.02) return null;
+  return frac < 0.5 ? k : k + 1;
+}
+
+// A jump (rail, hero index, keyboard focus) glides through the handoffs in between.
+export const glideMs = tiles => Math.min(1400, 450 + 250 * Math.abs(tiles));

@@ -1,5 +1,6 @@
-// The expand effects: one per style, plus a plain fade and the return to the homepage. Each draws on
-// its own fixed overlay (.xp, styled in styles/<style>.css) in two acts:
+// The expand effects without WebGL (the scene draws them where it can: scene/scene.js), one per
+// style, plus a plain fade and the return to the homepage. Each draws on its own fixed overlay (.xp,
+// styled in styles/<style>.css) in two acts:
 //   cover   from the clicked tile's panel (or link) until the viewport is covered — the router
 //           swaps the page underneath once this resolves;
 //   reveal  after the swap, uncovering the new page, whose hero is in the same style.
@@ -12,8 +13,6 @@ const SPRING = CSS.supports?.('animation-timing-function', 'linear(0, 1)')
   ? 'linear(0, 0.013, 0.05 2.3%, 0.205, 0.41 7.6%, 0.82 13.4%, 0.99 16.9%, 1.06 19.6%, 1.098 22.4%, 1.106 24.9%, 1.098 27.6%, 1.039 34.2%, 1.006 40.2%, 0.991 46.6%, 0.995 58.8%, 1.001 72%, 1)'
   : 'cubic-bezier(0.34, 1.32, 0.64, 1)';
 const FILIGREE = '<svg viewBox="0 0 64 64"><path d="M3 62V16Q3 3 16 3H62"/><path d="M9 62V21Q9 9 21 9H62"/><circle cx="16.5" cy="16.5" r="3.2"/><path d="M22 22C34 23 38 33 31 37C25 40 21 33 27 31"/><path d="M40 9C44 14 50 14 54 9M9 40C14 44 14 50 9 54"/></svg>';
-// The seal: 王 (the king) in vermilion, as on the Sumi pages.
-const SEAL = '<svg class="seal" viewBox="0 0 40 40"><rect x="1.5" y="1.5" width="37" height="37" rx="2.5" fill="#B3311A"/><g fill="#FBF8F1"><path d="M8.6 9.2h22.6l-.3 3.4H8.9z"/><path d="M11 18.4h18l-.2 3.3H11.2z"/><path d="M7.4 28.2h25.4l-.4 3.7H7.6z"/><path d="M18.3 9.4h3.6l-.2 20.4h-3.5z"/></g><rect x="4.2" y="4.2" width="31.6" height="31.6" rx="1.2" fill="none" stroke="#FBF8F1" stroke-width="1.3"/></svg>';
 let seq = 0;
 
 function div(cls, parent) {
@@ -86,10 +85,10 @@ function makeRun(el, { cover, reveal }) {
   };
 }
 
-// ---- Sumi: one stroke of ink sweeps round from the tile, the seal stamps, the ink lifts ----------
+// ---- Ink & Mist: one stroke of ink sweeps round from the tile, then the ink lifts -------------
 
-function sumi({ rect, vw, vh }) {
-  const el = overlay('sumi');
+function ink({ rect, vw, vh }) {
+  const el = overlay('ink');
   const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
   const far = Math.hypot(Math.max(cx, vw - cx), Math.max(cy, vh - cy));
   // A ring this wide covers its own centre and reaches past every corner: one turn covers the screen.
@@ -98,7 +97,7 @@ function sumi({ rect, vw, vh }) {
   const d = `M${at(-100)}A${R} ${R} 0 0 1 ${at(20)}A${R} ${R} 0 0 1 ${at(140)}A${R} ${R} 0 0 1 ${at(250)}A${R} ${R} 0 0 1 ${at(330)}`;
   const id = `xp-dry-${++seq}`;
   const svg = document.createElementNS(SVG, 'svg');
-  svg.setAttribute('class', 'xp-sumi');
+  svg.setAttribute('class', 'xp-inkwash');
   svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
   svg.innerHTML = `${rich(vw) ? `<filter id="${id}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.014 0.03" numOctaves="3" seed="${seq}"/><feDisplacementMap in="SourceGraphic" scale="${Math.round(far * 0.07)}" xChannelSelector="R" yChannelSelector="G"/></filter>` : ''}
     <path d="${d}" stroke-width="${W.toFixed(0)}" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="1"${rich(vw) ? ` filter="url(#${id})"` : ''}/>`;
@@ -106,21 +105,7 @@ function sumi({ rect, vw, vh }) {
   const path = svg.querySelector('path');
   return makeRun(el, {
     cover: play => play(path, [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 900, easing: 'cubic-bezier(0.62, 0, 0.28, 1)' }),
-    async reveal(play) {
-      const seal = div('xp-seal', el);
-      seal.innerHTML = SEAL;
-      Object.assign(seal.style, { left: `${cx - 48}px`, top: `${cy - 48}px` });
-      await play(seal, [
-        { opacity: 0, transform: 'scale(1.8) rotate(3deg)' },
-        { opacity: 1, transform: 'scale(0.94) rotate(3deg)', offset: 0.7 },
-        { opacity: 1, transform: 'scale(1) rotate(3deg)' },
-      ], { duration: 360, easing: 'cubic-bezier(0.3, 0, 0.2, 1)' });
-      await sleep(140);
-      await Promise.all([
-        play(path, [{ strokeDashoffset: 0 }, { strokeDashoffset: -1 }], { duration: 950, easing: 'cubic-bezier(0.55, 0, 0.3, 1)' }),
-        play(seal, [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: 950 }),
-      ]);
-    },
+    reveal: play => play(path, [{ strokeDashoffset: 0 }, { strokeDashoffset: -1 }], { duration: 950, easing: 'cubic-bezier(0.55, 0, 0.3, 1)' }),
   });
 }
 
@@ -366,7 +351,7 @@ function close({ from, vw, vh }) {
   });
 }
 
-export const EFFECTS = { sumi, glass, neon, folio, chrome, fade, close };
+export const EFFECTS = { ink, glass, neon, folio, chrome, fade, close };
 
 export function open(kind, opts) {
   return (EFFECTS[kind] || fade)(opts);

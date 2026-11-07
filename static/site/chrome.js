@@ -35,7 +35,14 @@ export function mountChrome({ scope }) {
     scope.on(window, 'resize', () => { if (innerWidth >= 1100) setMenu(false); });
   }
 
-  const scrolled = () => { if (scrollY > 24) root.dataset.scrolled = ''; else delete root.dataset.scrolled; };
+  // Written only when it changes: re-setting the attribute would restyle the whole document per scroll.
+  let isScrolled = null;
+  const scrolled = () => {
+    const now = scrollY > 24;
+    if (now === isScrolled) return;
+    isScrolled = now;
+    root.toggleAttribute('data-scrolled', now);
+  };
   scrolled();
   scope.on(window, 'scroll', scrolled, { passive: true });
 
