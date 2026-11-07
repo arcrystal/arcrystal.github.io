@@ -1,8 +1,8 @@
 {
   "docTitle": "Chess — Alex Crystal",
-  "description": "Chess by Alex Crystal: current Chess.com ratings, the opening repertoire and recent games, with a replay board.",
-  "line": "Ink and mist: live ratings, an opening repertoire and recent games, set down with a brush.",
-  "lede": "Rapid, blitz and bullet ratings read live from Chess.com, the three openings that anchor the repertoire, and recent games on a replay board.",
+  "description": "Chess by Alex Crystal: live Chess.com ratings, the openings I play and recent games on a replay board.",
+  "line": "Live ratings, the openings I play, and recent games on an ink-wash board.",
+  "lede": "Rapid, blitz and bullet ratings live from Chess.com, the three openings I build around, and recent games to replay.",
   "index": [
     [
       "#playing-style",

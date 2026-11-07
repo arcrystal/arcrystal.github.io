@@ -161,13 +161,21 @@ test('absolutizeSrcset rewrites each candidate and keeps descriptors', () => {
 test('the site registry routes every page to itself', () => {
   const registry = JSON.parse(readFileSync(`${ROOT}static/site/destinations.json`, 'utf8'));
   const real = createRoutes(registry);
-  assert.equal(real.places.length, 7);
+  assert.equal(real.places.length, 8);
   for (const place of real.places) {
     const route = real.routeOf(place.url, HOME);
     assert.ok(route, place.url);
     assert.equal(route.page, place.page);
     assert.match(route.url, /^\/[^ ]*$/, 'canonical URLs are %20-encoded');
   }
-  for (const page of ['home', 'chess', 'racing', 'coding', 'mountains', 'about', 'resume']) assert.ok(real.hasPage(page), page);
+  for (const page of ['home', 'about', 'science', 'racing', 'outdoors', 'photography', 'chess', 'resume']) assert.ok(real.hasPage(page), page);
   assert.equal(real.routeOf('/coding%20projects/BirkieAnalysis/birkie.html', HOME), null, 'standalone apps are never routed');
+  // Pages that moved are plain redirects, never routed; each has its forwarding file.
+  for (const r of registry.redirects) {
+    assert.equal(real.routeOf(r.from, HOME), null, r.from);
+    const file = decodeURIComponent(r.from).replace(/^\//, '') + (r.from.endsWith('/') ? 'index.html' : '');
+    const html = readFileSync(`${ROOT}${file}`, 'utf8');
+    assert.match(html, /http-equiv="refresh"/, file);
+    assert.ok(html.includes(r.to.split('#')[0]), `${file} forwards to ${r.to}`);
+  }
 });

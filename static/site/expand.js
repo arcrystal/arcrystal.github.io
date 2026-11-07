@@ -1,18 +1,19 @@
 // Click to expand. Plugs into the router as travel / beforeSwap / afterSwap / status:
 //   The scene (scene/scene.js) draws the effect where WebGL is ready; effects.js stands in otherwise.
-//   1. A click on a tile (or a next-page card, or any link to a destination) starts the fetch and,
-//      at the same time, the destination style's effect from the element's rectangle.
+//   1. A click on a phrase of the homepage's sentence (the effect starts from the crystal), a band,
+//      a next-page card or any link to a destination starts the fetch and, at the same time, the
+//      destination style's effect from the element's rectangle.
 //   2. The router swaps the page in once the effect covers the viewport (beforeSwap).
 //   3. afterSwap: the effect reveals the new page; its hero plays its arrival (hero.js).
-// Back to the homepage folds the page back into its tile; other history steps, links to the
-// house pages and reduced motion use a plain fade in the destination's colour.
+// Back to the homepage folds the page back into its band; other history steps, links to the house
+// pages and reduced motion use a plain fade in the destination's colour.
 import { open } from './effects.js';
 import { getScene } from './scene/scene.js';
 
 export function createExpand({ motion }) {
   const root = document.documentElement;
   const runs = new WeakMap();      // intent → run
-  let pending = null, point = null, current = null;
+  let pending = null, point = null, current = null, leaving = null;
 
   // The click is seen first (capture), so travel() knows which element and where.
   function install(scope) {
@@ -27,7 +28,8 @@ export function createExpand({ motion }) {
     }, { capture: true });
   }
 
-  const cardOf = link => link?.closest('.tile')?.querySelector('.tile-card') || link?.closest('.d-next-card') || link || null;
+  const cardOf = link => (link?.closest('.ph') && document.querySelector('[data-crystal]'))
+    || link?.closest('.band')?.querySelector('.band-body') || link?.closest('.d-next-card') || link || null;
 
   function originRect(link, vw, vh) {
     let r = null;
@@ -52,6 +54,7 @@ export function createExpand({ motion }) {
     if (intent.source === 'initial') return null;
     const vw = root.clientWidth, vh = innerHeight;
     const from = document.body.dataset.style || 'house';
+    leaving = document.body.dataset.page || null;
     const to = intent.route?.place?.destination?.style || 'house';
     let kind;
     if (intent.source === 'pop') kind = intent.route.page === 'home' && from !== 'house' && !motion.paused ? 'close' : 'fade';
@@ -86,7 +89,8 @@ export function createExpand({ motion }) {
     const run = runs.get(intent);
     if (!run) return;
     runs.delete(intent);
-    const card = () => document.querySelector('.tile.is-active .tile-card');
+    const page = leaving;
+    const card = () => (page ? document.querySelector(`.band[data-band="${CSS.escape(page)}"] .band-body`) : null);
     await run.reveal({ card, panelRect: () => card()?.getBoundingClientRect() || null });
     finish(run);
   }

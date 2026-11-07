@@ -2,11 +2,11 @@
 import { HEADER, COMMON } from './common.js';
 import { INK } from './ink.js';
 import { GLACIER } from './glacier.js';
-import { SIGNAL } from './signal.js';
+import { COSMOS } from './cosmos.js';
 import { FOLIO } from './folio.js';
-import { CHROME } from './chrome.js';
+import { DARKROOM } from './darkroom.js';
 import { HOUSE } from './house.js';
-import { HANDOFFS } from './handoffs.js';
+import { SEAMS } from './seams.js';
 import { OPENS, MAIN } from './opens.js';
 
 export const VERTEX = `#version 300 es
@@ -16,5 +16,5 @@ void main() {
 }`;
 
 export function fragment(quality = 5) {
-  return [HEADER, `#define Q ${quality | 0}`, COMMON, INK, GLACIER, SIGNAL, FOLIO, CHROME, HOUSE, HANDOFFS, OPENS, MAIN].join('\n');
+  return [HEADER, `#define Q ${quality | 0}`, COMMON, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, OPENS, MAIN].join('\n');
 }

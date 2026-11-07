@@ -1,4 +1,4 @@
-// Mountains lightbox. Every photograph on the page is a real link to its full-size file
+// Photography lightbox. Every photograph on the page is a real link to its full-size file
 // ([data-lightbox-item]); this enhances those links with a modal <dialog> viewer. It is keyboard
 // operable (Enter opens; Left, Right, Home and End browse; Escape closes; Tab stays inside; focus
 // returns to the photograph last viewed), announces each photograph, and removes everything it added

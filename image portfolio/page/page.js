@@ -1,4 +1,4 @@
-// Mountains page module (CONTRACT section 2). The content is plain HTML that works without
+// Photography page module (CONTRACT section 2). The content is plain HTML that works without
 // JavaScript; this adds the photograph viewer. Everything goes through ctx.scope, so unmount (and a
 // later mount on Back or Forward) leaves nothing behind. image portfolio/gallery.js stays as it was
 // for the old shell; this page does not use it.

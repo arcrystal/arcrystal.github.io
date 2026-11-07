@@ -1161,13 +1161,13 @@ export const ROUTES = [
 
 export function siteRoutes(root = REPO_ROOT) {
   try {
-    const reg = JSON.parse(fs.readFileSync(path.join(root, 'static', 'cinema', 'destinations.json'), 'utf8'));
+    const reg = JSON.parse(fs.readFileSync(path.join(root, 'static', 'site', 'destinations.json'), 'utf8'));
     const list = [
       ...(reg.pages || []).filter((p) => p.id === 'home').map((p) => ({ page: p.id, region: p.id, url: p.url })),
       ...(reg.destinations || []).map((d) => ({ page: d.id, region: d.id, url: d.url })),
       ...(reg.pages || []).filter((p) => p.id !== 'home').map((p) => ({ page: p.id, region: p.id, url: p.url })),
     ];
-    if (list.length) return { source: 'static/cinema/destinations.json', routes: list };
+    if (list.length) return { source: 'static/site/destinations.json', routes: list };
   } catch { /* no registry yet */ }
   return { source: 'built-in table', routes: ROUTES };
 }

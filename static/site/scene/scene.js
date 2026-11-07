@@ -1,5 +1,5 @@
-// The scene: one WebGL2 canvas fixed behind every page, drawing the rooms, the handoffs between
-// them and the expand effects from a single fragment shader (glsl/). It outlives router swaps.
+// The scene: one WebGL2 canvas fixed behind every page, drawing the styles' worlds, the seams where
+// two meet and the expand effects from a single fragment shader (glsl/). It outlives router swaps.
 //
 // Pages register hosts. Every frame the scene calls each host's update(dt), which does the host's
 // own DOM work and returns what to draw (or null): a viewport region and the uniforms. Before the
@@ -9,9 +9,9 @@
 import { onTick, motion } from '../lib/util.js';
 import { VERTEX, fragment } from './glsl/index.js';
 
-export const STYLE_ID = { house: 0, ink: 1, glass: 2, neon: 3, folio: 4, chrome: 5 };
+export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
-  'uCardMix', 'uCrystal', 'uHover', 'uE', 'uPoint'];
+  'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint'];
 const COVER_MS = 760, REVEAL_MS = 720, CLOSE_MS = 260;
 const root = document.documentElement;
 
@@ -111,7 +111,8 @@ function createScene() {
     if (X1 <= X0 || Y1 <= Y0) return false;
     gl.scissor(X0, canvas.height - Y1, X1 - X0, Y1 - Y0);
     const paused = motion.paused;
-    gl.uniform1i(U.uMode, paused && s.mode === 1 ? 5 : s.mode);
+    gl.uniform1i(U.uMode, s.mode);
+    gl.uniform4f(U.uRegion, x, y, w, h);
     gl.uniform1i(U.uA, s.a ?? 0);
     gl.uniform1i(U.uB, s.b ?? 0);
     gl.uniform1f(U.uH, s.h ?? 0);
@@ -261,7 +262,7 @@ function createScene() {
     };
   }
 
-  // Back on the homepage the tile's card grows back down from the full screen into its place.
+  // Back on the homepage the band's piece grows back down from the full screen into its place.
   function flipIn(el) {
     if (!el) return Promise.resolve();
     const r = el.getBoundingClientRect();

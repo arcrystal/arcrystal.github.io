@@ -1,20 +1,24 @@
 {
   "docTitle": "About Me — Alex Crystal",
-  "description": "Alex Crystal, generative AI engineer at MITRE: a timeline from 2019 to 2025, areas of focus, experience, education and links.",
-  "line": "Liquid chrome and iridescence: from a 2019 internship to generative AI engineering at MITRE.",
-  "lede": "Generative AI engineer at MITRE. Six milestones from 2019, three threads through the work, and the life outside it.",
+  "description": "Alex Crystal, generative AI engineer at MITRE: what I work on, the AI Power Map and other things I’ve built, my path since 2019, and links.",
+  "line": "Generative AI engineer at MITRE. What I work on, and three things I’ve built.",
+  "lede": "I’m a generative AI engineer at MITRE. Here’s what I work on, three things I’ve built, and how I got here.",
   "index": [
     [
-      "#timeline",
-      "Timeline"
-    ],
-    [
-      "#biography",
-      "Biography"
+      "#now",
+      "Now"
     ],
     [
       "#focus",
-      "Focus"
+      "What I work on"
+    ],
+    [
+      "#built",
+      "Things I’ve built"
+    ],
+    [
+      "#timeline",
+      "Path"
     ],
     [
       "#experience",
@@ -22,50 +26,27 @@
     ],
     [
       "#personal",
-      "Outside work"
-    ],
-    [
-      "#links",
-      "Links"
+      "The rest of me"
     ]
   ],
-  "module": null,
+  "module": "page.js",
   "styles": [
     "about.css"
   ],
-  "fragments": {},
+  "fragments": {
+    "#biography": "#now",
+    "#links": "#personal",
+    "#projects": "#built",
+    "#case-studies": "#built",
+    "#further-work": "#built",
+    "#outside": "#personal"
+  },
   "preview": {
-    "chips": [
-      [
-        "2019",
-        "BodesWell",
-        "Software intern"
-      ],
-      [
-        "2020–24",
-        "MITRE",
-        "Graduate AI intern"
-      ],
-      [
-        "2022",
-        "Rochester",
-        "BS, Data Science"
-      ],
-      [
-        "2023",
-        "TextCraft",
-        "Research & a paper"
-      ],
-      [
-        "2024",
-        "Northeastern",
-        "MS, Artificial Intelligence"
-      ],
-      [
-        "2025–",
-        "MITRE",
-        "Generative AI Engineer"
-      ]
+    "role": "Generative AI engineer at MITRE",
+    "threads": [
+      "Language systems",
+      "Knowledge graphs and topic models",
+      "Forecasting and scientific modeling"
     ]
   }
 }

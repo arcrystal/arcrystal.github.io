@@ -1,8 +1,8 @@
 {
-  "docTitle": "Mountains — Alex Crystal",
-  "description": "Mountain photographs by Alex Crystal from Patagonia, Japan and Vietnam: three place stories, a short selection and the complete 56-photograph album.",
-  "line": "A naturalist’s folio: granite, ice and cloud from Patagonia, Japan and Vietnam.",
-  "lede": "Granite and ice in Patagonia, volcanic ground and alpine valleys in Japan, karst and farmed valleys in Vietnam, and the complete album of 56 photographs.",
+  "docTitle": "Photography — Alex Crystal",
+  "description": "Photographs by Alex Crystal from Patagonia, Japan, Vietnam and New Hampshire: three places, a run of single frames and every photograph I’ve kept.",
+  "line": "Patagonia, Japan, Vietnam and home: fifty-six photographs, developed.",
+  "lede": "Granite and ice in Patagonia, volcanic valleys in Japan, karst in Vietnam and ridgelines at home. Fifty-six photographs I’ve kept.",
   "index": [
     [
       "#patagonia",
@@ -18,11 +18,11 @@
     ],
     [
       "#selected",
-      "Selected frames"
+      "Single frames"
     ],
     [
       "#top-50",
-      "The album"
+      "All 56"
     ]
   ],
   "module": "page.js",
@@ -33,28 +33,20 @@
     "#sources": "#stories"
   },
   "preview": {
-    "plates": [
-      [
-        "img/pv-torres-towers.webp",
-        420,
-        560,
-        "Plate I",
-        "Torres del Paine · Chile"
-      ],
-      [
-        "img/pv-mount-fuji.webp",
-        560,
-        350,
-        "Plate II",
-        "Mount Fuji · Japan"
-      ],
-      [
-        "img/pv-ninh-binh.webp",
-        420,
-        560,
-        "Plate III",
-        "Ninh Bình · Vietnam"
-      ]
+    "reel": [
+      "t-torres-towers",
+      "p33",
+      "t-mount-fuji",
+      "t-ninh-binh",
+      "glacier",
+      "p55",
+      "t-los-cuernos",
+      "t-sounkyo-valley",
+      "p10",
+      "t-ha-giang",
+      "p38",
+      "p54"
     ]
-  }
+  },
+  "heroPrint": "glacier"
 }

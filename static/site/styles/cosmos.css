@@ -1,0 +1,79 @@
+/* Liquid Cosmos — deep space, liquid chrome and the instruments watching it. Night blue-black, a
+   violet nebula, chrome drops with thin-film colour, and cyan and magenta readouts; Unbounded and
+   JetBrains Mono. The scene draws it; the nebula, stars and drops below stand in without WebGL.
+   Science. */
+
+[data-style="cosmos"] {
+  --c-bg: #05060F; --c-surface: #0D0F22; --c-fg: #ECE9FF; --c-fg-mute: #A29FC9;
+  --c-accent: #22E6FF; --c-accent-2: #FF3DCB; --c-accent-3: #B9A6FF;
+  --c-rule: rgb(185 166 255 / 0.22); --c-link: #22E6FF; --c-on-accent: #05060F; --c-focus: #22E6FF;
+  --font-display: 'Unbounded', 'DM Sans', sans-serif; --font-label: 'JetBrains Mono', ui-monospace, monospace;
+  --tracking-label: 0.08em; --w-display: 700; --tracking-display: -0.035em; --lh-display: 0.98;
+  --radius-card: 18px; --radius-media: 14px;
+  color-scheme: dark;
+}
+
+/* ---- Art without WebGL: a nebula, stars and three drops of liquid metal ---------------------- */
+.art--cosmos {
+  background: radial-gradient(55% 45% at 78% 22%, rgb(91 59 255 / 0.32), transparent 70%),
+    radial-gradient(40% 40% at 12% 82%, rgb(255 61 203 / 0.16), transparent 70%),
+    radial-gradient(35% 30% at 60% 70%, rgb(34 230 255 / 0.1), transparent 70%), #05060F;
+  overflow: hidden;
+}
+.art--cosmos .art-nebula { position: absolute; inset: -10%; background: conic-gradient(from 210deg at 70% 30%, transparent, rgb(185 166 255 / 0.12), transparent 30%); filter: blur(30px); }
+.art--cosmos .art-stars { position: absolute; inset: 0; width: 100%; height: 100%; fill: #ECE9FF; opacity: 0.75; }
+.art--cosmos .art-drop {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #FFFFFF 0 6%, #CCD2E6 14%, #6A6F92 38%, #171A2E 64%, #3A2F8C 88%, #22E6FF 100%);
+  box-shadow: 0 0 60px -10px rgb(91 59 255 / 0.6);
+}
+.art--cosmos .art-drop--1 { width: 18vmin; height: 18vmin; right: 12%; top: 18%; }
+.art--cosmos .art-drop--2 { width: 9vmin; height: 9vmin; right: 30%; top: 46%; }
+.art--cosmos .art-drop--3 { width: 6vmin; height: 6vmin; left: 14%; bottom: 16%; }
+.js:not(.motion-paused) .art--cosmos .art-drop { animation: cosmos-float 14s var(--ease-in-out) infinite alternate; }
+.js:not(.motion-paused) .art--cosmos .art-drop--2 { animation-duration: 11s; animation-delay: -4s; }
+@keyframes cosmos-float { to { translate: -2vmin 3vmin; } }
+
+/* ---- Titles: the letters decode out of glyphs, left to right, then a chrome sheen crosses ------- */
+main[data-style="cosmos"] .d-title, .d-next[data-style="cosmos"] .d-next-title, .band[data-style="cosmos"] .band-title { text-transform: uppercase; }
+main[data-style="cosmos"] .d-title .ch {
+  position: relative;
+  --real: clamp(0, (var(--ci) - 0.62) * 40, 1);
+  color: rgb(236 233 255 / var(--real));
+}
+main[data-style="cosmos"] .d-title .ch::before {
+  content: attr(data-g); position: absolute; inset: 0; text-align: center; color: #22E6FF;
+  opacity: calc(clamp(0, var(--ci) * 30, 1) * (1 - var(--real)));
+}
+main[data-style="cosmos"] .d-title .tt {
+  background: linear-gradient(100deg, transparent 40%, rgb(255 255 255 / 0.9) 50%, transparent 60%) no-repeat;
+  background-size: 300% 100%; background-position: calc(150% - var(--in) * 150%) 0;
+  -webkit-background-clip: text; background-clip: text;
+}
+
+/* ---- Destination hero and content ------------------------------------------------------------ */
+main[data-style="cosmos"] .d-title { font-size: clamp(2.8rem, 0.8rem + 8vw, 9rem); }
+main[data-style="cosmos"] .d-kicker { color: #22E6FF; }
+main[data-style="cosmos"] .d-kicker::before { content: "◇"; color: #FF3DCB; }
+main[data-style="cosmos"] .d-lede { color: #C2BFE6; }
+main[data-style="cosmos"] .d-index a {
+  border-radius: 0; border-color: rgb(34 230 255 / 0.45); background: rgb(5 6 15 / 0.6); font-family: var(--font-label); font-size: var(--t-label); text-transform: uppercase; letter-spacing: 0.08em;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+main[data-style="cosmos"] .d-index a:hover { background: rgb(34 230 255 / 0.14); color: #fff; }
+main[data-style="cosmos"] .d-content h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.03em; }
+main[data-style="cosmos"] .d-content .label { font-family: var(--font-label); color: #22E6FF; }
+.band[data-style="cosmos"] .band-n { color: #22E6FF; }
+.band[data-style="cosmos"] .band-n::before { content: "◇ "; color: #FF3DCB; }
+
+.d-next[data-style="cosmos"] .d-next-card { background: rgb(13 15 34 / 0.82); border: 1px solid rgb(34 230 255 / 0.55); border-radius: 18px; box-shadow: 0 0 60px rgb(91 59 255 / 0.3), inset 0 0 0 1px rgb(255 61 203 / 0.2); }
+.d-next[data-style="cosmos"] .d-next-n { color: #22E6FF; }
+
+/* ---- Expand without WebGL: a chrome bloom, then a scan reveals ---------------------------------- */
+.xp-trace { inset: 0; width: 100%; height: 100%; fill: none; }
+.xp-trace rect { stroke-width: 2; }
+.xp-trace .c { stroke: #22E6FF; filter: drop-shadow(0 0 6px #22E6FF); }
+.xp-trace .m { stroke: #FF3DCB; }
+.xp-band { background: #05060F; border-left: 2px solid #22E6FF; border-right: 2px solid #FF3DCB; box-shadow: -6px 0 0 rgb(34 230 255 / 0.35), 6px 0 0 rgb(255 61 203 / 0.35); }
+.xp-cover { inset: 0; background: radial-gradient(60% 50% at 70% 30%, rgb(91 59 255 / 0.35), transparent 70%), #05060F; }
+.xp-scan { left: 0; right: 0; top: 0; height: 2px; background: #E9FDFF; box-shadow: 0 0 18px 4px rgb(34 230 255 / 0.85), 0 0 90px 24px rgb(255 61 203 / 0.3); }

@@ -1,0 +1,11 @@
+{
+  "docTitle": "Science — Alex Crystal",
+  "description": "Things in science Alex Crystal can’t stop thinking about: exoplanets around TRAPPIST-1, the golden angle in sunflowers, structural colour and starling murmurations, Voyager, the Wow! signal and the Drake equation, each as a live experiment.",
+  "line": "Exoplanets, the geometry of plants, the beauty of animals, and the mysteries we keep chasing.",
+  "lede": "Deep space, the geometry of plants, the extreme beauty of animals, and human discovery and mystery. Each one is a live experiment you can play with.",
+  "index": [["#deep-space", "Deep space"], ["#plantae", "Plantae"], ["#animalia", "Animalia"], ["#discovery", "Discovery and mystery"]],
+  "module": "page.js",
+  "styles": ["page.css"],
+  "fragments": {},
+  "preview": {"chapters": [["Deep space", "#deep-space"], ["Plantae", "#plantae"], ["Animalia", "#animalia"], ["Discovery", "#discovery"]]}
+}

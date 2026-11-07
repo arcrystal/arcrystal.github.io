@@ -26,7 +26,7 @@ const setBox = (el, r) => Object.assign(el.style, box(r));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (a, b) => a + Math.random() * (b - a);
 const easeInOut = x => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-// SVG filters (dry-brush edges, gooey chrome) only where there is room and a fine pointer.
+// SVG filters (dry-brush edges) only where there is room and a fine pointer.
 const rich = vw => vw >= 700 && !matchMedia('(pointer: coarse)').matches;
 // A per-frame tween for SVG attributes; it stops when its overlay is gone.
 function tween(el, ms, fn, ease = easeInOut) {
@@ -109,70 +109,20 @@ function ink({ rect, vw, vh }) {
   });
 }
 
-// ---- Liquid Chrome: a gooey chrome blob swells out of the tile, then pops ------------------------
+// ---- Darkroom: the safelight floods out from the print, then the page comes up like a print -------
 
-function chrome({ rect, point, vw, vh }) {
-  const el = overlay('chrome');
-  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
-  const far = Math.hypot(Math.max(cx, vw - cx), Math.max(cy, vh - cy));
-  const goo = rich(vw);
-  const id = `xp-chr-${++seq}`;
-  const r0 = Math.min(rect.width, rect.height) * 0.42;
-  const sats = Array.from({ length: 6 }, (_, k) => ({ a: (k / 6) * Math.PI * 2 + rand(-0.3, 0.3), s: rand(0.28, 0.42) }));
-  const drops = Array.from({ length: 14 }, (_, k) => ({ a: (k / 14) * Math.PI * 2 + rand(-0.2, 0.2), r: rand(8, 26), v: rand(1.05, 1.5) }));
-  const svg = document.createElementNS(SVG, 'svg');
-  svg.setAttribute('class', 'xp-chrome');
-  svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
-  svg.innerHTML = `<defs>
-      <linearGradient id="${id}-g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${(vw * 0.3).toFixed(0)}" y2="${vh}" spreadMethod="reflect">
-        <stop offset="0" stop-color="#FFFFFF"/><stop offset=".22" stop-color="#C9CCDA"/><stop offset=".4" stop-color="#F6F6FB"/>
-        <stop offset=".55" stop-color="#7E8197"/><stop offset=".7" stop-color="#E4E4EE"/><stop offset=".86" stop-color="#55586C"/><stop offset="1" stop-color="#DCDDE7"/>
-      </linearGradient>
-      ${goo ? `<filter id="${id}-f" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="14" result="b"/><feColorMatrix in="b" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 26 -11"/></filter>` : ''}
-      <mask id="${id}-m" maskUnits="userSpaceOnUse" x="0" y="0" width="${vw}" height="${vh}"><rect width="${vw}" height="${vh}" fill="#fff"/><circle class="hole" cx="${point.x}" cy="${point.y}" r="0" fill="#000"/></mask>
-    </defs>
-    <g${goo ? ` filter="url(#${id}-f)"` : ''} fill="url(#${id}-g)">
-      <g mask="url(#${id}-m)"><circle class="main" cx="${cx}" cy="${cy}" r="${r0}"/>${sats.map(() => '<circle class="sat" r="0"/>').join('')}</g>
-      ${drops.map(() => '<circle class="drop" r="0"/>').join('')}
-    </g>`;
-  el.append(svg);
-  const grad = svg.querySelector('linearGradient');
-  const main = svg.querySelector('.main');
-  const satEls = [...svg.querySelectorAll('.sat')];
-  const dropEls = [...svg.querySelectorAll('.drop')];
-  const hole = svg.querySelector('.hole');
+function darkroom({ rect, point, vw, vh }) {
+  const el = overlay('darkroom');
+  const at = point || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  const far = Math.hypot(Math.max(at.x, vw - at.x), Math.max(at.y, vh - at.y));
+  const light = div('xp-safelight', el);
+  light.style.setProperty('--x', `${at.x}px`);
+  light.style.setProperty('--y', `${at.y}px`);
+  const r0 = Math.max(20, Math.min(rect.width, rect.height) / 2);
   return makeRun(el, {
-    cover: () => tween(el, 950, t => {
-      const e = easeInOut(t);
-      const r = r0 + (far * 1.08 - r0) * e;
-      main.setAttribute('r', r.toFixed(1));
-      satEls.forEach((c, k) => {
-        const s = sats[k];
-        const dist = r * (0.92 + 0.22 * Math.sin(t * Math.PI));
-        c.setAttribute('cx', (cx + Math.cos(s.a + t * 1.2) * dist).toFixed(1));
-        c.setAttribute('cy', (cy + Math.sin(s.a + t * 1.2) * dist).toFixed(1));
-        c.setAttribute('r', (r * s.s * (1 - 0.6 * t)).toFixed(1));
-      });
-      grad.setAttribute('x1', (-vw * 0.4 * t).toFixed(0));
-      grad.setAttribute('x2', (vw * 0.3 - vw * 0.4 * t).toFixed(0));
-    }),
-    async reveal(play) {
-      const flash = div('xp-flash', el);
-      play(flash, [{ opacity: 0 }, { opacity: 0.9, offset: 0.25 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
-      const R = Math.hypot(Math.max(point.x, vw - point.x), Math.max(point.y, vh - point.y)) * 1.15;
-      await tween(el, 760, t => {
-        const e = 1 - Math.pow(1 - t, 3);
-        const hr = R * e;
-        hole.setAttribute('r', hr.toFixed(1));
-        dropEls.forEach((c, k) => {
-          const d = drops[k];
-          const dist = hr * d.v + 30;
-          c.setAttribute('cx', (point.x + Math.cos(d.a) * dist).toFixed(1));
-          c.setAttribute('cy', (point.y + Math.sin(d.a) * dist + 120 * t * t).toFixed(1));
-          c.setAttribute('r', (d.r * Math.sin(Math.min(1, t * 1.4) * Math.PI)).toFixed(1));
-        });
-      }, x => x);
-    },
+    cover: play => play(light, [{ clipPath: `circle(${r0}px at ${at.x}px ${at.y}px)`, opacity: 0.6 }, { clipPath: `circle(${far * 1.05}px at ${at.x}px ${at.y}px)`, opacity: 1 }],
+      { duration: 760, easing: EASE }),
+    reveal: play => play(light, [{ opacity: 1, filter: 'brightness(1)' }, { opacity: 0, filter: 'brightness(2.2)' }], { duration: 900, easing: 'cubic-bezier(0.3, 0, 0.2, 1)' }),
   });
 }
 
@@ -204,10 +154,10 @@ function glass({ rect, point, vw, vh }) {
   });
 }
 
-// ---- Neon Circuit: the edges trace, the panel glitches into bands, a scan line reveals ---------
+// ---- Liquid Cosmos: the edges trace, the panel splits into bands, a scan line reveals -----------
 
-function neon({ rect, vw, vh }) {
-  const el = overlay('neon');
+function cosmos({ rect, vw, vh }) {
+  const el = overlay('cosmos');
   const svg = document.createElementNS(SVG, 'svg');
   svg.setAttribute('class', 'xp-trace');
   svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
@@ -351,7 +301,7 @@ function close({ from, vw, vh }) {
   });
 }
 
-export const EFFECTS = { ink, glass, neon, folio, chrome, fade, close };
+export const EFFECTS = { ink, glass, cosmos, folio, darkroom, fade, close };
 
 export function open(kind, opts) {
   return (EFFECTS[kind] || fade)(opts);

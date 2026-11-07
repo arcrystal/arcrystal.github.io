@@ -1,5 +1,5 @@
 /* Naturalist's Folio — deep nature, Victorian. Forest night and parchment, antique brass and a
-   touch of oxblood; engraved fern fronds, filigree corners, Cormorant italics. Mountains. */
+   touch of oxblood; engraved fern fronds, filigree corners, Cormorant italics. Outdoors. */
 
 [data-style="folio"] {
   --c-bg: #0F1913; --c-surface: #17251C; --c-fg: #ECE2CC; --c-fg-mute: #B2AD95;
@@ -35,51 +35,13 @@
 .art--folio .art-hatch { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgb(236 226 204 / 0.022) 0 1px, transparent 1px 6px); }
 .art--folio .art-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 70% at 50% 42%, transparent 48%, rgb(0 0 0 / 0.55)); }
 
-.sw[data-style="folio"] > i { background: #EEE4CE; border: 3px solid #A7834A; outline: 1px solid #A7834A; outline-offset: -6px; }
+/* ---- Titles: the italic title inks in letter by letter on a slight wave ------------------------ */
 
-/* ---- Tile: the italic title inks in letter by letter on a slight wave ------------------------ */
-.tile[data-style="folio"] .tile-title { font-style: italic; font-weight: 500; }
-.tile[data-style="folio"] .tile-num { color: #CDA562; font-style: italic; letter-spacing: 0.12em; text-transform: none; font-size: 1rem; }
-.tile[data-style="folio"] .tile-num::after { content: ""; width: 120px; height: 16px; background: var(--flourish) center / contain no-repeat; align-self: center; clip-path: inset(0 calc((1 - var(--in)) * 100%) 0 0); }
-.tile[data-style="folio"] .tile-line { font-family: 'Cormorant', Georgia, serif; font-size: clamp(1.25rem, 1.05rem + 0.6vw, 1.6rem); }
-.tile[data-style="folio"] .ch, main[data-style="folio"] .d-title .ch {
+main[data-style="folio"] .d-title .ch {
   opacity: calc(var(--ci) * (1 - var(--co)));
   translate: 0 calc(sin(var(--i) * 1.3rad) * (1 - var(--ci)) * 0.2em + var(--co) * 0.18em);
 }
 
-/* ---- Card: a parchment plate in a brass frame. It unfolds from its centre crease; it is swallowed
-   by the molten front from the top. -------------------------------------------------------------- */
-.tile[data-style="folio"] .tile-card {
-  background: var(--plate-frame) center / 100% 100% no-repeat, #EEE4CE; color: #2A2318;
-  border: 7px solid #A7834A; box-shadow: 0 0 0 1px #6E5428, 0 40px 90px -40px #000;
-  --u: clamp(0, (var(--cin) - 0.28) / 0.72, 1);
-  --e: calc(1 - (1 - var(--u)) * (1 - var(--u)) * (1 - var(--u)));
-  transform: translateY(calc(var(--cout) * var(--cout) * 24%)) scaleY(calc(0.02 + 0.98 * var(--e)));
-  opacity: clamp(0, var(--u) * 6, 1);
-  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--cout) * 140% - 40%), #000 calc(var(--cout) * 140% - 28%));
-  mask-image: linear-gradient(to bottom, transparent calc(var(--cout) * 140% - 40%), #000 calc(var(--cout) * 140% - 28%));
-}
-.tile[data-style="folio"] .tile-card::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(transparent 38%, rgb(42 35 24 / 0.55) 50%, transparent 62%);
-  opacity: calc(1 - var(--u));
-}
-
-/* ---- Preview: three plates on parchment -------------------------------------------------- */
-.pv--folio { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 4%; padding: 14% 12% 10%; font-family: 'Cormorant', Georgia, serif; color: #2A2318; }
-.pv--folio .pv-cap { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 3px double rgb(42 35 24 / 0.55); font-size: clamp(0.72rem, 0.6rem + 0.4vw, 0.95rem); font-weight: 600; letter-spacing: 0.1em; font-variant: small-caps; }
-.pv--folio .pv-plates { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 7% 8%; min-height: 0; }
-.pv--folio .pv-plate { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 4px; min-height: 0; }
-.pv--folio .pv-plate--1 { grid-row: 1 / 3; }
-.pv--folio .pv-plate img { width: 100%; height: 100%; object-fit: cover; padding: 3px; border: 1px solid #2A2318; background: #F7F0DF; filter: sepia(0.22) saturate(0.85) contrast(1.03); }
-.pv--folio .pv-plate figcaption { font-size: clamp(0.66rem, 0.55rem + 0.3vw, 0.85rem); font-style: italic; line-height: 1.2; color: #5E5440; }
-.pv--folio .pv-plate b { font-style: normal; font-weight: 600; font-variant: small-caps; letter-spacing: 0.06em; color: #2A2318; }
-.pv--folio .pv-foot { text-align: center; font-style: italic; font-size: clamp(0.7rem, 0.58rem + 0.3vw, 0.9rem); color: #5E5440; }
-/* As the tile settles the plates bloom from sepia to their colour. */
-.js:not(.motion-paused) .tile[data-style="folio"].is-active .pv-plate img { animation: folio-bloom 1400ms 200ms var(--ease-out) both; }
-.js:not(.motion-paused) .tile[data-style="folio"].is-active .pv-plate--2 img { animation-delay: 340ms; }
-.js:not(.motion-paused) .tile[data-style="folio"].is-active .pv-plate--3 img { animation-delay: 480ms; }
-@keyframes folio-bloom { from { filter: sepia(1) saturate(0.6) contrast(1.05) brightness(0.92); } to { filter: sepia(0.22) saturate(0.85) contrast(1.03); } }
 
 /* ---- Destination hero: an engraved plate in a brass frame ------------------------------------ */
 main[data-style="folio"] .d-hero::after {

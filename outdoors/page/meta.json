@@ -1,0 +1,11 @@
+{
+  "docTitle": "Outdoors — Alex Crystal",
+  "description": "Alex Crystal outdoors: all 48 of New Hampshire’s 4,000-footers, four of the Northeast Ultra 8 traverses, and the mountains of Patagonia, Japan and Vietnam.",
+  "line": "All 48 four-thousand footers, four long traverses, and the mountains I’ve stood under.",
+  "lede": "Forty-eight summits in the White Mountains, finished on the Presidential Traverse on Aug 1, 2026. Four of the Northeast’s eight hardest day hikes. And the ranges I’ve walked into further from home.",
+  "index": [["#forty-eight", "All 48"], ["#ultra-8", "The Ultra 8"], ["#mountains", "Mountains"]],
+  "module": "page.js",
+  "styles": ["page.css"],
+  "fragments": {"#nh-48": "#forty-eight", "#hikes": "#forty-eight", "#panel-hikes": "#forty-eight", "#tab-hikes": "#forty-eight", "#panel-nh-48": "#forty-eight", "#tab-nh-48": "#forty-eight", "#panel-ultra-8": "#ultra-8", "#tab-ultra-8": "#ultra-8", "#ultraEightList": "#ultra-8"},
+  "preview": {"peaks": "outdoors/page/peaks.json", "ultra": [4, 8], "next": ["Mahoosuc Traverse", "Great Range Traverse", "Devil’s Path", "Cranberry Lake 50"]}
+}

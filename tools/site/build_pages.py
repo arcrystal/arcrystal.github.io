@@ -7,18 +7,21 @@
 
 Sources:
 - static/site/destinations.json: order, titles, URLs, styles, numbers and next links.
-- static/site/styles.json: the six styles (names, page colours, the homepage panel materials).
+- static/site/styles.json: the six styles (names, page colours, scene ids).
 - Each destination's package, <dir>/page/: meta.json (copy, on-page index, module, stylesheets,
-  old fragment ids, homepage preview data) and content.html (the page body: no <html>, <head>,
-  <body>, <main>, <h1> or <script>). About adds timeline.html.
+  old fragment ids, homepage band data) and content.html (the page body: no <html>, <head>,
+  <body>, <main>, <h1> or <script>). Markers in content.html are filled here (generated()): the
+  Birkie route, the race list, the 48 skyline and its hikes, the Power Map strip, About's
+  timeline (timeline.html) and the Science experiments that exist.
 - resume/content.html: the résumé body.
 
 Every page: head (title, description, canonical, social preview, stylesheets with content hashes,
 an import map that versions every module), the header, <main>, the contact section and footer.
-The homepage is a hero and a pinned stage of five tiles, one per style, whose shared panel the
-shell morphs from style to style (static/site/tiles.js). A destination page is a hero in its
-style, its content and a card for the next destination. Without JavaScript every page is complete:
-the stage becomes five stacked sections. Files are written atomically and only when they change.
+The homepage is a sentence whose phrases open the six destinations, with the crystal beside it,
+then one band per destination in its own style (static/site/home.js joins them with the scene's
+seams). A destination page is a hero in its style, its content and a card for the next
+destination. Without JavaScript every page is complete. Old URLs in the registry's redirects get a
+small page that forwards. Files are written atomically and only when they change.
 """
 import argparse
 import hashlib
@@ -38,9 +41,9 @@ GITHUB = 'https://github.com/arcrystal'
 LINKEDIN = 'https://linkedin.com/in/alex-crystal-326b5a175/'
 RESUME = '/resume/resume.html'
 SHELL = f'{SITE_DIR}/shell.js'
-HOME_LEDE = ('Generative AI engineer at MITRE, working on language systems, data tools and applied AI. '
-             'Away from the desk: Nordic skiing and running, chess, and mountains.')
-HOME_DESCRIPTION = 'Alex Crystal — generative AI engineer, endurance athlete, chess player, and hiker.'
+HOME_DESCRIPTION = ('Alex Crystal — generative AI engineer at MITRE, Nordic ski racer and runner, hiker of all 48 New '
+                    'Hampshire 4,000-footers, photographer and chess player.')
+
 
 esc = html.escape
 
@@ -175,7 +178,8 @@ class Package:
 
 # ---- shared template ----------------------------------------------------------------------------
 
-NAV = [(d['id'], d['title'], d['url']) for d in DESTS] + [('resume', 'Résumé', RESUME), ('contact', 'Contact', '#contact')]
+_NAV_EXTRA = {'resume': ('Résumé', RESUME), 'contact': ('Contact', '#contact')}
+NAV = [(k, BY_ID[k]['title'], BY_ID[k]['url']) if k in BY_ID else (k, *_NAV_EXTRA[k]) for k in REG['nav']]
 
 
 def head(title, description, canonical, theme_color, styles, preload=()):
@@ -316,10 +320,6 @@ def glass_art():
     return '<i class="art-orb art-orb--1"></i><i class="art-orb art-orb--2"></i><i class="art-orb art-orb--3"></i><i class="art-grid"></i><i class="art-streak"></i>'
 
 
-def neon_art():
-    return '<i class="art-sun"></i><i class="art-floor"></i><i class="art-scan"></i>'
-
-
 def fern(x, y, length, angle, curl, leaves=22, mirror=1):
     """One fern frond: a curved rachis with paired pinnae that shorten toward the tip."""
     parts = []
@@ -360,14 +360,20 @@ def folio_art():
     return '\n'.join(out) + '\n<i class="art-hatch"></i><i class="art-vignette"></i>'
 
 
-def chrome_art():
-    """Pearl and iridescence, liquid-metal blobs and a few sparkles."""
-    blobs = ''.join(f'<i class="art-blob art-blob--{i}"></i>' for i in range(1, 4))
-    sparks = ''.join(f'<i class="art-spark art-spark--{i}"></i>' for i in range(1, 7))
-    return f'<i class="art-iris"></i>{blobs}{sparks}'
+def cosmos_art():
+    """Deep space: a few nebula washes, a star field and three chrome drops (the CSS stand-in for the
+    Liquid Cosmos scene)."""
+    stars = ''.join(f'<circle cx="{(i * 397) % 1600}" cy="{(i * 211 + 37) % 900}" r="{0.6 + (i * 7 % 5) * 0.25:.2f}"/>' for i in range(90))
+    return (f'<i class="art-nebula"></i><svg class="art-stars" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">{stars}</svg>'
+            '<i class="art-drop art-drop--1"></i><i class="art-drop art-drop--2"></i><i class="art-drop art-drop--3"></i>')
 
 
-ART = {'ink': ink_art, 'glass': glass_art, 'neon': neon_art, 'folio': folio_art, 'chrome': chrome_art}
+def darkroom_art():
+    """Darkroom black under a red safelight, with the faint ripple of a developing tray."""
+    return '<i class="art-safelight"></i><i class="art-tray"></i><i class="art-grain"></i>'
+
+
+ART = {'ink': ink_art, 'glass': glass_art, 'cosmos': cosmos_art, 'folio': folio_art, 'darkroom': darkroom_art}
 
 GLYPHS = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&*+<>/=\\'
 
@@ -386,28 +392,35 @@ def letters(text):
     return f'<span class="sr-only">{esc(text)}</span><span class="tt" aria-hidden="true" style="--n:{max(i, 1)}">{" ".join(words)}</span>'
 
 
-# The facets' colours in the crystal's stand-in, in tile order (Ink, Glacier, Signal, Folio, Chrome).
-FACETS = [('#F3EEE3', '#8E877C'), ('#F4F9FC', '#7DBBF0'), ('#07060E', '#22E6FF'), ('#0F1913', '#CDA562'), ('#FFFFFF', '#8E91A6')]
+# The facets' colours in the crystal's stand-in, by style; facet k shows destination k.
+FACETS = {'house': ('#FFFFFF', '#BDB7AC'), 'cosmos': ('#1B1745', '#22E6FF'), 'glass': ('#F4F9FC', '#7DBBF0'),
+          'folio': ('#0F1913', '#CDA562'), 'darkroom': ('#0B0A09', '#C7302A'), 'ink': ('#F3EEE3', '#8E877C')}
 
 
 def crystal_svg():
-    """The homepage crystal as a still: until the scene draws it, and wherever WebGL is missing."""
+    """The homepage crystal as a still: a hexagonal gem whose six facets stand for the six
+    destinations, around a pale table. The scene draws the live crystal over it."""
+    n = len(DESTS)
+
     def pt(k, r):
-        a = math.radians(72 * k)
+        a = math.radians(360 / n * k)
         return f'{f1(100 + r * math.sin(a))},{f1(100 - r * math.cos(a))}'
-    grads, faces = [], []
-    for k, (c0, c1) in enumerate(FACETS):
+    grads, faces, spokes = [], [], []
+    for k, d in enumerate(DESTS):
+        c0, c1 = FACETS[d['style']]
         g = f'cf{k}'
         grads.append(f'<linearGradient id="{g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{c0}"/><stop offset="1" stop-color="{c1}"/></linearGradient>')
         faces.append(f'<polygon points="{pt(k, 42)} {pt(k, 100)} {pt(k + 1, 100)} {pt(k + 1, 42)}" fill="url(#{g})"/>')
-    table = ' '.join(pt(k, 42) for k in range(5))
-    outline = ' '.join(pt(k, 100) for k in range(5))
+        (x0, y0), (x1, y1) = pt(k, 42).split(','), pt(k, 100).split(',')
+        spokes.append(f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y1}"/>')
+    table = ' '.join(pt(k, 42) for k in range(n))
+    outline = ' '.join(pt(k, 100) for k in range(n))
     return (f'<svg class="crystal-still" viewBox="0 0 200 200" aria-hidden="true"><defs>{"".join(grads)}</defs>{"".join(faces)}'
             f'<polygon points="{table}" fill="#FBFAF8"/><g fill="none" stroke="#fff" stroke-width="0.8"><polygon points="{outline}"/>'
-            f'<polygon points="{table}"/>{"".join(f'<line x1="{pt(k, 42).split(",")[0]}" y1="{pt(k, 42).split(",")[1]}" x2="{pt(k, 100).split(",")[0]}" y2="{pt(k, 100).split(",")[1]}"/>' for k in range(5))}</g></svg>')
+            f'<polygon points="{table}"/>{"".join(spokes)}</g></svg>')
 
 
-# ---- previews (homepage panel content, real content only) ------------------------------------------
+# ---- generated pieces (real data only) -------------------------------------------------------------
 
 FILES = 'abcdefgh'
 
@@ -439,17 +452,6 @@ def board_svg(fen, last=(), cls='pv-board'):
             f'<g data-marks>{"".join(marks)}</g><g data-pieces>{"".join(pieces)}</g></svg>')
 
 
-def preview_chess(pkg):
-    p = pkg.meta['preview']
-    modes = ''.join(f'<div><dt>{m.title()}</dt><dd data-rating="{m}">—</dd></div>' for m in ('rapid', 'blitz', 'bullet'))
-    plies = ' '.join(f'{a}{b}' for a, b in p['plies'])
-    return f'''<div class="pv pv--chess" data-pv="chess" data-plies="{plies}">
-  <p class="pv-cap"><span>{esc(p['caption'])}</span><span class="pv-moves" data-moves>{esc(p['moves'])}</span></p>
-  <div class="pv-board-wrap">{board_svg(p['fen'], p.get('last', ()))}</div>
-  <dl class="pv-ratings" data-ratings aria-label="Chess.com ratings">{modes}</dl>
-</div>'''
-
-
 def route_svg(rel, cls):
     data = load_json(rel)
     w, h = data['viewBox']
@@ -457,122 +459,250 @@ def route_svg(rel, cls):
     (sx, sy), (ex, ey) = data['points'][0], data['points'][-1]
     return (f'<svg class="{cls}" viewBox="0 0 {w} {h}" aria-hidden="true"><polyline class="rt-glow" points="{pts}"/>'
             f'<polyline class="rt-line" points="{pts}" pathLength="1"/><circle class="rt-start" cx="{sx}" cy="{sy}" r="4.5"/>'
-            f'<circle class="rt-end" cx="{ex}" cy="{ey}" r="4.5"/></svg>')
+            f'<circle class="rt-end" cx="{ex}" cy="{ey}" r="4.5"/><circle class="rt-dot" cx="{sx}" cy="{sy}" r="6"/></svg>')
 
 
-def preview_racing(pkg):
-    p = pkg.meta['preview']
-    rows = ''.join(f'<li><span>{esc(a)}</span><b>{esc(b)}</b></li>' for a, b in p['rows'])
-    return f'''<div class="pv pv--race" data-pv="racing">
-  <p class="pv-cap">{esc(p['caption'])}</p>
-  <p class="pv-time"><span class="pv-time-main" data-count="{esc(p['time'])}">{esc(p['time'])}</span><span class="pv-time-sub">{esc(p['timeSuffix'])}</span></p>
-  <p class="pv-time-label">{esc(p['timeLabel'])}</p>
-  <div class="pv-route">{route_svg(p['route'], 'pv-route-svg')}<span class="pv-route-label">Cable → Hayward · 50 km</span></div>
-  <ul class="pv-rows" role="list">{rows}</ul>
+def json_attr(value):
+    return esc(json.dumps(value, separators=(',', ':'), ensure_ascii=False))
+
+
+def powermap_strip():
+    """The AI Power Map as one strip: a tick per dated moment across 2021–2026, the two moments the
+    map marks as inflections taller. home.js and the About page read the titles from data-pm-events."""
+    from datetime import date
+    data = load_json('ai-timeline/timeline-data.json')
+    ev = sorted(data['events'], key=lambda e: e['date'])
+    t0, t1 = date(2021, 1, 1), date(2026, 12, 31)
+    span = (t1 - t0).days
+
+    def x(iso):
+        parts = [int(v) for v in iso.split('-')] + [15]   # a month-only date sits mid-month
+        return (date(*parts[:3]) - t0).days / span * 1000
+    ticks = []
+    for i, e in enumerate(ev):
+        tall = str(e.get('inflection')).lower() == 'true'
+        h = 56 if tall else 22 + (i * 37 % 13)
+        ticks.append(f'<rect x="{x(e["date"]):.1f}" y="{60 - h}" width="2" height="{h}"{" class=\"is-tall\"" if tall else ""}/>')
+    years = ''.join(f'<span style="--x:{x(f"{y}-01-01") / 10:.2f}%">{y}</span>' for y in range(2021, 2027))
+    events = [[e['displayDate'], e['title']] for e in ev]
+    last = ev[-1]
+    return f'''<div class="pm" data-pm data-pm-events="{json_attr(events)}">
+  <svg class="pm-strip" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true">{''.join(ticks)}</svg>
+  <p class="pm-years" aria-hidden="true">{years}</p>
+  <p class="pm-read" aria-hidden="true"><b data-pm-date>{esc(last['displayDate'])}</b> <span data-pm-title>{esc(last['title'])}</span></p>
 </div>'''
 
 
-def preview_coding(pkg):
-    p = pkg.meta['preview']
-    w, h = p['imageSize']
-    rows = ''.join(f'<li><span class="pv-n">{esc(n)}</span><span class="pv-k">{esc(k)}</span><span class="pv-v">{esc(v)}</span></li>' for n, k, v in p['rows'])
-    return f'''<div class="pv pv--code" data-pv="coding">
-  <div class="pv-bar"><i></i><i></i><i></i><span>alex@crystal: ~/case-studies</span></div>
-  <figure class="pv-shot"><img src="{pkg.asset(p['image'])}" width="{w}" height="{h}" alt="" loading="lazy" decoding="async"></figure>
-  <p class="pv-prompt"><span class="pv-ps">$</span> <span data-type>{esc(p['prompt'])}</span><i class="pv-caret"></i></p>
-  <ol class="pv-ls" role="list">{rows}</ol>
-</div>'''
+def skyline_svg():
+    """The 48 four-thousand footers as one engraved range: a peak per summit in the order I climbed
+    them, each as tall as its elevation. Outdoors (and its band on the homepage) light them in turn."""
+    data = load_json('outdoors/page/peaks.json')
+    peaks = data['peaks']
+    W, H, n = 1200, 300, len(peaks)
+    step = W / (n + 1)
+    lo, hi = 3300, max(p['ft'] for p in peaks)
+    shapes = []
+    for i, p in enumerate(peaks):
+        cx = step * (i + 1)
+        h = (p['ft'] - lo) / (hi - lo) * (H - 30)
+        hb = step * (1.35 + 0.25 * ((i * 7) % 3))
+        pts = f'{f1(cx - hb)},{H} {f1(cx)},{f1(H - h)} {f1(cx + hb)},{H}'
+        shapes.append((p['ft'], f'<g class="sk-peak" style="--i:{i}" data-i="{i}" data-name="{esc(p["name"])}" data-ft="{p["ft"]:,}" '
+                                f'data-date="{esc(p["date"])}" data-hike="{esc(p["hike"])}"><polygon class="sk-fill" points="{pts}"/>'
+                                f'<polyline class="sk-ridge" points="{pts}"/></g>'))
+    # Taller peaks paint first, so nearer, lower ones overlap them as in a real range.
+    body = ''.join(s for _, s in sorted(shapes, key=lambda t: -t[0]))
+    hatch = ('<pattern id="sk-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">'
+             '<line x1="0" y1="0" x2="0" y2="5" class="sk-hatch-line"/></pattern>')
+    return f'<svg class="o-skyline" viewBox="0 0 {W} {H}" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><defs>{hatch}</defs>{body}</svg>'
 
 
-def preview_mountains(pkg):
-    p = pkg.meta['preview']
-    plates = ''.join(
-        f'<figure class="pv-plate pv-plate--{i + 1}"><img src="{pkg.asset(src)}" width="{w}" height="{h}" alt="" loading="lazy" decoding="async">'
-        f'<figcaption><b>{esc(num)}</b> {esc(cap)}</figcaption></figure>' for i, (src, w, h, num, cap) in enumerate(p['plates']))
-    return f'''<div class="pv pv--folio" data-pv="mountains">
-  <p class="pv-cap"><span>Plates I–III</span><span>Patagonia · Japan · Vietnam</span></p>
-  <div class="pv-plates">{plates}</div>
-  <p class="pv-foot">From the album of fifty-six photographs</p>
-</div>'''
+def fmt_date(iso, year=True):
+    from datetime import date
+    y, m, d = map(int, iso.split('-'))
+    return date(y, m, d).strftime('%b %-d, %Y' if year else '%b %-d')
 
 
-def preview_about(pkg):
-    p = pkg.meta['preview']
-    last = len(p['chips']) - 1
-    rows = ''.join(
-        f'<li class="pv-pill{" is-now" if i == last else ""}" style="--i:{i}"><b>{esc(y)}</b><span>{esc(a)}</span><small>{esc(b)}</small></li>'
-        for i, (y, a, b) in enumerate(p['chips']))
-    return f'''<div class="pv pv--about" data-pv="about">
-  <p class="pv-top"><span class="pv-led" aria-hidden="true"></span><span>timeline</span><span class="pv-span">2019 → now</span></p>
-  <ol class="pv-pills" role="list">{rows}</ol>
-</div>'''
+def hikes_list():
+    data = load_json('outdoors/page/peaks.json')
+    rows = []
+    for h in reversed(data['hikes']):
+        peaks = ', '.join(h['peaks'])
+        rows.append(f'<li class="o-hike"><time datetime="{h["date"]}">{fmt_date(h["date"])}</time><div><p class="o-hike-name">{esc(h["hike"])}</p>'
+                    f'<p class="o-hike-peaks">{esc(peaks)}</p></div><p class="o-hike-meta">{esc(h["distance"])} · {esc(h["climb"])} · {esc(h["time"])}</p></li>')
+    return f'<ol class="o-hikes" role="list" reversed>{"".join(rows)}</ol>'
 
 
-PREVIEW = {'chess': preview_chess, 'racing': preview_racing, 'coding': preview_coding, 'mountains': preview_mountains, 'about': preview_about}
+SPORTS = {'ski': 'Nordic ski', 'run': 'Running', 'tri': 'Triathlon', 'endurance': 'Endurance'}
+
+
+def races_list():
+    data = load_json('athletics/page/races.json')
+    rows = []
+    for r in data['races']:
+        climb = f' · {esc(r["climb"])}' if r.get('climb') else ''
+        time = f'<strong>{esc(r["time"])}</strong>'
+        if r.get('official'):
+            time = f'<strong>{esc(r["official"])}</strong><small>official · {esc(r["time"])} on my watch</small>'
+        legs = ''
+        if r.get('legs'):
+            legs = '<small>' + ' · '.join(f'{esc(l["leg"])} {esc(l["time"])}' for l in r['legs']) + '</small>'
+        rows.append(f'<li class="r-race" data-sport="{r["sport"]}" data-year="{r["date"][:4]}"><time datetime="{r["date"]}">{fmt_date(r["date"])}</time>'
+                    f'<div class="r-race-what"><p class="r-race-title">{esc(r["title"])}</p><p class="r-race-sub"><span class="r-pill">{esc(r["discipline"])}</span>'
+                    f'{esc(r["series"]) if r["series"] != r["title"] else ""}</p></div><p class="r-race-dist">{esc(r["distance"])}{climb}</p>'
+                    f'<p class="r-race-time">{time}{legs}</p></li>')
+    sports = ''.join(f'<span data-sport-label="{k}">{esc(v)}</span>' for k, v in SPORTS.items())
+    return f'<ol class="r-race-list" role="list" data-races data-count="{len(rows)}">{"".join(rows)}</ol><p class="r-race-sports" hidden>{sports}</p>'
+
+
+def gallery_item(ident):
+    """A photograph from the album: its smallest web size, its srcset, and the caption and alt text the
+    Photography page already gives it."""
+    man = load_json('image portfolio/page/img/manifest.json')[ident]
+    widths = man['widths']
+    nw, nh = man['native']
+    src = f'/image%20portfolio/page/img/{ident}-{widths[0]}.webp'
+    srcset = ', '.join(f'/image%20portfolio/page/img/{ident}-{w}.webp {w}w' for w in widths)
+    content = read('image portfolio/page/content.html')
+    m = re.search(rf'data-caption="([^"]*)" data-alt="([^"]*)"><img src="/image%20portfolio/page/img/{re.escape(ident)}-', content)
+    cap, alt = (html.unescape(m.group(1)), html.unescape(m.group(2))) if m else ('', '')
+    return src, srcset, nw, nh, cap, alt
 
 
 # ---- homepage -----------------------------------------------------------------------------------
 
-def tile(pkg, i):
-    reg, st = pkg.reg, style_of(pkg.style)
-    return f'''<article class="tile" id="t-{pkg.id}" data-tile="{i}" data-style="{pkg.style}" aria-labelledby="t-{pkg.id}-title">
-  <div class="tile-text">
-    <p class="tile-num"><span class="tile-n">{reg['number']}</span><span class="tile-style">{esc(st['name'])}</span></p>
-    <h2 class="tile-title" id="t-{pkg.id}-title"><a class="tile-link" href="{reg['url']}" data-expand>{letters(reg['title'])}</a></h2>
-    <p class="tile-line">{esc(pkg.meta['line'])}</p>
-    <p class="tile-cta" aria-hidden="true"><span>Open</span><span class="tile-arrow">→</span></p>
-  </div>
-  <div class="tile-stage">
-    <a class="tile-card" href="{reg['url']}" tabindex="-1" aria-hidden="true" data-expand>
-{PREVIEW[pkg.id](pkg)}
-    </a>
-  </div>
-</article>'''
+# The sentence: each phrase opens a destination; the fact under it changes with the phrase.
+SENTENCE = 'I’m Alex Crystal, a {about}. I {racing}, have stood on {outdoors}, {photography}, {science}, and {chess}.'
+PHRASES = {
+    'about': ('generative AI engineer at MITRE', 'Language systems, knowledge graphs, and a map of 224 moments in AI'),
+    'racing': ('race on skis and on foot', '2:28:49.04 at the American Birkebeiner, Feb 21, 2026'),
+    'outdoors': ('all 48 of New Hampshire’s 4,000-footers', '48 of 48, finished Aug 1, 2026 on the Presidential Traverse'),
+    'photography': ('photograph the places I go', '56 photographs from Patagonia, Japan, Vietnam and home'),
+    'science': ('chase the strange corners of science', 'Seven Earth-sized worlds circle TRAPPIST-1, 40 light-years away'),
+    'chess': ('play the Scotch', 'The Scotch, the Réti and the O’Kelly Sicilian'),
+}
+HOME_FACT = ('Lately', 'Finished all 48 of New Hampshire’s 4,000-footers on Aug 1, 2026')
 
 
-def swatch(style):
-    return f'<span class="sw" data-style="{style}" aria-hidden="true"><i></i></span>'
+def band(pkg, body, cls=''):
+    reg = pkg.reg
+    return f'''<section class="band band--{pkg.id}{cls}" id="band-{pkg.id}" data-band="{pkg.id}" data-style="{pkg.style}" aria-labelledby="band-{pkg.id}-title">
+  <div class="art art--{pkg.style} band-art" aria-hidden="true">{ART[pkg.style]() if pkg.style in ART else ''}</div>
+  <div class="wrap band-inner">
+    <header class="band-head">
+      <p class="band-n">{reg['number']}</p>
+      <h2 class="band-title" id="band-{pkg.id}-title"><a href="{reg['url']}" data-expand>{esc(reg['title'])}</a></h2>
+      <p class="band-line">{esc(pkg.meta['line'])}</p>
+      <p class="band-cta" aria-hidden="true"><a href="{reg['url']}" data-expand tabindex="-1">Open {esc(reg['title'])} <span>→</span></a></p>
+    </header>
+{body}
+  </div>
+</section>'''
+
+
+def band_about(pkg):
+    p = pkg.meta['preview']
+    threads = ''.join(f'<li>{esc(t)}</li>' for t in p['threads'])
+    return f'''    <div class="band-body ab-band">
+      <p class="ab-band-role">{esc(p['role'])}.</p>
+      <ul class="ab-band-threads" role="list">{threads}</ul>
+      <ol class="ab-band-built" role="list">
+        <li><a class="ab-band-row" href="/about/#ai-power-map" data-preview="/coding%20projects/page/images/pv-aimap-top.webp"><span class="ab-band-k">AI Power Map</span><span class="ab-band-v">A sourced history of AI: 224 moments, 312 citations</span></a>
+{powermap_strip()}</li>
+        <li><a class="ab-band-row" href="/about/#birkie-race-intelligence"><span class="ab-band-k">Birkie Race Intelligence</span><span class="ab-band-v">Every Birkebeiner finisher, explorable</span></a></li>
+        <li><a class="ab-band-row" href="/about/#mbonita"><span class="ab-band-k">mBONITA</span><span class="ab-band-v">Network models of multiomics data · J. Proteome Res. 2023</span></a></li>
+      </ol>
+    </div>'''
+
+
+def band_science(pkg):
+    chapters = ''.join(f'<li><a href="{pkg.reg["url"]}{h}">{esc(t)}</a></li>' for t, h in pkg.meta['preview']['chapters'])
+    return f'''    <div class="band-body sx-band">
+      <figure class="sx-band-sim" data-sim="trappist" data-sim-compact><div class="sx-still sx-still--orbits" aria-hidden="true"></div><figcaption><b>TRAPPIST-1</b> Seven Earth-sized worlds, 40 light-years away, drawn at their real periods. The trace is the star dimming as each one crosses it.</figcaption></figure>
+      <ol class="sx-band-chapters" role="list">{chapters}</ol>
+    </div>'''
+
+
+def band_racing(pkg):
+    p = pkg.meta['preview']
+    stats = ''.join(f'<li><b>{esc(a)}</b><span>{esc(b)}</span></li>' for a, b in p['stats'])
+    return f'''    <div class="band-body r-band">
+      <figure class="r-band-race" data-race-pace>
+        <p class="r-band-cap">{esc(p['caption'])}</p>
+        <p class="r-band-clock"><span data-pace-clock>{esc(p['time'])}</span><small>{esc(p['timeSuffix'])}</small></p>
+        <div class="r-band-route">{route_svg(p['route'], 'r-band-svg')}<span class="r-band-km" data-pace-km>Cable → Hayward · 50 km</span></div>
+        <figcaption class="sr-only">The 2026 Birkebeiner route, Cable to Hayward, with my official time of 2:28:49.04.</figcaption>
+      </figure>
+      <ul class="r-band-stats" role="list">{stats}<li><b>National champion</b><span>club running, from my résumé</span></li></ul>
+    </div>'''
+
+
+def band_outdoors(pkg):
+    p = pkg.meta['preview']
+    done, total = p['ultra']
+    return f'''    <div class="band-body o-band">
+      <figure class="o-band-sky" data-skyline data-skyline-band>{skyline_svg()}
+        <figcaption class="o-skyline-read" aria-hidden="true"><span class="o-sk-n" data-sk-n>48</span><span class="o-sk-of">of 48</span><span class="o-sk-peak" data-sk-peak>Jackson · 4,052 ft</span><span class="o-sk-date" data-sk-date>Aug 1, 2026 · Presidential Traverse</span></figcaption>
+      </figure>
+      <p class="o-band-ultra"><b>{done} of {total}</b> Northeast Ultra 8 traverses. Next: {esc(p['next'][0])}.</p>
+    </div>'''
+
+
+def band_photography(pkg):
+    prints = []
+    for i, ident in enumerate(pkg.meta['preview']['reel']):
+        src, srcset, w, h, cap, alt = gallery_item(ident)
+        prints.append(f'<li class="dr-print" style="--ar:{w / h:.4f}"><figure><img src="{src}" srcset="{srcset}" sizes="(min-width: 900px) 34vw, 70vw" '
+                      f'width="{w}" height="{h}" alt="{esc(alt)}" loading="lazy" decoding="async"><figcaption><span class="dr-frame">▸ {i + 1:02d}</span> {esc(cap)}</figcaption></figure></li>')
+    return f'''    <div class="band-body dr-band">
+      <ol class="dr-reel" role="list" data-reel tabindex="0" aria-label="Twelve photographs; scroll sideways">{"".join(prints)}</ol>
+    </div>'''
+
+
+def band_chess(pkg):
+    p = pkg.meta['preview']
+    modes = ''.join(f'<div><dt>{m.title()}</dt><dd data-rating="{m}">—</dd></div>' for m in ('rapid', 'blitz', 'bullet'))
+    plies = ' '.join(f'{a}{b}' for a, b in p['plies'])
+    return f'''    <div class="band-body ch-band">
+      <div class="pv pv--chess" data-pv="chess" data-plies="{plies}">
+        <p class="pv-cap"><span>{esc(p['caption'])}</span><span class="pv-moves" data-moves>{esc(p['moves'])}</span></p>
+        <div class="pv-board-wrap">{board_svg(p['fen'], p.get('last', ()))}</div>
+      </div>
+      <dl class="pv-ratings ch-band-ratings" data-ratings aria-label="My Chess.com ratings, live">{modes}</dl>
+    </div>'''
+
+
+BANDS = {'about': band_about, 'science': band_science, 'racing': band_racing, 'outdoors': band_outdoors,
+         'photography': band_photography, 'chess': band_chess}
 
 
 def home_page(packages):
-    index = ''.join(
-        f'<li><a href="#tile-{d["id"]}" data-jump="{i}">{swatch(d["style"])}<span class="hi-n">{d["number"]}</span>'
-        f'<span class="hi-t">{esc(d["title"])}</span><span class="hi-s">{esc(style_of(d["style"])["name"])}</span></a></li>'
-        for i, d in enumerate(DESTS))
-    backdrops = '\n'.join(f'<div class="bd art art--{d["style"]}" data-bd="{d["style"]}">{ART[d["style"]]()}</div>' for d in DESTS)
-    tiles = '\n'.join(tile(packages[d['id']], i) for i, d in enumerate(DESTS))
-    rail = ''.join(f'<li><a href="#tile-{d["id"]}" data-jump="{i}"><span class="rail-n">{d["number"]}</span><span class="rail-t">{esc(d["title"])}</span></a></li>'
-                   for i, d in enumerate(DESTS))
-    main_html = f'''<section class="hero" aria-labelledby="home-title">
+    links = {}
+    for d in DESTS:
+        text, fact = PHRASES[d['id']]
+        links[d['id']] = (f'<a class="ph" href="{d["url"]}" data-world="{d["id"]}" data-to="{d["style"]}" data-fact="{esc(fact)}" '
+                          f'data-fact-k="{esc(d["title"])}" data-expand>{esc(text)}</a>')
+    sentence = SENTENCE.format(**links)
+    bands = sims_ready('\n'.join(band(packages[d['id']], BANDS[d['id']](packages[d['id']])) for d in DESTS))
+    main_html = f'''<section class="hero" aria-labelledby="home-title" data-home-hero>
   <div class="wrap hero-inner">
-    <p class="label hero-kicker">Portfolio · five rooms, five styles</p>
-    <h1 class="hero-title" id="home-title">Alex Crystal</h1>
-    <p class="hero-lede">{esc(HOME_LEDE)}</p>
-    <ol class="hero-index" role="list" aria-label="The five pages">{index}</ol>
+    <h1 class="hero-sentence" id="home-title">{sentence}</h1>
+    <p class="hero-fact" data-fact aria-live="polite"><span class="hero-fact-k" data-fact-k>{esc(HOME_FACT[0])}</span> <span data-fact-t>{esc(HOME_FACT[1])}</span></p>
   </div>
-  <div class="crystal" aria-hidden="true">{crystal_svg()}</div>
+  <div class="crystal" data-crystal aria-hidden="true">{crystal_svg()}</div>
   <p class="hero-cue" aria-hidden="true"><span>Scroll</span><i></i></p>
 </section>
-<!-- Old homepage fragments land on the tiles. -->
+<!-- Old homepage fragments land on the bands. -->
 <span class="frag-alias" id="destinations" aria-hidden="true"></span>
-<!-- The chess pieces for the Chess preview, inline so the board never refetches them. -->
+<span class="frag-alias" id="tiles" aria-hidden="true"></span>
+<!-- The chess pieces for the Chess band, inline so the board never refetches them. -->
 {read('chess/page/pieces.svg').strip().replace('<svg ', '<svg aria-hidden="true" ', 1)}
-<section class="stage" id="tiles" aria-label="Pages" data-stage>
-  <div class="stage-pin">
-    <div class="backdrops" aria-hidden="true">
-{backdrops}
-    </div>
-    <div class="tiles">
-{tiles}
-    </div>
-    <nav class="rail" aria-label="Tiles"><ol role="list">{rail}</ol></nav>
-    <p class="stage-count" aria-hidden="true"><span data-count-now>01</span> / 05</p>
-  </div>
-  <div class="stage-stops" aria-hidden="true">{''.join(f'<i id="tile-{d["id"]}" style="--k:{k}"></i>' for k, d in enumerate(DESTS))}</div>
-</section>'''
+<div class="bands" data-bands>
+{bands}
+</div>'''
     return page(title='Alex Crystal', description=HOME_DESCRIPTION, canonical='/', style='house', styles=[],
                 current='home', page_id='home', main_attrs='', main_html=main_html,
-                preload=('shippori-mincho-800-latin.woff2',))
+                preload=('unbounded-latin.woff2',))
 
 
 # ---- destination pages --------------------------------------------------------------------------
@@ -590,20 +720,57 @@ def with_aliases(content, fragments):
     return content
 
 
+def sims_ready(content):
+    """A Science experiment is wired up (data-src) only when its module exists, so the page never
+    requests a file that is not there; until then the figure keeps its still."""
+    def wire(m):
+        path = f'science/page/sims/{m.group(1)}.js'
+        if os.path.exists(os.path.join(ROOT, path)):
+            return f'data-sim="{m.group(1)}" data-src="{url_of(path)}"'
+        return m.group(0)
+    return re.sub(r'data-sim="([a-z-]+)"', wire, content)
+
+
 def generated(content, pkg):
-    """Fills <!--gen:route--> (Racing) with the traced route."""
-    if '<!--gen:route-->' in content:
-        content = content.replace('<!--gen:route-->', route_svg(pkg.meta['preview']['route'], 'r-route-svg'))
-    return content
+    """Fills the markers in a page's content: the Birkie route (Racing), every race, the 48 skyline
+    and its hikes (Outdoors), the Power Map strip and the path (About), and the experiments that
+    exist (Science and the homepage)."""
+    fills = {
+        '<!--gen:route-->': lambda: route_svg(pkg.meta['preview']['route'], 'r-route-svg'),
+        '<!--gen:races-->': races_list,
+        '<!--gen:skyline-->': skyline_svg,
+        '<!--gen:hikes-->': hikes_list,
+        '<!--gen:powermap-->': powermap_strip,
+        '<!--gen:timeline-->': lambda: f'''<section class="ab-section ab-timeline" id="timeline" aria-labelledby="timeline-title">
+  <div class="wrap ab-grid">
+    <p class="label ab-kick">Path</p>
+    <h2 class="ab-h2" id="timeline-title">How I got here</h2>
+{read(os.path.join(pkg.pdir, 'timeline.html'))}
+  </div>
+</section>''',
+    }
+    for mark, fill in fills.items():
+        if mark in content:
+            content = content.replace(mark, fill())
+    return sims_ready(content)
+
+
+def art_of(style):
+    return ART[style]() if style in ART else ''
 
 
 def hero(pkg):
-    reg, st = pkg.reg, style_of(pkg.style)
+    reg = pkg.reg
     index = ''.join(f'<li><a href="{esc(h)}">{esc(t)}</a></li>' for h, t in pkg.meta['index'])
+    crystal = f'<div class="d-hero-crystal" aria-hidden="true">{crystal_svg()}</div>' if pkg.style == 'house' else ''
+    if pkg.meta.get('heroPrint'):
+        src, srcset, w, h, cap, alt = gallery_item(pkg.meta['heroPrint'])
+        crystal = (f'<figure class="d-hero-print"><img src="{src}" srcset="{srcset}" sizes="(min-width: 900px) 46vw, 90vw" width="{w}" height="{h}" '
+                   f'alt="{esc(alt)}" decoding="async" fetchpriority="high"><figcaption>{esc(cap)}</figcaption></figure>')
     return f'''<header class="d-hero" data-hero>
-  <div class="art art--{pkg.style} d-hero-art" aria-hidden="true">{ART[pkg.style]()}</div>
-  <div class="wrap d-hero-inner">
-    <p class="d-kicker"><span class="d-n">{reg['number']}</span><span class="d-style">{esc(st['name'])}</span></p>
+  <div class="art art--{pkg.style} d-hero-art" aria-hidden="true">{art_of(pkg.style)}</div>
+  {crystal}<div class="wrap d-hero-inner">
+    <p class="d-kicker"><span class="d-n">{reg['number']}</span><span class="d-style">of {len(DESTS):02d}</span></p>
     <h1 class="d-title">{letters(reg['title'])}</h1>
     <p class="d-lede">{esc(pkg.meta['lede'])}</p>
     <nav class="d-index" aria-label="On this page"><ol role="list">{index}</ol></nav>
@@ -613,13 +780,13 @@ def hero(pkg):
 
 def next_card(pkg, packages):
     nxt = packages[pkg.reg['next']]
-    reg, st = nxt.reg, style_of(nxt.style)
+    reg = nxt.reg
     return f'''<nav class="d-next" data-style="{nxt.style}" aria-label="Next page">
-  <div class="art art--{nxt.style} d-next-art" aria-hidden="true">{ART[nxt.style]()}</div>
+  <div class="art art--{nxt.style} d-next-art" aria-hidden="true">{art_of(nxt.style)}</div>
   <div class="wrap d-next-inner">
     <p class="label d-next-label">Next</p>
     <a class="d-next-card" href="{reg['url']}" data-expand>
-      <span class="d-next-n">{reg['number']} · {esc(st['name'])}</span>
+      <span class="d-next-n">{reg['number']}</span>
       <span class="d-next-title">{esc(reg['title'])}</span>
       <span class="d-next-line">{esc(nxt.meta['line'])}</span>
       <span class="d-next-arrow" aria-hidden="true">→</span>
@@ -628,21 +795,11 @@ def next_card(pkg, packages):
 </nav>'''
 
 
-PRELOAD = {'ink': 'shippori-mincho-800-latin.woff2', 'neon': 'unbounded-latin.woff2', 'folio': 'cormorant-latin.woff2',
-           'chrome': 'krona-one-latin.woff2'}
+PRELOAD = {'ink': 'shippori-mincho-800-latin.woff2', 'cosmos': 'unbounded-latin.woff2', 'folio': 'cormorant-latin.woff2'}
 
 
 def destination_page(pkg, packages):
     content = generated(with_aliases(pkg.content, pkg.meta.get('fragments', {})), pkg)
-    if pkg.id == 'about':
-        content = f'''<section class="ab-section ab-timeline" id="timeline" aria-labelledby="timeline-title">
-  <div class="wrap ab-grid">
-    <p class="label ab-kick">Timeline</p>
-    <h2 class="ab-h2" id="timeline-title">Six milestones</h2>
-{read(os.path.join(pkg.pdir, 'timeline.html'))}
-  </div>
-</section>
-{content}'''
     module = f' data-destination="{pkg.id}"' + (f' data-module="{esc(pkg.module)}"' if pkg.module else '')
     main_html = f'''{hero(pkg)}
 <!-- content:start -->
@@ -675,19 +832,22 @@ def resume_page():
                 main_attrs=' data-module="/resume/resume.js"', main_html=main_html)
 
 
-def work_redirect():
-    """/work/ was the old name of About; old links (and their query and fragment) still land."""
+def redirect(to, title):
+    """A page that moved: it forwards at once, keeping the query, and the fragment when there is one
+    (otherwise the target's own)."""
+    path, _, frag = to.partition('#')
+    keep = f"(location.hash || '{'#' + frag if frag else ''}')"
     return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>About Me — Alex Crystal</title>
+<title>{esc(title)} — Alex Crystal</title>
 <meta name="robots" content="noindex">
-<link rel="canonical" href="{SITE}/about/">
-<meta http-equiv="refresh" content="0; url=/about/">
-<script>location.replace('/about/' + location.search + location.hash)</script>
+<link rel="canonical" href="{SITE}{path}">
+<meta http-equiv="refresh" content="0; url={esc(to)}">
+<script>location.replace('{path}' + location.search + {keep})</script>
 </head>
-<body><p>This page is now <a href="/about/">About Me</a>.</p></body>
+<body><p>This page is now <a href="{esc(to)}">{esc(title)}</a>.</p></body>
 </html>
 '''
 
@@ -740,7 +900,8 @@ def main(argv=None):
             write('index.html', home_page(packages), args.check, changed)
         if 'resume' in only:
             write('resume/resume.html', resume_page(), args.check, changed)
-            write('work/index.html', work_redirect(), args.check, changed)
+            for r in REG.get('redirects', []):
+                write(file_of(r['from']), redirect(r['to'], r['title']), args.check, changed)
     except BuildError as e:
         print(f'FAIL      {e}')
         return 1

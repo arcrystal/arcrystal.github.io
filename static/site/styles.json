@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "about": "The six styles of the site: five tile styles and the neutral house style. colors are the page tokens; scene is the style's id in the WebGL scene (static/site/scene). Read by the builder (theme-color, inline data), the homepage (header and rail inks), and tools/site/contrast.mjs.",
+  "about": "The six styles of the site: five destination styles and the neutral house style (About Me, the homepage, the résumé). colors are the page tokens; scene is the style's id in the WebGL scene (static/site/scene). Read by the builder (theme-color, inline data), the homepage and tools/site/contrast.mjs.",
   "order": [
     "house",
     "ink",
     "glass",
-    "neon",
+    "cosmos",
     "folio",
-    "chrome"
+    "darkroom"
   ],
   "styles": {
     "house": {
@@ -55,18 +55,18 @@
       },
       "scene": 2
     },
-    "neon": {
-      "name": "Signal",
+    "cosmos": {
+      "name": "Liquid Cosmos",
       "scheme": "dark",
       "colors": {
-        "bg": "#07060E",
-        "surface": "#100E1E",
+        "bg": "#05060F",
+        "surface": "#0D0F22",
         "ink": "#ECE9FF",
-        "mute": "#9A95C2",
+        "mute": "#A29FC9",
         "accent": "#22E6FF",
         "accent2": "#FF3DCB",
-        "accent3": "#C8FF4D",
-        "rule": "#22E6FF38"
+        "accent3": "#B9A6FF",
+        "rule": "#B9A6FF38"
       },
       "scene": 3
     },
@@ -85,18 +85,18 @@
       },
       "scene": 4
     },
-    "chrome": {
-      "name": "Liquid Chrome",
-      "scheme": "light",
+    "darkroom": {
+      "name": "Darkroom",
+      "scheme": "dark",
       "colors": {
-        "bg": "#ECEBF4",
-        "surface": "#FFFFFF",
-        "ink": "#14131C",
-        "mute": "#565469",
-        "accent": "#3D2BFF",
-        "accent2": "#FF4FD8",
-        "accent3": "#4FE3FF",
-        "rule": "#14131C1F"
+        "bg": "#0B0A09",
+        "surface": "#171513",
+        "ink": "#F2EEE6",
+        "mute": "#A39C91",
+        "accent": "#E5483F",
+        "accent2": "#C7302A",
+        "accent3": "#D8B98A",
+        "rule": "#F2EEE624"
       },
       "scene": 5
     }

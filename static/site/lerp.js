@@ -1,11 +1,9 @@
-// The stage's motion maths: pure functions shared by the homepage (tiles.js) and the Node tests
+// Motion and colour maths: pure functions shared by the homepage (home.js) and the Node tests
 // (tools/site/tests/lerp.test.mjs). No DOM.
 //
-// Scrolling sets a target position p; the visible position chases it (approach), which is what makes
-// the stage glide instead of step. Each tile holds its style for HOLD of its segment, and the
-// handoff to the next style runs in between; the outgoing title leaves over the first part of the
-// handoff and the incoming one arrives over the last part, overlapping in the middle so the screen
-// is never empty. The header and rail inks mix in OKLab.
+// approach() is the frame-rate independent chase every eased value uses (the crystal's fill, the
+// scroll velocity the scene smears by). seamAt() places the boundary inside a seam between two
+// bands. Colours mix in OKLab.
 
 export const clamp01 = x => Math.max(0, Math.min(1, x));
 export const smoothstep = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
@@ -45,50 +43,17 @@ export const oklabCss = ([L, a, b, alpha]) =>
 // Two OKLab colours mixed by t → CSS.
 export const mixOklab = (u, v, t) => oklabCss(u.map((x, i) => x + (v[i] - x) * clamp01(t)));
 
-// ---- The stage -------------------------------------------------------------------------------
+// ---- Motion --------------------------------------------------------------------------------
 
-// Fraction of each segment a tile holds its style before the handoff starts (split between the
-// two ends), and the scroll length of a segment in viewport heights.
-export const HOLD = 0.45;
-export const SEGMENT = 1.5;
-
-// frac: 0..1 from one tile to the next → handoff 0..1, flat at both ends.
-export function handoff(frac, hold = HOLD) {
-  return smoothstep((frac - hold / 2) / (1 - hold));
-}
-
-// Continuous position p over a sequence of n styles → the pair in view and the fraction between.
-export function pairAt(p, n) {
-  const x = Math.max(0, Math.min(n - 1, p));
-  const i = Math.min(n - 2, Math.floor(x));
-  return { i, j: i + 1, frac: x - i };
-}
-
-// The outgoing title leaves over [0, OUT_END] of the handoff; the incoming one arrives over
-// [IN_START, 1]. They overlap, so some letters are always on screen.
-export const OUT_END = 0.6;
-export const IN_START = 0.3;
-export const exitOf = h => clamp01(h / OUT_END);
-export const enterOf = h => clamp01((h - IN_START) / (1 - IN_START));
-
-// Exponential approach of the visible position to the target: frame-rate independent.
+// Exponential approach of a value to its target: frame-rate independent.
 export function approach(current, target, dt, tau) {
   if (!(tau > 0)) return target;
   const next = target + (current - target) * Math.exp(-dt / tau);
   return Math.abs(next - target) < 1e-4 ? target : next;
 }
 
-// After scrolling stops inside a handoff, the stage glides to the nearer tile. In the entry (the
-// dive from the hero, p in (-1, 0)) it glides on to the first tile once past most of the way.
-// Returns the tile index, or null to stay put.
-export function settleTarget(p, n) {
-  if (p <= -1 || p >= n - 1 + 1e-3) return null;
-  if (p < 0) return p > -0.55 && p < -0.02 ? 0 : null;
-  const k = Math.floor(p), frac = p - k;
-  const edge = HOLD / 2;
-  if (frac <= edge + 0.02 || frac >= 1 - edge - 0.02) return null;
-  return frac < 0.5 ? k : k + 1;
-}
-
-// A jump (rail, hero index, keyboard focus) glides through the handoffs in between.
-export const glideMs = tiles => Math.min(1400, 450 + 250 * Math.abs(tiles));
+// Where the boundary sits inside a seam (0 = its top, 1 = its bottom) when the bands' meeting line
+// is at h of the viewport (0 = top, 1 = bottom): centred, leaning against the scroll so the front
+// sweeps as it passes (the next world gains ground as the line rises), and always inside the seam.
+// Mirrors seamEdge() in scene/glsl/seams.js.
+export const seamAt = h => 0.26 + 0.48 * clamp01(h);

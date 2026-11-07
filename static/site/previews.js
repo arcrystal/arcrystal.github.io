@@ -1,8 +1,7 @@
-// What each tile's preview does while its tile is active: Chess plays the Scotch on its board and
-// shows live ratings, Racing counts up the Birkebeiner time, Coding types its prompt. Mountains and
-// About Me animate in CSS alone. Every preview is complete as built: with motion paused, or before
-// this runs, it shows its final state.
-import { motion, sleep } from './lib/util.js';
+// The homepage's Chess band: the Scotch plays itself on the brushed board, and the ratings read live
+// from Chess.com. The band is complete as built: with motion paused, or before this runs, it shows
+// the final position.
+import { sleep } from './lib/util.js';
 import { ACCOUNT } from '/chess/page/lib/config.js';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
@@ -11,36 +10,9 @@ const at = sq => [FILES.indexOf(sq[0]) * 45, (8 - Number(sq[1])) * 45];
 const MODES = ['rapid', 'blitz', 'bullet'];
 const SAVED = 'cinema:chess:v1:stats';   // the copy the Chess page keeps in this browser
 
-export function mountPreviews(stage, ctx) {
-  const runs = new Map();       // preview element → { stop }
-  const byTile = tile => tile?.querySelector('[data-pv]');
-
-  const players = {
-    chess: playChess,
-    racing: countTime,
-    coding: typePrompt,
-  };
-
-  return {
-    activate(tile) {
-      const pv = byTile(tile);
-      if (!pv || motion.paused) return;
-      runs.get(pv)?.stop();
-      const play = players[pv.dataset.pv];
-      if (play) runs.set(pv, play(pv));
-    },
-    deactivate(tile) {
-      const pv = byTile(tile);
-      if (pv) { runs.get(pv)?.stop(); runs.delete(pv); }
-    },
-    warm() { loadRatings(stage, ctx.scope); },
-    destroy() { runs.forEach(r => r.stop()); runs.clear(); },
-  };
-}
-
 // ---- Chess: the Scotch Game, one ply at a time, then a pause and again --------------------------
 
-function playChess(pv) {
+export function playChess(pv) {
   const svg = pv.querySelector('.pv-board');
   const pieces = svg.querySelector('[data-pieces]');
   const marks = svg.querySelector('[data-marks]');
@@ -102,9 +74,9 @@ function playChess(pv) {
   };
 }
 
-// Live ratings, read once per visit when the stage comes into view; the Chess page's saved copy
+// Live ratings, read once per visit when the band comes into view; the Chess page's saved copy
 // fills in when Chess.com cannot be reached. Without either, a line points to Chess.com.
-async function loadRatings(stage, scope) {
+export async function loadRatings(stage, scope) {
   const cells = Object.fromEntries(MODES.map(m => [m, stage.querySelector(`[data-rating="${m}"]`)]));
   if (!cells.rapid) return;
   const list = stage.querySelector('[data-ratings]');
@@ -124,51 +96,4 @@ async function loadRatings(stage, scope) {
     }
   } catch (_) { /* offline or blocked: keep what shows */ }
   if (!scope.disposed) settle();
-}
-
-// ---- Racing: the official time counts up --------------------------------------------------------
-
-function countTime(pv) {
-  const el = pv.querySelector('[data-count]');
-  if (!el) return { stop() {} };
-  const target = el.dataset.count;
-  const [h, m, s] = target.split(':').map(Number);
-  const total = h * 3600 + m * 60 + s;
-  const fmt = sec => `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
-  const t0 = performance.now();
-  const ms = 1500;
-  let raf = 0;
-  const tick = now => {
-    const x = Math.min(1, (now - t0) / ms);
-    el.textContent = fmt(total * (1 - Math.pow(1 - x, 4)));
-    if (x < 1) raf = requestAnimationFrame(tick);
-  };
-  raf = requestAnimationFrame(tick);
-  return { stop() { cancelAnimationFrame(raf); el.textContent = target; } };
-}
-
-// ---- Coding: the prompt types itself, then the listing appears ----------------------------------
-
-function typePrompt(pv) {
-  const el = pv.querySelector('[data-type]');
-  if (!el) return { stop() {} };
-  const text = el.dataset.text || el.textContent;
-  el.dataset.text = text;
-  pv.classList.add('is-armed');
-  pv.classList.remove('is-typed');
-  el.textContent = '';
-  let i = 0, timer = 0;
-  const step = () => {
-    el.textContent = text.slice(0, ++i);
-    if (i < text.length) timer = setTimeout(step, 38 + Math.random() * 40);
-    else pv.classList.add('is-typed');
-  };
-  timer = setTimeout(step, 380);
-  return {
-    stop() {
-      clearTimeout(timer);
-      el.textContent = text;
-      pv.classList.add('is-typed');
-    },
-  };
 }

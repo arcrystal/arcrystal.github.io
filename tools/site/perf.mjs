@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Scroll performance of the homepage stage: wheels from the hero to past the last tile like a person
+// Scroll performance of the homepage: wheels from the hero to past the last band like a person
 // would, and reports rAF frame intervals and the protocol's style and layout counters.
 //   node tools/site/perf.mjs [--strict] [--base URL] [--size 1440x900]
 // Runs: the gpu preset, the gpu preset with the CPU throttled 4×, and SwiftShader (a weak GPU).
@@ -32,7 +32,7 @@ for (const run of RUNS) {
     if (run.throttle > 1) await page.setCpuThrottle(run.throttle);
     const info = await page.eval(() => ({
       gl: document.documentElement.classList.contains('gl'),
-      end: document.querySelector('.stage').offsetTop + document.querySelector('.stage').offsetHeight,
+      end: document.querySelector('.bands').offsetTop + document.querySelector('.bands').offsetHeight,
     }));
     const m0 = (await page.metrics()).perf;
     await page.eval(() => {
@@ -41,7 +41,7 @@ for (const run of RUNS) {
       const tick = t => { if (last !== null) window.__iv.push(t - last); last = t; if (!window.__stop) requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
     });
-    // Wheel at a steady 100 px per 16 ms until past the stage, then let the glide finish.
+    // Wheel at a steady 100 px per 16 ms until past the last band, then let the page settle.
     for (let y = 0; y < info.end; y += 100) { await page.wheel(100, { x: width / 2, y: height / 2 }); await sleep(16); }
     await sleep(800);
     const iv = (await page.eval(() => { window.__stop = true; return window.__iv; })).slice(30);

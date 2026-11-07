@@ -1,7 +1,7 @@
-/* The site frame: header, homepage hero and pinned stage, the scene canvas, destination heroes, the
-   next-page card, contact, footer, the expand overlay and print. Colours come from the style tokens
-   (styles/*.css); on the homepage the stage writes blended inks (--l-*) on the header, rail and
-   counter only (tiles.js), and everything here falls back to the page style without them. */
+/* The site frame: header, the homepage (the sentence, the crystal and the bands), the scene canvas,
+   destination heroes, the next-page card, contact, footer, the expand overlay and print. Colours
+   come from the style tokens (styles/*.css); a band sets its own style with data-style. On the
+   homepage the header takes the ink of the band under it (--l-ink, home.js). */
 
 body { --page-bg: var(--c-bg); }
 
@@ -56,49 +56,50 @@ html[data-scrolled] body:not([data-page="home"]) .site-header {
 @media (min-width: 1100px) { .menu-toggle { display: none; } }
 @media (max-width: 520px) { .motion-toggle { display: none; } }
 
-/* ---- Homepage hero --------------------------------------------------------------------------- */
+/* ---- Homepage hero: the sentence is the menu ------------------------------------------------- */
 
-.hero { position: relative; min-height: 100svh; display: grid; align-items: end; padding: calc(var(--header-h) + 6vh) 0 clamp(72px, 12vh, 140px); }
-.hero-inner { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-5); }
-@media (min-width: 900px) { .hero-inner > * { max-width: min(52vw, 820px); } .hero-lede { max-width: min(44ch, 46vw); } }
-.hero-title {
-  font-size: clamp(3.4rem, 1rem + 9vw, 11.5rem); font-weight: 700; line-height: 0.86; letter-spacing: -0.055em;
-  margin-left: -0.04em; text-wrap: balance;
+.hero { position: relative; min-height: 100svh; display: grid; align-items: center; padding: calc(var(--header-h) + 6vh) 0 clamp(88px, 13vh, 150px); }
+.hero-inner { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
+@media (min-width: 900px) { .hero-inner > * { max-width: min(56vw, 940px); } }
+.hero-sentence {
+  font-size: clamp(2rem, 1.05rem + 3vw, 4.6rem); font-weight: 500; line-height: 1.13; letter-spacing: -0.035em;
+  text-wrap: pretty; margin-left: -0.03em;
 }
-/* The crystal: the scene draws it (fixed to the screen, so it can fall into the first room); this
-   still stands in until then and without WebGL. Both share its place. */
+/* Each phrase carries its world's colour as a highlighter that rises from the baseline. */
+.ph {
+  --ph: #D9D4CA;
+  color: inherit; text-decoration: none; border-radius: 0.12em;
+  background: linear-gradient(var(--ph), var(--ph)) 0 100% / 100% 0.1em no-repeat;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  transition: background-size 380ms var(--ease-out), color 380ms;
+}
+.ph[data-to="cosmos"] { --ph: #C9BCFF; }
+.ph[data-to="glass"] { --ph: #A8DAFF; }
+.ph[data-to="folio"] { --ph: #DCC08A; }
+.ph[data-to="darkroom"] { --ph: #F2A49C; }
+.ph[data-to="ink"] { --ph: #AFC0D4; }
+.ph:hover, .ph:focus-visible, .ph.is-on { background-size: 100% 0.92em; }
+.ph:focus-visible { outline: 2px solid var(--c-fg); outline-offset: 3px; }
+.hero-fact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-height: 2.6em; font-size: var(--t-body); color: var(--c-fg-mute); }
+.hero-fact-k { font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg); }
+[data-fact-t] { transition: opacity 220ms linear; }
+.hero-fact.is-swapping [data-fact-t] { opacity: 0; }
+/* The crystal: the scene draws it; this still stands in until then and without WebGL. */
 .crystal { position: absolute; left: 50%; top: calc(var(--header-h) + 24px + min(27vw, 14svh)); width: min(54vw, 28svh); translate: -50% -50%; pointer-events: none; transition: opacity 600ms linear; }
-@media (max-width: 899px) { .hero { padding-top: calc(var(--header-h) + 54px + min(54vw, 28svh)); } }
-@media (min-width: 900px) { .crystal { left: 73.5%; top: 50%; width: min(62svh, 38vw); } }
+@media (max-width: 899px) { .hero { align-items: end; padding-top: calc(var(--header-h) + 54px + min(54vw, 28svh)); } }
+@media (min-width: 900px) { .crystal { left: 76%; top: 50%; width: min(60svh, 34vw); } }
 .crystal-still { width: 100%; height: auto; filter: drop-shadow(16px 26px 30px rgb(20 20 22 / 0.18)); }
 html.gl .crystal { opacity: 0; }
 .hero.is-facet { cursor: pointer; }
-.hero-lede { max-width: 46ch; font-size: var(--t-lede); line-height: 1.45; color: var(--c-fg-mute); }
-.hero-index { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s-3); margin-top: var(--s-6); max-width: 1100px; }
-.hero-index a {
-  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center;
-  padding: 12px 14px 12px 12px; border: 1px solid var(--c-rule); border-radius: 14px; color: inherit; text-decoration: none;
-  background: color-mix(in oklab, var(--c-surface) 55%, transparent);
-  transition: border-color var(--d-short), transform var(--d-short) var(--ease-out), background-color var(--d-short);
-}
-.hero-index a:hover { border-color: var(--c-fg); transform: translateY(-2px); background: var(--c-surface); }
-.hero-index .sw { grid-row: 1 / 3; }
-.hi-n { display: none; }
-.hi-t { font-weight: var(--w-bold); line-height: 1.2; }
-.hi-s { font-size: var(--t-label); color: var(--c-fg-mute); line-height: 1.3; }
 .hero-cue { position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: grid; justify-items: center; gap: 8px; font-size: var(--t-label); letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-fg-mute); }
 .hero-cue i { width: 1px; height: 36px; background: linear-gradient(currentColor, transparent); transform-origin: top; }
-.js:not(.motion-paused):not([data-stage-on]) .hero-cue i { animation: cue 2.2s var(--ease-in-out) infinite; }
+.js:not(.motion-paused) .hero-cue i { animation: cue 2.2s var(--ease-in-out) infinite; }
 @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
-
-/* Swatches: each style's material in miniature (styles/*.css draw the <i>). */
-.sw { position: relative; display: inline-block; width: 30px; height: 38px; flex: none; }
-.sw > i { position: absolute; inset: 0; }
 
 /* ---- The scene canvas (scene/scene.js) and the letters ---------------------------------------- */
 
 /* Behind every page; in front only while an expand covers the screen. Sections it draws behind
-   (the hero, the stage, a destination's hero, the next card) go transparent once it is ready. */
+   (the hero, the bands, a destination's hero, the next card) go transparent once it is ready. */
 .scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 600ms linear; }
 html.gl .scene { opacity: 1; }
 .scene.is-front { z-index: 100; transition: none; opacity: 1; }
@@ -106,14 +107,11 @@ html.gl .scene { opacity: 1; }
 html[data-xp-reveal] main > :not(.d-hero), html[data-xp-reveal] .contact, html[data-xp-reveal] .site-foot { opacity: 0; }
 main > *, .contact, .site-foot { transition: opacity 420ms var(--ease-out); }
 
-/* Titles are one span per letter (the builder's letters()). --in and --out (0..1) are a tile's or a
-   hero's arrival and departure; each letter runs its share of them, left to right. Styles decide what
-   a letter does with --ci (its arrival) and --co (its departure). */
+/* Titles are one span per letter (the builder's letters()). --in and --out (0..1) are a hero's
+   arrival and departure; each letter runs its share of them, left to right. Styles decide what a
+   letter does with --ci (its arrival) and --co (its departure). */
 @property --in { syntax: '<number>'; inherits: true; initial-value: 1; }
 @property --out { syntax: '<number>'; inherits: true; initial-value: 0; }
-/* The card's copy of the same progress. Not inherited, so moving a card never restyles its preview. */
-@property --cin { syntax: '<number>'; inherits: false; initial-value: 1; }
-@property --cout { syntax: '<number>'; inherits: false; initial-value: 0; }
 .tt .w { display: inline-block; white-space: nowrap; }
 .tt .ch {
   display: inline-block;
@@ -121,103 +119,150 @@ main > *, .contact, .site-foot { transition: opacity 420ms var(--ease-out); }
   --co: clamp(0, var(--out) * 1.6 - var(--i) / var(--n) * 0.6, 1);
 }
 
-/* With motion paused, letters, lines and cards only fade: nothing travels, tilts or wipes. */
-.motion-paused .tt .ch, .motion-paused .tile-text > *, .motion-paused [data-hero] .d-hero-inner > * { translate: none !important; scale: none !important; }
-.motion-paused .tile-text { transform: none; }
-.motion-paused .tile-card { transform: none !important; clip-path: none !important; -webkit-mask-image: none !important; mask-image: none !important; }
+/* With motion paused, letters only fade: nothing travels, tilts or wipes. */
+.motion-paused .tt .ch, .motion-paused [data-hero] .d-hero-inner > * { translate: none !important; scale: none !important; }
 .motion-paused .tt { -webkit-mask-image: none !important; mask-image: none !important; }
 
-/* ---- The stage ----------------------------------------------------------------------------------- */
+/* ---- The bands: one per destination, each in its own style ------------------------------------ */
 
-.stage { position: relative; height: calc(100svh + 4 * 150svh); }
-.stage-stops { position: absolute; inset: 0; pointer-events: none; }
-.stage-stops > i { position: absolute; left: 0; top: calc(var(--k) * 150svh); width: 1px; height: 1px; }
-.stage-pin { position: sticky; top: 0; height: 100svh; overflow: hidden; isolation: isolate; background: var(--c-bg); color: var(--c-fg); }
-html.gl .stage-pin { background: transparent; }
+/* The scene draws each band's world behind it and the seams between them (home.js); the CSS art
+   stands in until then and without WebGL. */
+.band { position: relative; isolation: isolate; min-height: 70svh; display: grid; align-items: center; padding: clamp(80px, 11vh, 128px) 0; background: var(--c-bg); color: var(--c-fg); }
+.band-art { position: absolute; inset: 0; z-index: -1; overflow: hidden; transition: opacity 600ms linear; }
+html.gl .band { background: transparent; }
+html.gl .band-art { opacity: 0; }
+.band-inner { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(32px, 5vw, 72px); }
+@media (min-width: 900px) { .band-inner { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); align-items: center; } }
+.band-head { display: grid; gap: var(--s-3); align-content: start; }
+.band-n { font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+.band-title { font-family: var(--font-display); font-weight: var(--w-display); font-size: clamp(2.6rem, 1rem + 4.4vw, 6.4rem); line-height: var(--lh-display); letter-spacing: var(--tracking-display); }
+.band-title a { color: inherit; text-decoration: none; }
+.band-title a::after { content: " →"; font-size: 0.4em; vertical-align: 0.6em; color: var(--c-accent); opacity: 0; transition: opacity var(--d-short); }
+.band-title a:hover::after, .band-title a:focus-visible::after { opacity: 1; }
+.band-line { max-width: 34ch; font-size: var(--t-lede); line-height: 1.42; color: var(--c-fg-mute); text-wrap: pretty; }
+.band-cta a { display: inline-flex; gap: 10px; margin-top: var(--s-2); color: var(--c-accent); text-decoration: none; font-size: var(--t-small); font-weight: var(--w-medium); letter-spacing: 0.04em; }
+.band-cta a span { transition: transform var(--d-short) var(--ease-out); }
+.band-cta a:hover span { transform: translateX(6px); }
+.band-body { min-width: 0; }
+/* A band arrives as it scrolls in: the header first, then its piece. */
+.js:not(.motion-paused) .band > .band-inner > * { transition: opacity 700ms var(--ease-out), translate 900ms var(--ease-out); }
+.js:not(.motion-paused) .band > .band-inner > .band-body { transition-delay: 140ms; }
+.js:not(.motion-paused) .band:not(.is-in) > .band-inner > * { opacity: 0; translate: 0 32px; }
 
-/* The CSS backdrops: shown until the scene draws (tiles.js weighs them meanwhile). */
-.backdrops { position: absolute; inset: 0; z-index: 0; transition: opacity 600ms linear, visibility 0s; }
-.backdrops > .bd { position: absolute; inset: 0; display: none; }
-.backdrops > .bd.is-on { display: block; }
-html.gl .backdrops { opacity: 0; visibility: hidden; transition: opacity 600ms linear, visibility 0s 600ms; }
+/* About Me: the role, the threads and three things built. */
+.ab-band-role { font-size: clamp(1.5rem, 1rem + 1.6vw, 2.5rem); line-height: 1.15; letter-spacing: -0.02em; font-weight: var(--w-medium); }
+.ab-band-threads { display: flex; flex-wrap: wrap; gap: 8px; margin: var(--s-4) 0 var(--s-6); padding: 0; list-style: none; }
+.ab-band-threads li { padding: 6px 14px; border: 1px solid var(--c-rule); border-radius: 999px; font-size: var(--t-small); color: var(--c-fg-mute); }
+.ab-band-built { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--c-fg); }
+.ab-band-built > li { border-bottom: 1px solid var(--c-rule); }
+.ab-band-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 18px 0; color: inherit; text-decoration: none; transition: padding var(--d-short) var(--ease-out); }
+@media (min-width: 700px) { .ab-band-row { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: var(--s-5); align-items: baseline; } }
+.ab-band-row:hover { padding-left: 10px; }
+.ab-band-k { font-size: var(--t-h3); font-weight: var(--w-bold); letter-spacing: -0.01em; }
+.ab-band-v { color: var(--c-fg-mute); }
+.ab-band-built .pm { padding: 0 0 18px; }
+.ab-peek { position: fixed; left: 0; top: 0; z-index: 60; width: 300px; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; pointer-events: none; opacity: 0; scale: 0.92; box-shadow: 0 30px 60px -20px rgb(20 20 22 / 0.45); transition: opacity 200ms, scale 300ms var(--ease-out); }
+.ab-peek.is-on { opacity: 1; scale: 1; }
+.ab-peek img { width: 100%; height: 100%; object-fit: cover; object-position: top left; }
 
-.tiles { position: absolute; inset: 0; z-index: 2; }
-.tile {
-  position: absolute; inset: 0;
-  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 0.82fr) minmax(0, 1.18fr);
-  row-gap: 14px; padding: calc(var(--header-h) + 6px) var(--gutter) 64px;
-  pointer-events: none; color: var(--c-fg);
-}
-@media (min-width: 900px) {
-  .tile {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); grid-template-rows: minmax(0, 1fr);
-    column-gap: clamp(40px, 6vw, 112px);
-    padding: calc(var(--header-h) + 3vh) max(calc(var(--gutter) + 150px), calc((100vw - var(--wrap)) / 2 + var(--gutter))) 6vh max(var(--gutter), calc((100vw - var(--wrap)) / 2 + var(--gutter)));
-  }
-}
-html.js .tile:not(.is-near) { visibility: hidden; }
-.tile.is-active { pointer-events: auto; }
-.tile-stage { grid-row: 2; grid-column: 1; min-height: 0; container-type: size; display: grid; place-items: center; perspective: 1400px; }
-@media (min-width: 900px) { .tile-stage { grid-row: 1; grid-column: 2; } }
+/* The AI Power Map strip: a tick per moment. */
+.pm { display: grid; gap: 6px; }
+.pm-strip { width: 100%; height: 44px; display: block; cursor: crosshair; touch-action: pan-y; }
+.pm-strip rect { fill: color-mix(in oklab, var(--c-fg) 55%, transparent); }
+.pm-strip rect.is-tall { fill: var(--c-fg); }
+.pm-strip rect.is-hot { fill: var(--c-fg); }
+.js:not(.motion-paused) .pm:not(.is-drawn) .pm-strip rect { opacity: 0; }
+.pm-strip rect { transition: opacity 300ms linear; transition-delay: calc(var(--d, 0) * 1ms); }
+.pm-years { position: relative; height: 1.2em; margin: 0; font-size: var(--t-label); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+.pm-years span { position: absolute; left: var(--x); }
+.pm-read { margin: 4px 0 0; min-height: 2.8em; font-size: var(--t-small); color: var(--c-fg-mute); }
+.pm-read b { color: var(--c-fg); font-weight: var(--w-medium); margin-right: 8px; }
 
-.tile-text {
-  position: relative; grid-row: 1; grid-column: 1; align-self: end; display: grid; gap: var(--s-3); max-width: 36rem;
-  transform: skewY(calc(var(--v, 0) * -1deg));
-}
-@media (min-width: 900px) { .tile-text { align-self: center; gap: var(--s-4); } }
-/* The lines around the title take turns: the outgoing ones are gone before the incoming ones come. */
-.tile-text > :not(.tile-title) {
-  --a: clamp(0, (var(--in) - 0.35) / 0.65, 1);
-  --d: clamp(0, var(--out) * 1.6, 1);
-  opacity: calc(var(--a) * (1 - var(--d)));
-  translate: 0 calc((1 - var(--a)) * 22px - var(--d) * 22px);
-}
-.tile-num { display: flex; align-items: baseline; gap: 14px; font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
-.tile-n { font-variant-numeric: tabular-nums; }
-.tile-title { font-family: var(--font-display); font-weight: var(--w-display); font-size: clamp(2.6rem, 0.9rem + 5.6vw, 7.5rem); line-height: var(--lh-display); letter-spacing: var(--tracking-display); }
-.tile-link { color: inherit; text-decoration: none; }
-.tile-link::after { content: ""; position: absolute; inset: 0; }
-.tile-line { max-width: 34ch; font-size: var(--t-lede); line-height: 1.42; color: var(--c-fg-mute); text-wrap: pretty; }
-.tile-cta { display: inline-flex; align-items: center; gap: 10px; margin-top: var(--s-2); font-size: var(--t-small); font-weight: var(--w-medium); letter-spacing: 0.04em; color: var(--c-accent); }
-.tile-arrow { display: inline-block; transition: transform var(--d-short) var(--ease-out); }
-.tile-text:hover .tile-arrow, .tile-link:focus-visible ~ .tile-cta .tile-arrow { transform: translateX(6px); }
-@media (max-width: 899px) {
-  .tile-line { font-size: var(--t-body); }
-  .tile-cta { display: none; }
-}
+/* Science: TRAPPIST-1 and the chapters. */
+.sx-band { display: grid; gap: var(--s-5); }
+.sx-band-sim { position: relative; margin: 0; aspect-ratio: 2 / 1; border-radius: 18px; overflow: hidden; border: 1px solid var(--c-rule); background: rgb(5 6 15 / 0.55); }
+.sx-band-sim figcaption { position: absolute; left: 18px; right: 18px; top: 16px; z-index: 2; max-width: 46ch; font-size: var(--t-small); color: var(--c-fg-mute); }
+.sx-band-sim figcaption b { color: var(--c-fg); font-family: var(--font-label); font-weight: 500; margin-right: 8px; }
+.sx-band-chapters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.sx-band-chapters a { display: inline-flex; min-height: 40px; align-items: center; padding: 0 16px; border: 1px solid var(--c-rule); border-radius: 999px; color: var(--c-fg); text-decoration: none; font-size: var(--t-small); }
+.sx-band-chapters a:hover { border-color: var(--c-accent); }
+.sx-still { position: absolute; inset: 0; transition: opacity 500ms linear; }
+.is-live > .sx-still { opacity: 0; }
+/* The experiments' stills, until each one runs (Science page and its band). */
+.sx-still--orbits { background:
+  radial-gradient(circle at 50% 46%, #FFD9B8 0 1.4%, #FF7A4A 2.4%, rgb(255 122 74 / 0.25) 5%, transparent 9%),
+  radial-gradient(circle at 50% 46%, transparent 0 9.5%, rgb(185 166 255 / 0.3) 9.7% 9.9%, transparent 10.1% 13%, rgb(185 166 255 / 0.25) 13.2% 13.4%, transparent 13.6% 17.5%, rgb(185 166 255 / 0.22) 17.7% 17.9%, transparent 18.1% 21.5%, rgb(34 230 255 / 0.4) 21.7% 21.9%, transparent 22.1% 26%, rgb(34 230 255 / 0.4) 26.2% 26.4%, transparent 26.6% 30%, rgb(34 230 255 / 0.4) 30.2% 30.4%, transparent 30.6% 36%, rgb(185 166 255 / 0.2) 36.2% 36.4%, transparent 36.6%); }
+.sx-still--seeds { background: repeating-conic-gradient(from 0deg at 50% 50%, rgb(255 210 120 / 0.5) 0 2deg, transparent 2deg 9.3deg), radial-gradient(circle, transparent 0 4%, #05060F 42%); }
+.sx-still--wing { background: linear-gradient(115deg, #0B2D7A, #1E6BFF 30%, #22E6FF 46%, #7B4BFF 62%, #0B1A44); }
+.sx-still--flock { background: linear-gradient(#2A1B3E, #C26A5A 70%, #F2B184); }
+.sx-still--readout { background: repeating-linear-gradient(to bottom, rgb(34 230 255 / 0.05) 0 1px, transparent 1px 4px); }
+.sx-sim canvas, .sx-band-sim canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-/* Each tile's card: its preview in its own material (styles/*.css), moved by --in and --out. */
-.tile-card {
-  position: relative; display: block; width: min(100cqw, 80cqh); aspect-ratio: 4 / 5;
-  color: var(--c-fg); text-decoration: none; will-change: transform, opacity;
-}
-.tile-card .pv { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
-.tile-card::before, .tile-card::after { --cin: inherit; --cout: inherit; }
+/* Racing: the Birkie at race pace, and the numbers. */
+.r-band { display: grid; gap: var(--s-6); }
+@media (min-width: 1100px) { .r-band { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); align-items: center; } }
+.r-band-race { position: relative; margin: 0; padding: clamp(24px, 3vw, 44px); border-radius: 28px; background: rgb(255 255 255 / 0.62); border: 1px solid rgb(255 255 255 / 0.9); box-shadow: 0 40px 80px -40px rgb(10 30 44 / 0.35), inset 0 1px 0 #fff; }
+.r-band-cap { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-accent); }
+.r-band-clock { margin: 6px 0 0; font-size: clamp(3rem, 1.6rem + 4vw, 6rem); font-weight: 700; letter-spacing: -0.045em; line-height: 1; font-variant-numeric: tabular-nums; }
+.r-band-clock small { font-size: 0.4em; letter-spacing: 0; color: var(--c-fg-mute); transition: opacity 300ms; }
+[data-race-pace].is-running .r-band-clock small { opacity: 0; }
+.r-band-route { position: relative; margin-top: var(--s-4); }
+.r-band-svg { display: block; width: 100%; max-height: 220px; height: auto; overflow: visible; }
+.r-band-km { position: absolute; left: 0; bottom: 0; font-size: var(--t-label); letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+.r-band-stats { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 2px solid var(--c-fg); }
+.r-band-stats li { display: grid; gap: 2px; padding: 14px 0; border-bottom: 1px solid var(--c-rule); }
+.r-band-stats b { font-size: clamp(1.4rem, 1rem + 1.2vw, 2.1rem); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.r-band-stats span { font-size: var(--t-small); color: var(--c-fg-mute); }
 
-/* Rail and counter: their inks follow the blend of the two styles in view. */
-.rail { position: absolute; z-index: 3; right: var(--gutter); top: 50%; translate: 0 -50%; display: none; }
-@media (min-width: 900px) { .rail { display: block; } }
-.rail ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.rail a {
-  display: grid; grid-template-columns: auto auto; justify-content: end; align-items: center; gap: 10px; min-height: 32px;
-  color: var(--l-ink, var(--c-fg)); text-decoration: none; font-size: var(--t-label); letter-spacing: 0.06em; opacity: 0.5; transition: opacity var(--d-short);
-}
-.rail a::after { content: ""; grid-column: 3; width: 18px; height: 1.5px; background: currentColor; transition: width var(--d-medium) var(--ease-out); }
-.rail a:hover, .rail a[aria-current="true"] { opacity: 1; }
-.rail a[aria-current="true"]::after { width: 34px; background: var(--l-accent, currentColor); }
-.rail-t { opacity: 0; transform: translateX(6px); transition: opacity var(--d-short), transform var(--d-short) var(--ease-out); }
-.rail a:hover .rail-t, .rail a[aria-current="true"] .rail-t, .rail:focus-within .rail-t { opacity: 1; transform: none; }
-.rail-n { font-variant-numeric: tabular-nums; }
-.stage-count { position: absolute; z-index: 3; left: var(--gutter); bottom: 22px; font-size: var(--t-label); letter-spacing: 0.12em; color: var(--l-mute, var(--c-fg-mute)); font-variant-numeric: tabular-nums; }
-@media (min-width: 900px) { .stage-count { left: auto; right: var(--gutter); bottom: 4vh; } }
+/* The route drawn at race pace (race-pace.js): the line draws behind a moving dot. */
+.rt-line { fill: none; stroke: var(--c-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--pace, 1)); }
+.rt-glow { fill: none; stroke: #2BD9A8; stroke-opacity: 0.35; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.rt-start { fill: #2BD9A8; }
+.rt-end { fill: #FF5A3C; }
+.rt-dot { fill: #fff; stroke: var(--c-accent); stroke-width: 3; opacity: 0; }
+[data-race-pace].is-running .rt-dot { opacity: 1; }
 
-/* Without JavaScript the stage is five stacked sections, each in its own style. */
-html:not(.js) .stage { height: auto; }
-html:not(.js) .stage-stops { display: none; }
-html:not(.js) .stage-pin { position: static; height: auto; overflow: visible; background: none; }
-html:not(.js) .backdrops, html:not(.js) .rail, html:not(.js) .stage-count { display: none; }
-html:not(.js) .tiles { position: static; }
-html:not(.js) .tile { position: relative; inset: auto; pointer-events: auto; min-height: 100svh; background: var(--c-bg); }
+/* Outdoors: the skyline of the 48. */
+.o-band-sky, .o-skyline-fig { position: relative; margin: 0; }
+.o-skyline { display: block; width: 100%; height: auto; overflow: visible; }
+.sk-hatch-line { stroke: #CDA562; stroke-width: 0.9; stroke-opacity: 0.55; }
+.sk-fill { fill: #12201A; transition: fill 500ms linear; }
+.sk-ridge { fill: none; stroke: rgb(205 165 98 / 0.32); stroke-width: 1.2; stroke-linejoin: round; transition: stroke 500ms linear; }
+.sk-peak.is-lit .sk-fill { fill: url(#sk-hatch); }
+.sk-peak.is-lit .sk-ridge { stroke: #E5C78E; }
+.sk-peak.is-now .sk-ridge { stroke: #FFF1CF; stroke-width: 2.2; }
+.o-skyline-read { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: var(--s-4); font-family: var(--font-label); color: var(--c-fg-mute); }
+.o-sk-n { font-family: var(--font-display); font-size: clamp(2.4rem, 1.4rem + 3vw, 4.4rem); line-height: 1; color: var(--c-accent); font-variant-numeric: tabular-nums; min-width: 1.4em; }
+.o-sk-peak { color: var(--c-fg); font-size: 1.2rem; }
+.o-band-ultra { margin-top: var(--s-5); color: var(--c-fg-mute); font-size: var(--t-body); }
+.o-band-ultra b { color: var(--c-fg); }
+
+/* Photography: a reel of prints. */
+.band--photography .band-inner { grid-template-columns: minmax(0, 1fr); }
+.dr-band { margin-right: calc(-1 * var(--gutter)); }
+.dr-reel { display: flex; gap: clamp(14px, 2vw, 28px); margin: 0; padding: 4px var(--gutter) 22px 2px; list-style: none; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #C7302A transparent; cursor: grab; }
+.dr-reel:active { cursor: grabbing; }
+.dr-reel:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 4px; }
+.dr-print { flex: none; height: clamp(220px, 36svh, 420px); aspect-ratio: var(--ar); scroll-snap-align: center; }
+.dr-print figure { height: 100%; margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 10px; }
+.dr-print img { width: 100%; height: 100%; object-fit: cover; background: #F2EEE6; box-shadow: 0 0 0 8px #F2EEE6, 0 30px 60px -24px rgb(0 0 0 / 0.8); }
+.dr-print figcaption { margin-top: 8px; font-size: var(--t-label); color: var(--c-fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-frame { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--c-accent); margin-right: 6px; }
+/* Each print develops when it reaches the middle of the reel (home.js marks it). */
+.js:not(.motion-paused) .dr-print img { filter: brightness(1.9) contrast(0.25) sepia(0.6); transition: filter 1600ms cubic-bezier(0.3, 0, 0.2, 1); }
+.js:not(.motion-paused) .dr-print.is-developed img { filter: none; }
+
+/* Chess: the board and the live ratings. */
+.ch-band { display: grid; gap: var(--s-5); justify-items: start; }
+@media (min-width: 1100px) { .ch-band { grid-template-columns: minmax(0, 1fr) auto; align-items: end; } }
+.ch-band .pv--chess { position: relative; width: min(100%, 440px); padding: 0; display: grid; grid-template-rows: auto auto; gap: 14px; justify-items: start; text-align: left; }
+.ch-band .pv-board-wrap { width: 100%; height: auto; aspect-ratio: 1; padding: 6px; background: #FBF8F1; box-shadow: 0 1px 0 rgb(28 26 23 / 0.08), 0 0 0 1px rgb(28 26 23 / 0.06), 0 34px 70px -34px rgb(28 26 23 / 0.45); rotate: -0.6deg; }
+.ch-band .pv-cap { justify-items: start; }
+.ch-band-ratings { display: grid; grid-auto-flow: column; gap: var(--s-5); margin: 0; }
+.ch-band-ratings dt { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+.ch-band-ratings dd { margin: 0; font-family: var(--font-display); font-size: clamp(2rem, 1.2rem + 2vw, 3.2rem); font-variant-numeric: tabular-nums; }
+.ch-band-ratings.is-offline > div { display: none; }
+.ch-band-ratings.is-offline::after { content: "Live ratings on Chess.com"; font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
 
 /* ---- Destination pages ----------------------------------------------------------------------- */
 
@@ -229,6 +274,9 @@ html:not(.js) .tile { position: relative; inset: auto; pointer-events: auto; min
 }
 .d-hero--plain { min-height: 0; padding-top: calc(var(--header-h) + clamp(56px, 12vh, 140px)); }
 .d-hero-art { position: absolute; inset: 0; z-index: -1; transition: opacity 600ms linear; }
+.d-hero-crystal { position: absolute; right: max(var(--gutter), calc((100vw - var(--wrap)) / 2 + var(--gutter))); top: 50%; width: min(34vw, 46svh); translate: 0 -42%; pointer-events: none; }
+.d-hero-crystal svg { width: 100%; height: auto; filter: drop-shadow(16px 26px 30px rgb(20 20 22 / 0.16)); }
+@media (max-width: 899px) { .d-hero-crystal { display: none; } }
 html.gl .d-hero, html.gl .d-next { background: transparent; }
 html.gl .d-hero-art, html.gl .d-next-art { opacity: 0; }
 /* A destination's hero arrives (hero.js adds .is-in): its letters and lines run --in from 0 to 1. */
@@ -304,7 +352,7 @@ html.gl .d-hero-art, html.gl .d-next-art { opacity: 0; }
 /* ---- Print ------------------------------------------------------------------------------------- */
 
 @media print {
-  .site-header, .scene, .crystal, .backdrops, .rail, .stage-count, .hero-cue, .d-hero-art, .d-next, .site-foot, .skip-link, .xp { display: none !important; }
+  .site-header, .scene, .crystal, .band-art, .hero-cue, .d-hero-art, .d-next, .site-foot, .skip-link, .xp, .ab-peek { display: none !important; }
   body, .d-hero, .contact { background: #fff !important; color: #000 !important; }
   .d-hero { min-height: 0; padding: 0 0 24px; }
   a { color: inherit; }

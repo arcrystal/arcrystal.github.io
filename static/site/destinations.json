@@ -1,16 +1,21 @@
 {
-  "version": 2,
+  "version": 3,
   "site": "https://arcrystal.github.io",
   "destinations": [
-    { "id": "chess", "title": "Chess", "dir": "chess", "url": "/chess/chess.html", "style": "ink", "number": "01", "next": "racing" },
-    { "id": "racing", "title": "Racing", "dir": "athletics", "url": "/athletics/athletics.html", "style": "glass", "number": "02", "next": "coding" },
-    { "id": "coding", "title": "Coding", "dir": "coding projects", "url": "/coding%20projects/projects.html", "style": "neon", "number": "03", "next": "mountains" },
-    { "id": "mountains", "title": "Mountains", "dir": "image portfolio", "url": "/image%20portfolio/gallery.html", "style": "folio", "number": "04", "next": "about" },
-    { "id": "about", "title": "About Me", "dir": "about", "url": "/about/", "style": "chrome", "number": "05", "next": "chess" }
+    { "id": "about", "title": "About Me", "dir": "about", "url": "/about/", "style": "house", "number": "01", "next": "science" },
+    { "id": "science", "title": "Science", "dir": "science", "url": "/science/", "style": "cosmos", "number": "02", "next": "racing" },
+    { "id": "racing", "title": "Racing", "dir": "athletics", "url": "/athletics/athletics.html", "style": "glass", "number": "03", "next": "outdoors" },
+    { "id": "outdoors", "title": "Outdoors", "dir": "outdoors", "url": "/outdoors/", "style": "folio", "number": "04", "next": "photography" },
+    { "id": "photography", "title": "Photography", "dir": "image portfolio", "url": "/image%20portfolio/gallery.html", "style": "darkroom", "number": "05", "next": "chess" },
+    { "id": "chess", "title": "Chess", "dir": "chess", "url": "/chess/chess.html", "style": "ink", "number": "06", "next": "about" }
   ],
   "pages": [
     { "id": "home", "title": "Alex Crystal", "url": "/", "style": "house" },
     { "id": "resume", "title": "Résumé", "url": "/resume/resume.html", "style": "house" }
   ],
-  "nav": ["chess", "racing", "coding", "mountains", "about", "resume", "contact"]
+  "redirects": [
+    { "from": "/work/", "to": "/about/", "title": "About Me" },
+    { "from": "/coding%20projects/projects.html", "to": "/about/#built", "title": "Things I’ve built" }
+  ],
+  "nav": ["about", "science", "racing", "outdoors", "photography", "chess", "resume", "contact"]
 }

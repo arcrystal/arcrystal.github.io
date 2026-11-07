@@ -1,5 +1,5 @@
 // The site shell. Every URL is a complete static page; this module enhances it once per document:
-// the header controls, the page's modules (the homepage stage, a destination's hero and its own
+// the header controls, the page's modules (the homepage, a destination's hero and its own
 // module from meta.json), and the router, which swaps pages in place behind each style's expand
 // effect. Content never waits for any of it, and if this module cannot load, ordinary links simply
 // load pages for real.
@@ -26,12 +26,12 @@ expand.install(shellScope);
 // ---- page modules ----------------------------------------------------------------------------
 let router = null, current = null, lastId = null;
 
-// The modules a page runs: the stage on the homepage, the arrival on a destination's hero, then
+// The modules a page runs: the sentence and bands on the homepage, the arrival on a destination's hero, then
 // the page's own module (data-module). Mounting the same <main> twice is a no-op, so the router can
 // commit the page the shell already mounted at boot. A module that fails leaves the static page.
 function modulesFor(main) {
   const list = [];
-  if (main.dataset.page === 'home') list.push('/static/site/tiles.js');
+  if (main.dataset.page === 'home') list.push('/static/site/home.js');
   if (main.querySelector('[data-hero]')) list.push('/static/site/hero.js');
   if (main.dataset.module) list.push(main.dataset.module);
   return list;
@@ -95,9 +95,9 @@ try {
     unmountPage,
     announce: chrome.announce,
     focusTarget(intent, main) {
-      // Back on the homepage, focus lands on the tile the visitor came from.
+      // Back on the homepage, focus lands on the band the visitor came from.
       if (current?.id !== 'home' || !current.from) return null;
-      return main.querySelector(`.tile[id="t-${CSS.escape(current.from)}"] .tile-link`);
+      return main.querySelector(`.band[data-band="${CSS.escape(current.from)}"] .band-title a`);
     },
   });
   if (!router.start()) console.warn('The router did not start; pages load in full.');
