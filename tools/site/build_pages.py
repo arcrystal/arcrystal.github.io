@@ -757,15 +757,12 @@ def band(pkg, body, cls=''):
 
 def band_about(pkg):
     p = pkg.meta['preview']
-    threads = ''.join(f'<li>{esc(t)}</li>' for t in p['threads'])
     return f'''    <div class="band-body ab-band">
       <p class="ab-band-role">{esc(p['role'])}.</p>
-      <ul class="ab-band-threads" role="list">{threads}</ul>
+      <p class="ab-band-interest">{esc(p['interest'])}</p>
       <ol class="ab-band-built" role="list">
-        <li><a class="ab-band-row" href="/about/#ai-power-map" data-preview="/coding%20projects/page/images/pv-aimap-top.webp"><span class="ab-band-k">AI Power Map</span><span class="ab-band-v">A sourced history of AI: 224 moments, 312 citations</span></a>
+        <li><a class="ab-band-row" href="/ai-timeline/" data-router="off" data-preview="/coding%20projects/page/images/pv-aimap-top.webp"><span class="ab-band-k">AI Power Map</span><span class="ab-band-v">A sourced history of AI: 224 moments, 312 citations</span></a>
 {powermap_strip()}</li>
-        <li><a class="ab-band-row" href="/about/#birkie-race-intelligence"><span class="ab-band-k">Birkie Race Intelligence</span><span class="ab-band-v">Every Birkebeiner finisher, explorable</span></a></li>
-        <li><a class="ab-band-row" href="/about/#mbonita"><span class="ab-band-k">mBONITA</span><span class="ab-band-v">Network models of multiomics data · J. Proteome Res. 2023</span></a></li>
       </ol>
     </div>'''
 

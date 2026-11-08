@@ -179,8 +179,7 @@ html.gl .band-art { opacity: 0; }
 
 /* About Me: the role, the threads and three things built. */
 .ab-band-role { font-size: clamp(1.5rem, 1rem + 1.6vw, 2.5rem); line-height: 1.15; letter-spacing: -0.02em; font-weight: var(--w-medium); }
-.ab-band-threads { display: flex; flex-wrap: wrap; gap: 8px; margin: var(--s-4) 0 var(--s-6); padding: 0; list-style: none; }
-.ab-band-threads li { padding: 6px 14px; border: 1px solid var(--c-rule); border-radius: 999px; font-size: var(--t-small); color: var(--c-fg-mute); }
+.ab-band-interest { max-width: 44ch; margin: var(--s-4) 0 var(--s-6); font-size: var(--t-lede); line-height: 1.45; color: var(--c-fg-mute); }
 .ab-band-built { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--c-fg); }
 .ab-band-built > li { border-bottom: 1px solid var(--c-rule); }
 .ab-band-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 18px 0; color: inherit; text-decoration: none; transition: padding var(--d-short) var(--ease-out); }

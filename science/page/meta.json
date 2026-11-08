@@ -1,11 +1,11 @@
 {
   "docTitle": "Science — Alex Crystal",
-  "description": "Things in science Alex Crystal can’t stop thinking about: exoplanets around TRAPPIST-1, the golden angle in sunflowers, structural colour and starling murmurations, Voyager, the Wow! signal and the Drake equation, each as a live experiment, and the computer science and physics behind the site.",
+  "description": "Things in science Alex Crystal can’t stop thinking about: exoplanets around TRAPPIST-1, the golden angle in sunflowers, structural colour and starling murmurations, the supermountains that fed early life, Voyager and the Drake equation, a language model cast in silicon, each as a live experiment, and the computer science and physics behind the site.",
   "line": "Exoplanets, the geometry of plants, the beauty of animals, computer science and physics, and the mysteries we keep chasing.",
-  "lede": "Deep space, the geometry of plants, the extreme beauty of animals, human discovery and mystery, and the computer science and physics behind this site. Each one is a live experiment you can play with.",
-  "index": [["#deep-space", "Deep space"], ["#plantae", "Plantae"], ["#animalia", "Animalia"], ["#discovery", "Discovery and mystery"], ["#algorithms", "Algorithms"]],
+  "lede": "Deep space, the geometry of plants, the extreme beauty of animals, deep time, human discovery and mystery, and computer science and physics, from a model cast in silicon to the algorithms behind this site. Each one is a live experiment you can play with.",
+  "index": [["#deep-space", "Deep space"], ["#plantae", "Plantae"], ["#animalia", "Animalia"], ["#deep-time", "Deep time"], ["#discovery", "Discovery and mystery"], ["#silicon", "Silicon"], ["#algorithms", "Algorithms"]],
   "module": "page.js",
   "styles": ["page.css"],
   "fragments": {},
-  "preview": {"chapters": [["Deep space", "#deep-space"], ["Plantae", "#plantae"], ["Animalia", "#animalia"], ["Discovery", "#discovery"], ["Algorithms", "#algorithms"]]}
+  "preview": {"chapters": [["Deep space", "#deep-space"], ["Plantae", "#plantae"], ["Animalia", "#animalia"], ["Deep time", "#deep-time"], ["Discovery", "#discovery"], ["Silicon", "#silicon"], ["Algorithms", "#algorithms"]]}
 }

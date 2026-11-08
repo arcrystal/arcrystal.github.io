@@ -8,7 +8,8 @@ import { GOLDEN_ANGLE, seedAt, fernStep } from '../../../science/page/sims/phyll
 import { reflectance, peakWavelength, CHITIN } from '../../../science/page/sims/structural-colour.js';
 import { kNearest } from '../../../science/page/sims/murmuration.js';
 import { distanceKm, lightHours, REFERENCE, AU_KM } from '../../../science/page/sims/voyager.js';
-import { WOW, strength } from '../../../science/page/sims/wow.js';
+import { mountainHeight, nutrients, EPISODES, EVENTS, episodeAt } from '../../../science/page/sims/supermountains.js';
+import { HC1, GPU, tokensAt, secondsFor, speedup, ANSWER } from '../../../science/page/sims/taalas.js';
 import { drake, FACTORS } from '../../../science/page/sims/drake.js';
 
 const json = rel => JSON.parse(readFileSync(new URL(`../../../${rel}`, import.meta.url), 'utf8'));
@@ -58,9 +59,26 @@ test('Voyager 1 recedes at its published speed', () => {
   assert.ok(lightHours(distanceKm(Date.UTC(2026, 10, 7))) > 23 && lightHours(distanceKm(Date.UTC(2026, 10, 7))) < 24.2);
 });
 
-test('the Wow! signal reads 6, 14, 26, 30, 19, 5 times the noise', () => {
-  assert.deepEqual([...WOW].map(strength), [6, 14, 26, 30, 19, 5]);
-  assert.equal(strength(' '), 0);
+test('supermountains: two episodes, the Boring Billion flat between them, life after each', () => {
+  assert.deepEqual(EPISODES.map(e => [e.from, e.to]), [[2000, 1800], [650, 500]]);
+  assert.ok(mountainHeight(1850) > 0.9 && mountainHeight(560) > 0.9, 'standing through each episode');
+  for (let ma = 1600; ma >= 700; ma -= 50) assert.equal(mountainHeight(ma), 0, `no supermountain at ${ma} Ma`);
+  assert.equal(mountainHeight(2300), 0);
+  assert.equal(episodeAt(1900).name, 'Nuna Supermountain');
+  assert.equal(episodeAt(1000), null);
+  assert.ok(nutrients(520) > 0.9 && nutrients(1200) === 0);
+  // Each milestone comes after its supermountain began.
+  assert.ok(EVENTS[0].at < EPISODES[0].from && EVENTS[1].at < EPISODES[1].from && EVENTS[2].at < EVENTS[1].at);
+});
+
+test('Taalas HC1: the same answer at both published speeds', () => {
+  assert.equal(HC1.rate, 17000);
+  assert.equal(GPU.rate, 230);
+  assert.ok(Math.abs(speedup() - 73.9) < 0.1);
+  assert.equal(tokensAt(HC1.rate, 0.03), 510);
+  assert.equal(tokensAt(HC1.rate, 1), ANSWER);
+  assert.ok(Math.abs(secondsFor(GPU.rate) - 4.348) < 0.001);
+  assert.ok(secondsFor(HC1.rate) < 0.06);
 });
 
 test('the Drake equation multiplies its factors', () => {

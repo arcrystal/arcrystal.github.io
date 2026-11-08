@@ -15,7 +15,7 @@
   ],
   "redirects": [
     { "from": "/work/", "to": "/about/", "title": "About Me" },
-    { "from": "/coding%20projects/projects.html", "to": "/about/#built", "title": "Things I’ve built" }
+    { "from": "/coding%20projects/projects.html", "to": "/about/#interests", "title": "About Me" }
   ],
   "nav": ["about", "science", "racing", "outdoors", "photography", "chess", "resume", "contact"]
 }

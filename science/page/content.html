@@ -37,25 +37,48 @@
   </div>
 </section>
 
+<section id="deep-time" class="sx-chapter" aria-labelledby="deep-time-heading">
+  <div class="wrap sx-grid">
+    <header class="sx-head">
+      <p class="label"><span class="sx-n">04</span> Deep time</p>
+      <h2 id="deep-time-heading">The mountains that made life</h2>
+      <p class="sx-text">Twice in Earth’s history, as supercontinents came together, mountain ranges as high as the Himalayas and up to 8,000 km long rose across them. They are known only from their roots: tiny zircon crystals, low in lutetium, that form under the pressure deep beneath high mountains. As those supermountains wore away they washed phosphorus and iron into the oceans. The first, the Nuna Supermountain, 2.0 to 1.8 billion years ago, coincides with the likely appearance of eukaryotes, the complex cells that plants and animals are made of. The second, the Transgondwanan, 650 to 500 million years ago, coincides with the first large animals and, about 45 million years later, the Cambrian explosion. In between, with no supermountains, came the “Boring Billion”, when life barely changed. It is a correlation the researchers propose to test, not a proven cause.</p>
+      <p class="sx-hint">Move across the timeline to stop it at any moment; the gold and blue grains are the nutrients reaching the sea.</p>
+    </header>
+    <figure class="sx-sim sx-sim--wide" data-sim="supermountains"><div class="sx-still sx-still--readout" aria-hidden="true"></div><figcaption class="sr-only">A timeline of the last 2.5 billion years: the Nuna and Transgondwanan supermountains rising and eroding, nutrients reaching the sea, and the appearance of eukaryotes, the first large animals and the Cambrian explosion.</figcaption></figure>
+  </div>
+</section>
+
 <section id="discovery" class="sx-chapter" aria-labelledby="discovery-heading">
   <div class="wrap sx-grid sx-grid--flip">
     <header class="sx-head">
-      <p class="label"><span class="sx-n">04</span> Human discovery and mystery</p>
+      <p class="label"><span class="sx-n">05</span> Human discovery and mystery</p>
       <h2 id="discovery-heading">Still listening</h2>
-      <p class="sx-text">Voyager 1 left Earth in 1977, crossed into interstellar space in 2012, and is the farthest thing people have ever made. Three weeks before it launched, the Big Ear radio telescope in Ohio caught 72 seconds of a narrowband signal from Sagittarius that an astronomer circled on the printout and labelled “Wow!”. It has never been heard again. The Drake equation, written in 1961, is how we argue about what that silence means.</p>
+      <p class="sx-text">Voyager 1 left Earth in 1977, crossed into interstellar space in 2012, and is the farthest thing people have ever made, still sending word home across a gap light takes most of a day to cross. The Drake equation, written in 1961, is how we argue about who else might be out there to hear: seven factors, most of them still guesses.</p>
     </header>
     <div class="sx-stack">
       <figure class="sx-sim sx-sim--short" data-sim="voyager"><div class="sx-still sx-still--readout" aria-hidden="true"></div><figcaption class="sr-only">Voyager 1’s approximate distance from the Sun, counting up live.</figcaption></figure>
-      <figure class="sx-sim sx-sim--short" data-sim="wow"><div class="sx-still sx-still--readout" aria-hidden="true"></div><figcaption class="sr-only">The Wow! signal printout, 6EQUJ5.</figcaption></figure>
       <figure class="sx-sim" data-sim="drake"><div class="sx-still sx-still--readout" aria-hidden="true"></div><figcaption class="sr-only">The Drake equation with adjustable factors.</figcaption></figure>
     </div>
+  </div>
+</section>
+
+<section id="silicon" class="sx-chapter" aria-labelledby="silicon-heading">
+  <div class="wrap sx-grid">
+    <header class="sx-head">
+      <p class="label"><span class="sx-n">06</span> Computer science</p>
+      <h2 id="silicon-heading">A model cast in silicon</h2>
+      <p class="sx-text">A GPU runs a language model as software: its billions of weights stream in from memory for every word it writes, and memory, not arithmetic, sets the pace. Taalas turned that around. Its first chip, the HC1, builds one model, Llama 3.1 8B, into the silicon itself, its weights stored on the die beside the circuits that use them, in a 6 nm chip of 53 billion transistors. The company reports about 17,000 tokens a second for a single user, against about 230 on an Nvidia H200 (independent tests measured 14,000 to 16,000), and says a new model can be cast into a chip in about two months. The cost of all that speed: the HC1 can run that one model and nothing else.</p>
+      <p class="sx-hint">Both lanes start together, in real time. The chip has finished before the GPU has written its first sentence.</p>
+    </header>
+    <figure class="sx-sim sx-sim--wide" data-sim="taalas"><div class="sx-still sx-still--readout" aria-hidden="true"></div><figcaption class="sr-only">The same 1,000-token answer written by a GPU and by a chip with the model built in, at their published speeds.</figcaption></figure>
   </div>
 </section>
 
 <section id="algorithms" class="sx-chapter sx-algorithms" aria-labelledby="algorithms-heading">
   <div class="wrap">
     <header class="sx-head">
-      <p class="label"><span class="sx-n">05</span> Computer science and physics</p>
+      <p class="label"><span class="sx-n">07</span> Computer science and physics</p>
       <h2 id="algorithms-heading">The algorithms behind this site</h2>
       <p class="sx-text measure">Everything that moves on these pages is computed as you watch, with no video and no renders. These are the algorithms that do it, by field, and where you can see each one. Every band on the homepage lists its own under the <span class="sx-i" aria-hidden="true">i</span> in its corner.</p>
     </header>
@@ -73,8 +96,11 @@
       <li><a href="https://doi.org/10.1038/nature01941" target="_blank" rel="noreferrer">Vukusic and Sambles (2003), Photonic structures in biology, Nature 424, 852 ↗</a></li>
       <li><a href="https://doi.org/10.1073/pnas.0711437105" target="_blank" rel="noreferrer">Ballerini et al. (2008), Interaction ruling animal collective behavior depends on topological rather than metric distance, PNAS 105, 1232 ↗</a></li>
       <li><a href="https://science.nasa.gov/mission/voyager/where-are-voyager-1-and-voyager-2-now/" target="_blank" rel="noreferrer">NASA JPL, Voyager mission status ↗</a></li>
-      <li><a href="http://www.bigear.org/wow.htm" target="_blank" rel="noreferrer">Jerry Ehman, The Big Ear Wow! signal: what we know and don’t know ↗</a></li>
       <li><a href="https://www.seti.org/drake-equation-index" target="_blank" rel="noreferrer">SETI Institute, The Drake equation ↗</a></li>
+      <li><a href="https://doi.org/10.1016/j.epsl.2022.117391" target="_blank" rel="noreferrer">Zhu et al. (2022), The temporal distribution of Earth’s supermountains and their potential link to the rise of atmospheric oxygen and biological evolution, Earth and Planetary Science Letters 580, 117391 ↗</a></li>
+      <li><a href="https://www.anu.edu.au/news/all-news/supermountains-controlled-the-evolution-of-life-on-earth" target="_blank" rel="noreferrer">ANU, Supermountains controlled the evolution of life on Earth ↗</a></li>
+      <li><a href="https://taalas.com/the-path-to-ubiquitous-ai/" target="_blank" rel="noreferrer">Taalas, The path to ubiquitous AI ↗</a></li>
+      <li><a href="https://www.cnx-software.com/2026/02/22/taalas-hc1-hardwired-llama-3-1-8b-ai-accelerator-delivers-up-to-17000-tokens-s/" target="_blank" rel="noreferrer">CNX Software, Taalas HC1 hardwired Llama-3.1 8B AI accelerator delivers up to 17,000 tokens/s ↗</a></li>
     </ol>
   </div>
 </section>

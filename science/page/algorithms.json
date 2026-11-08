@@ -93,7 +93,7 @@
      "where": "Arriving at Photography", "bands": {"photography": "arrival"}},
     {"id": "linear", "field": "Mathematics", "name": "Time scales and arc length",
      "what": "The Power Map places 224 moments by date along one line; the Birkie route is drawn to the point the race clock has reached, by arc length along its path.",
-     "where": "About Me, Racing", "bands": {"about": "piece", "racing": "piece"}},
+     "where": "The homepage’s About Me band, Racing", "bands": {"about": "piece", "racing": "piece"}},
     {"id": "phyllotaxis", "field": "Mathematics", "name": "Vogel’s phyllotaxis",
      "what": "Seed n sits at radius c√n, turned n times the golden angle (137.508°); the seeds pack without gaps in 34 and 55 spirals.",
      "where": "Science", "bands": {}},
