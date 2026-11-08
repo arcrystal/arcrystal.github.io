@@ -21,6 +21,8 @@ uniform float uVel;
 uniform vec4 uGrid;
 uniform vec4 uGrid2;
 uniform int uFirst;
+uniform float uClick;     // 1: a click's cover (only Science's cubes read it)
+uniform vec2 uO;          // the click's origin
 uniform sampler2D uTexA;
 uniform sampler2D uTexB;
 `;
@@ -54,56 +56,96 @@ const vec3 INK_BLACK = vec3(0.110, 0.102, 0.090);
 const vec3 INK_INDIGO = vec3(0.184, 0.290, 0.420);
 `;
 
-// ---- About Me → Science: tiny cubes ----------------------------------------------------------
-// The paper breaks into cubes in the order a Hilbert curve passes through them (flight.js). Each lifts toward you, tumbles through the flow and
-// turns half over (plus a whole turn for some), so its paper face goes under and its other face,
-// carrying the sky of the cell it is bound for, comes up; its sides are liquid chrome.
-const CUBES_VS = VHEAD + /* glsl */ `
+// ---- About Me → Science, and a click into Science: cubes in a vortex --------------------------------
+// Where a cube is (flight.js vortexAt). For a seam, instance rows run from -kd (cubes swirling down
+// from the band above) to the last row, and each cube flies from its cell to the mirror cell kd rows
+// down (out of the strip, for the bottom rows); c comes back as the cube's own cell. For a click
+// (uClick), out of the axis between the click and the cell it builds, on away from the click. False
+// when it is not in flight. Shared by the cubes and the streamlines.
+const VORTEX_UNIT = /* glsl */ `
+bool vortexUnit(inout ivec2 c, out vec2 home, out vec2 dest, out float drop, out float ax, out float u) {
+  vec2 cell = uGrid.zw, S = uRegion.zw;
+  if (uClick > 0.5) {
+    if (c.y >= int(uGrid.y)) return false;
+    ax = uO.x;
+    dest = (vec2(c) + 0.5) * cell;
+    drop = (dest.y - uO.y) * VX_CLICK_DROP;
+    home = vec2(2.0 * ax - dest.x, dest.y - drop);
+    float far = dest.y > uO.y ? S.y - uO.y : uO.y;
+    float along = abs(dest.y - uO.y) / max(far, 1.0), across = abs(dest.x - ax) / max(max(ax, S.x - ax), 1.0);
+    float v = vortexClickV(vortexClickA(along, across, vortexJit(dest, vec2(c))), uH);
+    u = mix(VX_CLICK_U0, 1.0, v);
+    return v > 0.0 && v < 1.0;
+  }
+  int kd = vortexDrop(int(uGrid.y));
+  c.y -= kd;
+  if (c.y >= int(uGrid.y)) return false;
+  ax = S.x * 0.5;
+  home = (vec2(c) + 0.5) * cell;
+  drop = float(kd) * cell.y;
+  dest = vec2(S.x - home.x, home.y + drop);
+  u = vortexU(vortexSeamA(home, dest, S, vortexJit(home, vec2(c))), transitP(uH));
+  return u > 0.0 && u < 1.0;
+}
+`;
+
+// Each cube rides the flow: it turns with it about the leaning axis, so after its odd number of half
+// turns its paper face is underneath and its other face, carrying the sky of the cell it lands in,
+// is up, and it rocks about its own radius on the way. Mid-flight it takes the colour of its speed
+// (vortexHue); its sides are liquid chrome. A click's cubes have no paper face.
+const CUBES_VS = VHEAD + VORTEX_UNIT + /* glsl */ `
 out vec2 vQ;
 flat out int vFace;
 out vec3 vN;
 out vec2 vL;
 out float vMid;
+out vec3 vHue;
 const vec3 NRM[6] = vec3[6](vec3(0, 0, 1), vec3(0, 0, -1), vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0));
 const vec3 TU[6] = vec3[6](vec3(1, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 1, 0), vec3(1, 0, 0), vec3(1, 0, 0));
 const vec3 TV[6] = vec3[6](vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1));
+float gTh, gTilt, gWob, gTum;
+vec3 gTax;
+// The cube's frame: tumbled about its own axis (whole turns, so it lands square), rocked about its
+// radius, turned with the flow about the axis, leant with it.
+vec3 orient(vec3 v) {
+  v = rotAxis(v, gTax, gTum);
+  v = rotAxis(v, vec3(1.0, 0.0, 0.0), gWob);
+  v = rotAxis(v, vec3(0.0, -1.0, 0.0), gTh);
+  float ct = cos(gTilt), st = sin(gTilt);
+  return vec3(v.x, v.y * ct + v.z * st, v.z * ct - v.y * st);
+}
 void main() {
-  int cols = int(uGrid.x);
-  ivec2 c = cellOf(gl_InstanceID + uFirst, cols);
+  ivec2 c = cellOf(gl_InstanceID + uFirst, int(uGrid.x));
+  vec2 home, dest; float drop, ax, u;
+  if (!vortexUnit(c, home, dest, drop, ax, u)) { gl_Position = GONE; return; }
   vec2 cell = uGrid.zw;
-  vec2 home = (vec2(c) + 0.5) * cell;
-  float u = hilbertU(hilbertA(home, uRegion.zw), hash(vec2(c) + 0.37), transitP(uH));
-  if (u <= 0.0 || u >= 1.0 || c.y >= int(uGrid.y)) { gl_Position = GONE; return; }
-  vec2 dest = (vec2(float(shiftCol(c.x, c.y, cols, 1.0, 1)), float(c.y)) + 0.5) * cell;
   float r1 = hash(vec2(c) + 1.7), r2 = hash(vec2(c) + 5.3), r3 = hash(vec2(c) + 9.1);
-  float e = smoother(u);
-  float mid = sin(PI * u);
-  vec3 pos = vec3(mix(home, dest, e), 0.0);
-  pos.xy += mid * (swirl(home * 0.9 + r1 * 40.0, uTime * 0.5) * (70.0 + 130.0 * r1) + vec2(0.0, 40.0 + 160.0 * r2));
-  pos.xy += mid * vec2(sin(uTime * 1.3 + r1 * 6.3), cos(uTime * 1.1 + r2 * 6.3)) * 5.0;
-  pos.y += mid * clamp(uVel, -3.0, 3.0) * 30.0;
-  pos.z = mid * (60.0 + 380.0 * r3 * r3);
-  float ax = r1 * TAU;
-  vec3 axis = vec3(cos(ax), sin(ax), 0.0);
-  float ang = e * (PI + TAU * floor(r2 * 2.0));
-  float yaw = mid * (r3 - 0.5) * 2.4;
+  float turns = r2 < 0.5 ? 3.0 : 5.0;
+  vec3 pos = vortexAt(home, drop, ax, vortexRc(uRegion.zw) * (0.18 + 0.82 * r1), turns, u, gTh, gTilt);
+  float k = vortexDepth(u);
+  pos.y += k * clamp(uVel, -3.0, 3.0) * 20.0;
+  gWob = sin(PI * u) * (r3 - 0.5) * 2.2;
+  gTax = normalize(vec3(hash(vec2(c) + 3.1) - 0.5, hash(vec2(c) + 4.2) - 0.5, hash(vec2(c) + 6.4) - 0.5) + 1e-3);
+  gTum = TAU * smoother(u) * (r3 < 0.5 ? 1.0 : 2.0);
+  // A click's cubes grow out of the core.
+  float grow = uClick > 0.5 ? smoothstep(VX_CLICK_U0, VX_CLICK_U0 + 0.12, u) : 1.0;
   int f = gl_VertexID / 6;
-  vec2 k = QUAD[gl_VertexID % 6] * 2.0 - 1.0;
+  vec2 kq = QUAD[gl_VertexID % 6] * 2.0 - 1.0;
   vec3 n = NRM[f];
-  vec3 half_ = vec3(cell * 0.5, min(cell.x, cell.y) * 0.5) * (1.0 - 0.34 * mid);
-  vec3 rn = rotAxis(rotAxis(n, axis, ang), vec3(0, 0, 1), yaw);
-  vec3 faceC = pos + rotAxis(rotAxis(n * half_, axis, ang), vec3(0, 0, 1), yaw);
+  vec3 half_ = vec3(cell * 0.5, min(cell.x, cell.y) * 0.5) * (1.0 - 0.3 * k) * grow;
+  vec3 rn = orient(n);
+  vec3 faceC = pos + orient(n * half_);
   vec3 eye = vec3(uView * 0.5 - uRegion.xy, FOCAL);
   if (dot(rn, eye - faceC) <= 0.0) { gl_Position = GONE; return; }
-  vec3 local = (n + TU[f] * k.x + TV[f] * k.y) * half_;
-  vec3 P = pos + rotAxis(rotAxis(local, axis, ang), vec3(0, 0, 1), yaw);
-  vec2 off = k * cell * 0.5;
-  vFace = f == 0 ? 0 : f == 1 ? 1 : 2;
-  // Half a turn about an axis in the screen's plane mirrors the back face across that axis.
-  vQ = f == 0 ? home + off : dest + (2.0 * dot(off, axis.xy) * axis.xy - off);
+  vec3 P = pos + orient((n + TU[f] * kq.x + TV[f] * kq.y) * half_);
+  vec2 off = kq * cell * 0.5;
+  vFace = f == 0 ? (uClick > 0.5 ? 2 : 0) : f == 1 ? 1 : 2;
+  // Half a turn about the upright axis mirrors the back face left to right.
+  vQ = f == 0 ? home + off : dest + vec2(-off.x, off.y);
   vN = rn;
-  vL = k;
-  vMid = mid;
+  vL = kq;
+  vMid = k;
+  vHue = vortexHue(vortexSpin(u));
   gl_Position = project(P);
 }`;
 
@@ -113,6 +155,7 @@ flat in int vFace;
 in vec3 vN;
 in vec2 vL;
 in float vMid;
+in vec3 vHue;
 vec3 chrome(vec3 n) {
   float up = -n.y;
   vec3 c = mix(vec3(0.02, 0.025, 0.06), vec3(0.36, 0.23, 1.0) * 0.85, smoothstep(-0.3, 0.9, up));
@@ -123,14 +166,78 @@ vec3 chrome(vec3 n) {
 }
 void main() {
   vec3 n = normalize(vN);
-  vec3 base = vFace == 0 ? texture(uTexA, tUV(vQ)).rgb : vFace == 1 ? texture(uTexB, tUV(vQ)).rgb : chrome(n);
+  // The chrome sides glow only in the flow; settling, they darken, so a cube seen edge-on near the
+  // screen's edge is a shadow, not a bright bar.
+  vec3 base = vFace == 0 ? texture(uTexA, tUV(vQ)).rgb : vFace == 1 ? texture(uTexB, tUV(vQ)).rgb : chrome(n) * (0.3 + 0.7 * vMid);
   vec3 L = normalize(vec3(-0.35, -0.6, 0.72));
   float dif = max(dot(n, L), 0.0);
   float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0);
   vec3 lit = base * (0.6 + 0.52 * dif) + spec * 0.4;
+  // Its speed, in the flow's colours: strongest on the chrome sides, a wash over the faces.
+  vec3 hued = vHue * (0.45 + 0.75 * dif) + spec * 0.55;
+  lit = mix(lit, hued, (vFace == 2 ? 0.75 : 0.35) * vMid);
   float edge = smoothstep(0.78, 1.0, max(abs(vL.x), abs(vL.y)));
-  lit += spectrum(dot(n, vec3(0.6, 0.3, 0.5)) + vMid) * edge * 0.24;
+  lit += vHue * edge * 0.3 * vMid;
   o = vec4(mix(base, lit, smoothstep(0.0, 0.25, vMid)), 1.0);
+}`;
+
+// Streamlines: thin ribbons along the same flow, each the last stretch of a path a cube would take,
+// as in the figure the vortex follows: teal and wide where it turns slowly, thin and orange at the
+// core. They fade in and out with their flight, so the strip is clean at rest.
+const STREAKS_VS = VHEAD + VORTEX_UNIT + /* glsl */ `
+const int NSEG = 18;
+const float TRAIL = 0.24;
+out vec3 vCol;
+out float vAl;
+out float vSide;
+float gTh, gTilt;
+// A point of the path on screen (CSS px) and how far it stands from the camera (w).
+vec3 onScreen(vec2 home, float drop, float ax, float rc, float turns, float u) {
+  vec3 p = vortexAt(home, drop, ax, rc, turns, u, gTh, gTilt);
+  vec2 v = uRegion.xy + p.xy, ctr = uView * 0.5;
+  float w = (FOCAL - min(p.z, 700.0)) / FOCAL;
+  return vec3(ctr + (v - ctr) / w, w);
+}
+void main() {
+  ivec2 c = cellOf(gl_InstanceID + uFirst, int(uGrid.x));
+  vec2 home, dest; float drop, ax, u;
+  if (!vortexUnit(c, home, dest, drop, ax, u)) { gl_Position = GONE; return; }
+  float r1 = hash(vec2(c) + 1.7), r2 = hash(vec2(c) + 5.3);
+  float turns = r2 < 0.5 ? 3.0 : 5.0;
+  float rc = vortexRc(uRegion.zw) * (0.18 + 0.82 * r1);
+  int seg = gl_VertexID / 6;
+  vec2 k = QUAD[gl_VertexID % 6];
+  float i = float(seg) + k.x;
+  float lo = uClick > 0.5 ? VX_CLICK_U0 : 0.0;
+  float du = TRAIL / float(NSEG);
+  float raw = u - TRAIL + i * du;
+  float ui = max(raw, lo);
+  vec3 a = onScreen(home, drop, ax, rc, turns, ui);
+  vec3 b = onScreen(home, drop, ax, rc, turns, max(ui - du, lo));
+  vec3 b2 = onScreen(home, drop, ax, rc, turns, min(ui + du, u));
+  vec2 dir = b2.xy - b.xy;
+  dir = dot(dir, dir) > 1e-4 ? normalize(dir) : vec2(1.0, 0.0);
+  float spin = vortexSpin(ui);
+  float side = k.y * 2.0 - 1.0;
+  float hw = mix(2.2, 0.8, spin) / a.z;
+  vec2 px = a.xy + vec2(-dir.y, dir.x) * side * hw;
+  float t = i / float(NSEG);
+  float ends = uClick > 0.5 ? smoothstep(VX_CLICK_U0, VX_CLICK_U0 + 0.1, ui) : smoothstep(0.0, 0.06, ui);
+  ends *= 1.0 - smoothstep(0.93, 1.0, ui);
+  vCol = vortexHue(spin) * (0.85 + 0.35 * t);
+  // Nothing before the path began (its tail would bunch up there).
+  vAl = pow(t, 1.3) * ends * 0.85 * step(lo, raw);
+  vSide = side;
+  gl_Position = vec4(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0, 0.0, 1.0);
+}`;
+
+const STREAKS_FS = FHEAD + /* glsl */ `
+in vec3 vCol;
+in float vAl;
+in float vSide;
+void main() {
+  float al = vAl * exp(-vSide * vSide * 2.2);
+  o = vec4(vCol * al, al);
 }`;
 
 // ---- Racing → Outdoors: sheets ------------------------------------------------------------------
@@ -354,6 +461,7 @@ void main() {
 // blend: 'opaque', 'over' (premultiplied) or 'add'. grid: which uniform holds the instance grid.
 export const UNIT_PROGRAMS = {
   cubes: { vs: CUBES_VS, fs: CUBES_FS, verts: 36, blend: 'opaque' },
+  streaks: { vs: STREAKS_VS, fs: STREAKS_FS, verts: 18 * 6, blend: 'over' },
   sheets: { vs: SHEETS_VS, fs: SHEETS_FS, verts: 34 * 12 * 6, blend: 'opaque' },   // instances: rows × (cols + 1)
   glitter: { vs: GLITTER_VS, fs: GLITTER_FS, verts: 6, blend: 'add' },
   filaments: { vs: FILAMENTS_VS, fs: FILAMENTS_FS, verts: 16 * 6, blend: 'over' },

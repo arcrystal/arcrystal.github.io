@@ -66,9 +66,11 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // LEAD screens before the hold and ends LEAD after. holdAt gives, for a hold whose page top is T and
 // whose length is H (CSS px, so H - vh of it is held), the strip's top on screen and the progress p.
 // pinTouch: phones and touch screens, where a long hold costs more thumb.
-export const HOLD = { pin: 1.75, pinTouch: 0.9, lead: 0.35 };
-export function holdAt(sy, T, H, vh) {
-  const R = Math.max(1, H - vh), lead = HOLD.lead * vh;
+// longer: transitions that take more scroll (the vortex into Science): their pin is that many times
+// longer, and their lead begins as soon as the strip's top comes on screen.
+export const HOLD = { pin: 1.75, pinTouch: 0.9, lead: 0.35, longer: { cosmos: { pin: 1.6, lead: 0.9 } } };
+export function holdAt(sy, T, H, vh, leadScreens = HOLD.lead) {
+  const R = Math.max(1, H - vh), lead = leadScreens * vh;
   const y = sy < T ? T - sy : sy > T + R ? T + R - sy : 0;
   return { y, p: clamp01((sy - T + lead) / (R + 2 * lead)) };
 }
@@ -91,16 +93,6 @@ export function activeRows(P, rows, pad = 1) {
   return [Math.max(0, Math.floor((1 - hi) * rows) - pad), Math.min(rows, Math.ceil((1 - lo) * rows) + pad)];
 }
 
-// Within blocks of 12 columns, a cyclic shift by r (0..1, the row's hash): dir 1 gives where col's
-// unit lands, dir -1 whose unit lands in col.
-export function shiftCol(col, r, cols, dir) {
-  const b0 = col - (col % 12);
-  const len = Math.min(12, cols - b0);
-  const k = Math.min(Math.floor(r * len), len - 1);
-  const l = col - b0;
-  return b0 + (dir > 0 ? (l + k) % len : (l + len - k) % len);
-}
-
 // ---- The processes' pure parts (mirrors of scene/glsl/flight.js and opens.js) ----------------------
 
 // Outdoors: panes peel in a diagonal sweep from the strip's bottom-left (rn 0 at the foot, xn 0 at
@@ -113,19 +105,29 @@ export function irisOpen(p) {
   return p < 0.5 ? 1 - s(0.16, 0.46, p) : s(0.54, 0.84, p);
 }
 
-// Science: a Hilbert curve's index of block (x, y) on an n × n grid (n a power of two, y up), from
-// (0, 0) to (n - 1, 0).
-export function hilbertIndex(n, x, y) {
-  let d = 0;
-  for (let s = n >> 1; s > 0; s >>= 1) {
-    const rx = (x & s) > 0 ? 1 : 0, ry = (y & s) > 0 ? 1 : 0;
-    d += s * s * ((3 * rx) ^ ry);
-    if (ry === 0) {
-      if (rx === 1) { x = n - 1 - x; y = n - 1 - y; }
-      [x, y] = [y, x];
-    }
-  }
-  return d;
+// Science: a vortex (flight.js), its flow running down the axis toward Science. A seam's cube leaves
+// its cell and lands mirrored across the axis, vortexDrop(rows) rows lower (out of the strip for the
+// bottom rows; the top rows are refilled from the band above). vortexSeamA: when a cube is at the core
+// (home and dest in CSS px, size the strip's); vortexU its flight at P; coreEase eases through the
+// core; vortexAt where it is (x across, y down, z toward the viewer).
+export const VORTEX = { spin: 2.5, sink: 6, d: 0.6, drop: 0.38, tilt: 0.42 };
+export const vortexDrop = rows => Math.floor(rows * VORTEX.drop + 0.5);
+const vortexEdge = (y, H) => (y < 0 || y > H ? 0 : smoothstep(((y - H / 2) / (H / 2) - 0.75) / 0.23));
+export function vortexSeamA(home, dest, [W, H], jit = 0.5) {
+  const down = (home[1] / H + VORTEX.drop) / (1 + VORTEX.drop);
+  const rn = Math.abs(home[0] / W - 0.5) * 2;
+  const A = 0.1 + 0.55 * clamp01(down) + 0.12 * Math.min(rn, 1) + (jit - 0.5) * 0.08;
+  return Math.min(Math.max(A, 0.1), 0.9 - 0.4 * Math.max(vortexEdge(home[1], H), vortexEdge(dest[1], H)));
+}
+export const vortexU = (A, P) => clamp01(0.5 + (P - A) / VORTEX.d);
+export const coreEase = (u, K) => (u * (1 + 0.5 * K) - K * Math.sin(2 * Math.PI * u) / (4 * Math.PI)) / (1 + 0.5 * K);
+export const vortexTurn = u => coreEase(u, VORTEX.spin);
+export function vortexAt([hx, hy], drop, ax, rc, turns, u) {
+  const r0 = hx - ax, k = smoothstep(Math.sin(Math.PI * u));
+  const r = r0 + (Math.sign(r0) * Math.min(Math.abs(r0), rc) - r0) * k ** 1.7;
+  const th = turns * Math.PI * vortexTurn(u), tilt = VORTEX.tilt * smoothstep(k / 0.4);
+  const X = r * Math.cos(th), Z = r * Math.sin(th) * 0.75;
+  return [ax + X, hy + drop * coreEase(u, VORTEX.sink) + Z * Math.sin(tilt), Z * Math.cos(tilt)];
 }
 
 // About Me, Résumé, Contact: a maze carved by depth-first backtracking from start ([col, row]) over

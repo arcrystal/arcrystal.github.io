@@ -14,7 +14,7 @@ const OUT = path.join(REPO_ROOT, 'resume', 'Alex-Crystal-Resume.pdf');
 const srv = await createServer({ port: 0 });
 const browser = await launch({});
 try {
-  const page = await browser.newPage({ width: 1100, height: 1400, init: "localStorage.setItem('ac-motion', 'paused');" });
+  const page = await browser.newPage({ width: 1100, height: 1400, init: ["localStorage.setItem('ac-motion', 'paused');"] });
   await page.goto(new URL("resume/resume.html", srv.url).href);
   await page.eval(() => document.fonts.ready.then(() => document.fonts.status));
   const { data } = await page.send('Page.printToPDF', {

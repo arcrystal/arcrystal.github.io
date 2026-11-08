@@ -7,7 +7,7 @@ vec2 tUV(vec2 q) { return vec2(q.x / uRegion.z, 1.0 - q.y / uRegion.w); }
 vec3 texA(vec2 q) { return texture(uTexA, tUV(q)).rgb; }
 vec3 texB(vec2 q) { return texture(uTexB, tUV(q)).rgb; }
 
-// Each seam is told apart by its process (flight.js, reach.js): the Hilbert line for Science, crystal
+// Each seam is told apart by its process (flight.js, reach.js): a vortex for Science, crystal
 // growth for Racing, peeling sheets for Outdoors, a camera iris for Photography, a branching reach of
 // ink for Chess. P = transitP(p); uH is p itself.
 const float BLEAD = 0.22;
@@ -23,33 +23,29 @@ bool seamReach(vec2 q, float P, out Reach Rq, out float u) {
   return true;
 }
 
-// About Me → Science. A liquid-chrome line snakes through every block of the strip along a Hilbert
-// curve, and the paper breaks into cubes in the order it passes. A cell is paper until its cube
-// leaves, space once the cube bound for it has landed; between, the hole shows the dark beneath.
+// About Me → Science. The paper breaks into cubes that are drawn into a vortex standing up the middle
+// of the strip and carried down it toward Science (flight.js vortexAt), from the foot up; each lands
+// mirrored across the axis, kd rows lower. A cell is paper until its cube leaves, space once the cube
+// bound for it (from the mirror cell kd rows up, or from the band above) has landed; between, the
+// hole shows the dark beneath. The vortex's heart glows where cubes are rounding it.
 vec3 groundCubes(vec2 q, vec2 px, float P) {
   ivec2 n = ivec2(uGrid.xy);
   ivec2 c = clamp(ivec2(floor(q / uGrid.zw)), ivec2(0), n - 1);
+  vec2 S = uRegion.zw;
+  int kd = vortexDrop(n.y);
+  float drop = float(kd) * uGrid.w;
   vec2 home = (vec2(c) + 0.5) * uGrid.zw;
-  float uX = hilbertU(hilbertA(home, uRegion.zw), hash(vec2(c) + 0.37), P);
-  int src = shiftCol(c.x, c.y, n.x, 1.0, -1);
-  vec2 sc = vec2(float(src), float(c.y));
-  vec2 from = (sc + 0.5) * uGrid.zw;
-  float uY = hilbertU(hilbertA(from, uRegion.zw), hash(sc + 0.37), P);
+  float uX = vortexU(vortexSeamA(home, vec2(S.x - home.x, home.y + drop), S, vortexJit(home, vec2(c))), P);
+  ivec2 sc = ivec2(n.x - 1 - c.x, c.y - kd);
+  vec2 from = (vec2(sc) + 0.5) * uGrid.zw;
+  float uY = vortexU(vortexSeamA(from, home, S, vortexJit(from, vec2(sc))), P);
   vec3 col;
   if (uX <= 0.0) col = sceneHouse(px);
   else if (uY >= 1.0) col = sceneCosmos(px);
-  else {
-    vec2 f = abs(fract(q / uGrid.zw) - 0.5) * 2.0;
-    float rim = smoothstep(0.6, 1.0, max(f.x, f.y));
-    float k = max(uX, uY);
-    col = texB(q) * (0.28 + 0.6 * k);
-    col += COS_CYAN * rim * 0.07 * (1.0 - k) + COS_MAG * rim * 0.04 * k;
-  }
-  // The head runs a little ahead of the cubes; the line drains away behind them.
-  float head = (P + 0.06 - 0.2) / 0.6;
-  if (head < -0.01 || head > 1.3) return col;
-  Look L = hilbertSnake(q, uRegion.zw, head, 0.24, px);
-  return mix(col, L.c, L.m) + L.glow;
+  else col = texB(q) * (0.22 + 0.5 * max(uX, uY));
+  // Cubes rounding the core at this height left about drop / 2 above it.
+  float Aq = vortexSeamA(vec2(0.0, q.y - drop * 0.5), vec2(0.0, q.y + drop * 0.5), S, 0.5);
+  return col + vortexCore(q, S.x * 0.5, 1.0, vortexRc(S), exp(-pow((Aq - P) / 0.16, 2.0)));
 }
 
 // Science → Racing. Space liquefies and swirls (the vortex field, stirred by the fluid sim) while ice

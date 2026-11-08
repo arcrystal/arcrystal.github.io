@@ -111,35 +111,84 @@ vec4 crystalAt(vec2 q, vec2 size, bool polar, vec2 O, float far) {
   return vec4(arm, 1.0 - clamp((second - best) / 0.004, 0.0, 1.0), id, best);
 }
 
-// ---- Science: a Hilbert curve -----------------------------------------------------------------------
-// K Hilbert curves side by side, each stretched over a panel of the rect (K = its aspect, rounded),
-// each from its panel's bottom-left corner to its bottom-right, so together they are one unbroken
-// line through every block. HN blocks per panel side. hIndex: how far along the whole line (0..1)
-// block b lies (x across all panels, y down from the top).
-const int HN = 32;
-int hilbertXY2D(int x, int y) {
-  int d = 0;
-  for (int s = HN / 2; s > 0; s /= 2) {
-    int rx = (x & s) > 0 ? 1 : 0, ry = (y & s) > 0 ? 1 : 0;
-    d += s * s * ((3 * rx) ^ ry);
-    if (ry == 0) {
-      if (rx == 1) { x = HN - 1 - x; y = HN - 1 - y; }
-      int t = x; x = y; y = t;
-    }
-  }
-  return d;
+// ---- Science: a vortex -------------------------------------------------------------------------------
+// After the Burgers vortex, an exact solution of the Navier–Stokes equations: fluid drawn in toward
+// an axis spins faster as it closes in (it keeps its angular momentum) and is stretched along the
+// axis. Here the axis stands upright through the middle of the strip, and the flow along it runs one
+// way, toward Science: down a seam (Science is the band below), away from the link for a click. A
+// cube's flight u: in along an inward spiral, wide at first, sinking slowly; round the core fastest,
+// pulled down the axis there (the stretching); then out again a stretch further down. Its path is a
+// helix that tightens and stretches. It turns about the axis by an odd number of half turns, so it
+// lands mirrored across the axis, its other face up.
+//
+// A seam's cubes each land VX_DROP of the strip's rows below the cell they left. The bottom rows'
+// cubes dive out of the strip into Science; the top rows are refilled by cubes swirling down from
+// the band above (rows -kd..-1). The schedule runs down the strip with the flow: the cubes from the
+// band above go first, so the swirl starts right under it as the strip comes on screen, and travels
+// down toward Science, still turning at the foot as Science arrives. lerp.js mirrors these numbers.
+const float VX_SPIN = 2.5;      // how much faster the core turns than the rim (1 + VX_SPIN times)
+const float VX_SINK = 6.0;      // how much faster it sinks at the core than at the rim
+const float VX_D = 0.6;         // a seam cube's flight, in P: long, so many are in the air at once
+const float VX_DROP = 0.38;     // how far down a seam cube lands, as a share of the rows
+const float VX_TILT = 0.42;     // the orbits lean back so they read as ellipses
+int vortexDrop(int rows) { return int(floor(float(rows) * VX_DROP + 0.5)); }
+// A cell's lean on the schedule: mostly a smooth field, so the page breaks along soft, wandering
+// edges rather than cell by cell. p: the cell's centre (CSS px); c: the cell.
+float vortexJit(vec2 p, vec2 c) { return clamp(0.5 + (noise(p * 0.009) - 0.5) * 1.8 + (hash(c + 0.37) - 0.5) * 0.06, 0.0, 1.0); }
+// How near the strip's bottom edge y is (0 above, 1 at the edge; 0 off the strip).
+float vortexEdge(float y, float H) { return y < 0.0 || y > H ? 0.0 : smoothstep(0.75, 0.98, (y - H * 0.5) / (H * 0.5)); }
+// When a seam cube is at the core: by where it leaves (from the band above down to the foot), so the
+// swirl travels down the strip toward Science, and a little sooner near
+// the axis, so the page breaks along a funnel, not a straight line. Flights fill P's whole
+// [-0.2, 1.2] (the hold starts as the strip's top comes on screen: home.js, lerp.js HOLD.longer), so
+// the swirl is moving right under the band above; one that leaves or lands in the bottom rows ends
+// by 0.82, before the strip's foot comes on screen above Science even on a phone.
+float vortexSeamA(vec2 home, vec2 dest, vec2 size, float jit) {
+  float down = (home.y / size.y + VX_DROP) / (1.0 + VX_DROP);
+  float rn = abs(home.x / size.x - 0.5) * 2.0;
+  float A = 0.1 + 0.55 * clamp(down, 0.0, 1.0) + 0.12 * min(rn, 1.0) + (jit - 0.5) * 0.08;
+  return min(max(A, 0.1), 0.9 - 0.4 * max(vortexEdge(home.y, size.y), vortexEdge(dest.y, size.y)));
 }
-float hPanels(vec2 size) { return max(1.0, floor(size.x / size.y + 0.5)); }
-vec2 hBlockSize(vec2 size) { return vec2(size.x / (hPanels(size) * float(HN)), size.y / float(HN)); }
-ivec2 hBlock(vec2 q, vec2 size) { return clamp(ivec2(floor(q / hBlockSize(size))), ivec2(0), ivec2(int(hPanels(size)) * HN - 1, HN - 1)); }
-float hIndex(ivec2 b, vec2 size) {
-  int panel = b.x / HN;
-  float d = float(panel * HN * HN + hilbertXY2D(b.x - panel * HN, HN - 1 - b.y));
-  return d / (hPanels(size) * float(HN * HN) - 1.0);
+float vortexU(float A, float P) { return clamp(0.5 + (P - A) / VX_D, 0.0, 1.0); }
+// Eased through the core: 0 at u = 0, 1 at u = 1, moving 1 + K times faster at u = 0.5.
+float coreEase(float u, float K) { return (u * (1.0 + 0.5 * K) - K * sin(TAU * u) / (4.0 * PI)) / (1.0 + 0.5 * K); }
+float vortexTurn(float u) { return coreEase(u, VX_SPIN); }
+// Its angular speed, 0 at the rim to 1 at the core.
+float vortexSpin(float u) { float s = sin(PI * u); return s * s; }
+// How deep into the vortex it is (0 at rest, 1 at the core).
+float vortexDepth(float u) { return smoothstep(0.0, 1.0, sin(PI * u)); }
+// Where it is at u: x across, y down, z toward the viewer (CSS px). home: where it left; drop: how
+// far along the axis it is carried (down, or up if negative); ax: the axis (x); rc: the radius it
+// closes in to; turns: an odd number of half turns. th: its angle about the axis; tilt: how far its
+// orbit leans.
+vec3 vortexAt(vec2 home, float drop, float ax, float rc, float turns, float u, out float th, out float tilt) {
+  float r0 = home.x - ax;
+  float k = vortexDepth(u);
+  // It turns from the moment it leaves but closes in later, so the outer flow sweeps wide arcs.
+  float r = mix(r0, sign(r0) * min(abs(r0), rc), pow(k, 1.7));
+  th = turns * PI * vortexTurn(u);
+  tilt = VX_TILT * smoothstep(0.0, 0.4, k);
+  float X = r * cos(th), Z = r * sin(th) * 0.75;
+  float y = home.y + drop * coreEase(u, VX_SINK);
+  return vec3(ax + X, y + Z * sin(tilt), Z * cos(tilt));
 }
-// A seam's cubes leave in the line's order, over P in [0.2, 0.8].
-float hilbertA(vec2 q, vec2 size) { return 0.2 + 0.6 * hIndex(hBlock(q, size), size); }
-float hilbertU(float A, float jit, float P) { return clamp(0.5 + (P - A + (jit - 0.5) * 0.03) / 0.18, 0.0, 1.0); }
+// The radius cubes close in to (each its own share of it).
+float vortexRc(vec2 size) { return min(size.x, size.y) * 0.13; }
+// A click's cubes come out of the axis between the click and the cell they build, and spiral on away
+// from the click to land: the cells nearest the click along the axis first, so the page fills from
+// the link's side across. along, across: how far the cell is from the click along the axis and from
+// the axis (0..1). v (0..1) is the rest of the flight (u from VX_CLICK_U0 to 1) over the cover's E
+// (0..1.04); a cube fades in on the last turns of its way in, so they stream rather than clump.
+const float VX_CLICK_DROP = 0.6, VX_CLICK_U0 = 0.12;
+float vortexClickA(float along, float across, float jit) {
+  return clamp(0.03 + 0.4 * clamp(along, 0.0, 1.0) + 0.18 * clamp(across, 0.0, 1.0) + (jit - 0.5) * 0.1, 0.0, 0.64);
+}
+float vortexClickV(float A, float E) { return clamp((E - A) / 0.36, 0.0, 1.0); }
+// Speed as colour, as in the figure it follows: teal where it turns slowly, blue, orange at the core.
+vec3 vortexHue(float spin) {
+  vec3 c = mix(vec3(0.16, 0.80, 0.86), vec3(0.24, 0.46, 0.92), smoothstep(0.1, 0.55, spin));
+  return mix(c, vec3(0.99, 0.62, 0.24), smoothstep(0.55, 0.95, spin));
+}
 
 // ---- Outdoors: the panes ----------------------------------------------------------------------------
 // Brick-laid panes (odd rows half a pane over) over the strip, uGrid-style (cols, rows, w, h). They
@@ -163,17 +212,6 @@ float paneFly(float u) { return smoothstep(0.55, 1.0, u); }
 const float PEEL_K = 0.6;
 float paneFront(float roll, float w, float side) {
   return clamp(1.0 - roll * (1.0 + PEEL_K) + PEEL_K * mix(w, 1.0 - w, side), 0.0, 1.0);
-}
-
-// Where a unit lands: each row is cut into blocks of 12 cells and shuffled within each block by a
-// cyclic shift, so every cell sends one unit and receives one. dir 1: where col's unit lands;
-// dir -1: whose unit lands in col.
-int shiftCol(int col, int row, int cols, float seed, int dir) {
-  int b0 = col - col % 12;
-  int len = min(12, cols - b0);
-  int k = min(int(hash(vec2(float(row) + 0.5, seed * 3.3)) * float(len)), len - 1);
-  int l = col - b0;
-  return b0 + (dir > 0 ? (l + k) % len : (l + len - k) % len);
 }
 
 // A divergence-free swirl: three layers of drifting vortex cells (the curl of sin x sin y), about

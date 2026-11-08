@@ -48,8 +48,11 @@ export function mount(main, ctx) {
     vw = root.clientWidth; vh = innerHeight; headH = header?.offsetHeight || 64;
     if (!holdVh || vw !== holdVw || Math.abs(vh - holdVh) > 140) { holdVh = vh; holdVw = vw; }
     const pin = coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin;
-    const holdH = `${Math.round(holdVh * (1 + pin))}px`;
-    holds.forEach(el => { if (el.style.height !== holdH) el.style.height = holdH; });
+    // Some transitions take longer (HOLD.longer: the vortex into Science).
+    holds.forEach(el => {
+      const h = `${Math.round(holdVh * (1 + pin * (HOLD.longer[el.dataset.to]?.pin || 1)))}px`;
+      if (el.style.height !== h) el.style.height = h;
+    });
     const sy = scrollY;
     const hr = hero.getBoundingClientRect();
     heroTop = hr.top + sy; heroH = hr.height;
@@ -318,7 +321,7 @@ export function mount(main, ctx) {
           const a = sections[i - 1], c = sections[i];
           if (!a || !c) return null;
           if (c.hold) {
-            const { y, p } = holdAt(scrollY, c.hold.top, c.hold.h, vh);
+            const { y, p } = holdAt(scrollY, c.hold.top, c.hold.h, vh, HOLD.longer[c.style]?.lead);
             if (y + vh <= 0 || y >= vh) return null;
             const cap = captions.get(i);
             if (cap && Math.abs(cap.p - p) > 0.002) { cap.p = p; cap.el.style.setProperty('--p', p.toFixed(3)); }
@@ -344,7 +347,7 @@ export function mount(main, ctx) {
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
   // Each hold names its transition while it plays, at the foot of the screen, with a thin line
   // for how far it has come: the process (glsl/flight.js) and where it is going.
-  const PROCESS = { cosmos: 'A Hilbert curve', glass: 'Crystal growth', folio: 'Peeling sheets', darkroom: 'An iris, then halftone', ink: 'Branching ink' };
+  const PROCESS = { cosmos: 'A vortex', glass: 'Crystal growth', folio: 'Peeling sheets', darkroom: 'An iris, then halftone', ink: 'Branching ink' };
   const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;
@@ -355,6 +358,7 @@ export function mount(main, ctx) {
         if (!i || bands[i - 1].dataset.style === b.dataset.style) return;
         const el = document.createElement('div');
         el.className = 'seam-hold';
+        el.dataset.to = b.dataset.style;
         el.setAttribute('aria-hidden', 'true');
         const process = PROCESS[b.dataset.style];
         if (process) {

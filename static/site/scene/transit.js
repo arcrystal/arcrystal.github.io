@@ -7,7 +7,8 @@
 //   2. the ground (mode 8 of the scene's shader, glsl/transit.js): each point's live world while it
 //      is at rest, and what shows through while its piece is away;
 //   3. the units (glsl/units.js), instanced: one or two draw calls per seam, each unit placed by
-//      the seam's progress and its own seed alone, so scrolling back un-builds it;
+//      the seam's progress and its own seed alone, so scrolling back un-builds it (a click into
+//      Science draws its cubes the same way, over its cover: prepareEffect, drawEffect);
 //   4. for Science → Racing, a small fluid sim that stirs the flow.
 //
 // Only seams on screen do any work, and only rows of units that can be in flight are drawn. The
@@ -20,15 +21,18 @@ import { transitP, activeRows, carveMaze } from '../lerp.js';
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
 // bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach, or the crystals.
 const KINDS = {
-  '0-3': { id: 'cubes', units: ['cubes'] },                           // About Me → Science: a Hilbert curve
+  '0-3': { id: 'cubes', units: ['cubes', 'streaks'] },                // About Me → Science: a vortex
   '3-2': { id: 'crystals', units: [], sim: true, bake: 'crystals' },  // Science → Racing: crystal growth
   '2-4': { id: 'sheets', units: ['sheets', 'glitter'] },             // Racing → Outdoors: peeling sheets
   '4-5': { id: 'iris', units: [] },                                  // Outdoors → Photography: an iris, halftone
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
 };
 // Cell sizes in CSS px (fine pointer, touch).
-const CELL = { cubes: [9, 14], glitter: [7, 11], filaments: [16, 26] };
+const CELL = { cubes: [10, 13], streaks: [26, 36], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [16, 26] };
 const FLY = 420;   // how far, CSS px, a unit can stray from its row
+// Science's cubes land this share of the rows below where they left (glsl/flight.js VX_DROP): the
+// seam draws that many extra rows of them, coming down from the band above.
+const vortexDrop = rows => Math.floor(rows * 0.38 + 0.5);
 
 export function createTransit(gl, { renderWorld, coarse }) {
   const programs = {};
@@ -381,7 +385,10 @@ export function createTransit(gl, { renderWorld, coarse }) {
       for (const name of K.units) {
         const prog = programs[name], def = UNIT_PROGRAMS[name];
         const g = name === 'sheets' ? ground : name === 'cubes' ? ground : grid(name, w, h, f);
-        const [first, count] = name === 'sheets' ? [0, (g[0] + 1) * g[1]] : span(g, s, f, name === 'filaments');
+        // The vortex carries its units the whole height of the strip: all of them, plus the rows
+        // coming down from above.
+        const vortex = name === 'cubes' || name === 'streaks';
+        const [first, count] = name === 'sheets' ? [0, (g[0] + 1) * g[1]] : vortex ? [0, g[0] * (g[1] + vortexDrop(g[1]))] : span(g, s, f, name === 'filaments');
         if (!count) continue;
         const { p, U } = prog;
         gl.useProgram(p);
@@ -393,6 +400,7 @@ export function createTransit(gl, { renderWorld, coarse }) {
         gl.uniform4f(U.uGrid, ...g);
         if (name === 'glitter') gl.uniform4f(U.uGrid2, ...ground);   // the panes the dust breaks from
         gl.uniform1i(U.uFirst, first);
+        if (U.uClick) gl.uniform1f(U.uClick, 0);
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uReach, 5);
@@ -407,6 +415,54 @@ export function createTransit(gl, { renderWorld, coarse }) {
       gl.enable(gl.SCISSOR_TEST);
       restore();
       return true;
+    },
+
+    // A click into Science: its cubes build the page out of a vortex at the click (opens.js draws the
+    // ground). Before the frame: Science's world into a snapshot for the cubes' faces, and the grid
+    // the cover and the cubes share (s.grid). False until the programs are in.
+    prepareEffect(s, f) {
+      if (!programs.cubes || !programs.streaks) return false;
+      const w = f.vpW, h = f.vpH;
+      const ts = (coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
+      const tw = Math.max(1, Math.round(w * ts)), th = Math.max(1, Math.round(h * ts));
+      const snap = snapFor({ id: 'click' }, tw, th);
+      snap.used = f.now;
+      // The world moves: refreshed every other frame.
+      if (snap.fresh || (snap.flip ^= 1)) renderWorld(3, snap.fb[1], tw, th, [0, 0, w, h], 0);
+      snap.fresh = false;
+      s.grid = grid('clickCubes', w, h, f);
+      return true;
+    },
+    // After the cover: the streamlines, then the cubes, on the whole screen.
+    drawEffect(s, f) {
+      const snap = snaps.get('click');
+      if (!snap || !s.grid) return;
+      const w = f.vpW, h = f.vpH;
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, snap.tex[1]);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.disable(gl.SCISSOR_TEST);
+      for (const name of ['streaks', 'cubes']) {
+        const { p, U } = programs[name], def = UNIT_PROGRAMS[name];
+        const g = name === 'cubes' ? s.grid : grid('clickStreaks', w, h, f);
+        gl.useProgram(p);
+        gl.uniform4f(U.uRegion, 0, 0, w, h);
+        gl.uniform2f(U.uView, w, h);
+        gl.uniform1f(U.uTime, f.time);
+        gl.uniform1f(U.uH, (s.e ?? 0) * 1.04);
+        gl.uniform1f(U.uVel, 0);
+        gl.uniform4f(U.uGrid, ...g);
+        gl.uniform1i(U.uFirst, 0);
+        gl.uniform1f(U.uClick, 1);
+        gl.uniform2f(U.uO, s.origin[0], s.origin[1]);
+        gl.uniform1i(U.uTexA, 0);
+        gl.uniform1i(U.uTexB, 1);
+        gl.uniform1i(U.uReach, 5);
+        if (def.blend === 'opaque') gl.disable(gl.BLEND);
+        else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, g[0] * g[1]);
+      }
+      gl.disable(gl.BLEND);
+      gl.enable(gl.SCISSOR_TEST);
     },
 
     // Let go of the snapshots of seams that have been off screen for a while.

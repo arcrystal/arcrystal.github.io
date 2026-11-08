@@ -206,6 +206,8 @@ function createScene() {
           const c = s.card, O = s.mode === 2 ? (c ? [c[0] + c[2] / 2, c[1] + c[3] / 2] : [cssW / 2, cssH / 2]) : (s.point || [cssW / 2, cssH / 2]);
           const far = Math.hypot(Math.max(O[0], cssW - O[0]), Math.max(O[1], cssH - O[1])) * 1.02;
           s.baked = transit.bakeEffect(s.a, O, far, cssW, cssH);
+          // Science's cover is built by cubes, drawn over it (transit.js drawEffect).
+          if (s.mode === 2 && s.a === STYLE_ID.cosmos) { s.origin = O; s.units = transit.prepareEffect(s, info); }
         }
       }
       transit.sweep(now);
@@ -223,6 +225,7 @@ function createScene() {
     drewLast = false;
     for (const s of list) {
       const drew = s.transit ? transit.draw(s, info, drawGround, restoreMain) : draw(s);
+      if (drew && s.units) { transit.drawEffect(s, info); restoreMain(); }
       drewLast = drew || drewLast;
     }
     adapt(dt);

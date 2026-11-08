@@ -1,6 +1,6 @@
 // The share card for one page, drawn in that page's style: its name in the style's display face,
 // its line, and on the right the process its transition is built on, drawn here in SVG (the maze,
-// the Hilbert curve, crystal growth, peeling sheets, the iris and halftone, branching ink). The
+// the vortex, crystal growth, peeling sheets, the iris and halftone, branching ink). The
 // homepage gets the crystal, one facet per destination. Everything is seeded, so a card only
 // changes when its words or this file do. Sets <html data-ready> once the fonts are in.
 import { carveMaze } from '/static/site/lerp.js';
@@ -22,7 +22,7 @@ const TYPE = {
 };
 // What each style's transition is made of (the homepage's hold captions say the same).
 const PROCESS = {
-  house: 'A maze carved depth-first', cosmos: 'A Hilbert curve', glass: 'Crystal growth',
+  house: 'A maze carved depth-first', cosmos: 'A vortex', glass: 'Crystal growth',
   folio: 'Peeling sheets', darkroom: 'An iris, then halftone', ink: 'Branching ink',
 };
 
@@ -35,7 +35,7 @@ for (const d of reg.destinations) PAGES[d.id] = { title: d.title, style: d.style
 
 const P = PAGES[id];
 if (!P) throw new Error(`no card "${id}"`);
-const S = styles[P.style], C = S.colors, T = TYPE[P.style];
+const S = styles[P.style], C = S.colors, T = TYPE[P.style], COL = C, C_INK = C.ink;
 
 let line;
 if (P.dir) line = (await json(`/${encodeURI(P.dir)}/page/meta.json`)).line;
@@ -77,28 +77,52 @@ ART.maze = () => {
   <circle cx="${f(cx(hc))}" cy="${f(cy(hr))}" r="${f(cell * 0.5)}" fill="none" stroke="${C.ink}" stroke-width="2.5"/></g>`;
 };
 
-// Science: a Hilbert curve, one unbroken line through every block, breaking into cubes in the order
-// it passes, over a starfield.
+// Science: the vortex its transition rides (after the Burgers vortex, scene/glsl/flight.js vortexAt):
+// streamlines spiralling in to an upright axis, turning faster as they close in (teal, blue, orange
+// at the core), stretched along it, with a few cubes riding them. Drawn far side first.
 ART.cosmos = () => {
-  const n = 32, side = 640, step = side / n, x0 = W - side + 10, y0 = (H - side) / 2;
-  const d2xy = d => { let x = 0, y = 0; for (let s = 1, t = d; s < n; s *= 2, t = Math.floor(t / 4)) { const rx = 1 & (t >> 1), ry = 1 & (t ^ rx); if (!ry) { if (rx) { x = s - 1 - x; y = s - 1 - y; } [x, y] = [y, x]; } x += s * rx; y += s * ry; } return [x, y]; };
-  const r = rng(11), cut = Math.floor(n * n * 0.66);
-  let pts = '', cubes = '';
-  for (let d = 0; d < n * n; d++) {
-    const [gx, gy] = d2xy(d), x = x0 + (gx + 0.5) * step, y = y0 + (n - 1 - gy + 0.5) * step;
-    if (d <= cut) { pts += `${f(x)},${f(y)} `; continue; }
-    const k = (d - cut) / (n * n - cut), lift = k * k * 260 * (0.6 + r());
-    const s = step * (0.62 - 0.3 * k), col = [C.accent, C.accent2, C.accent3][d % 3];
-    cubes += `<rect x="${f(x - s / 2 + lift * 0.55)}" y="${f(y - s / 2 - lift)}" width="${f(s)}" height="${f(s)}" fill="${col}" fill-opacity="${f(0.9 - 0.6 * k)}" transform="rotate(${f(k * 160 * (r() - 0.3))} ${f(x + lift * 0.55)} ${f(y - lift)})"/>`;
+  const r = rng(11), C = [930, 315], SPIN = 2.5, TILT = 0.42;
+  const sm = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+  const turn = u => (u * (1 + SPIN / 2) - SPIN * Math.sin(2 * Math.PI * u) / (4 * Math.PI)) / (1 + SPIN / 2);
+  const lerp3 = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const TEAL = [41, 204, 219], BLUE = [61, 117, 235], ORANGE = [252, 158, 61];
+  const hue = s => s < 0.55 ? lerp3(TEAL, BLUE, sm((s - 0.1) / 0.45)) : lerp3(BLUE, ORANGE, sm((s - 0.55) / 0.4));
+  const css = (c, a = 1) => `rgb(${c.map(Math.round).join(' ')} / ${a})`;
+  const at = (hx, hy, rc, turns, u) => {
+    const r0 = hx - C[0], k = sm(Math.sin(Math.PI * u));
+    const rad = r0 + (Math.sign(r0) * Math.min(Math.abs(r0), rc) - r0) * k ** 1.7;
+    const th = turns * Math.PI * turn(u), tilt = TILT * sm(k / 0.4);
+    const yl = (hy - C[1]) * (1 + 0.7 * k), X = rad * Math.cos(th), Z = rad * Math.sin(th);
+    const y = yl * Math.cos(tilt) + Z * Math.sin(tilt), z = Z * Math.cos(tilt) - yl * Math.sin(tilt);
+    const s = 1100 / (1100 - Math.min(z, 600));
+    return [C[0] + X * s, C[1] + y * s, z, s];
+  };
+  const segs = [];
+  for (let i = 0; i < 90; i++) {
+    const side = i % 2 ? 1 : -1, hx = C[0] + side * (30 + 300 * Math.sqrt(r())), hy = C[1] + (r() - 0.5) * 300;
+    const rc = 14 + 46 * r(), turns = r() < 0.5 ? 3 : 1, u1 = 0.36 + 0.3 * r();
+    let prev = at(hx, hy, rc, turns, 0.02);
+    for (let j = 1; j <= 56; j++) {
+      const u = 0.02 + (u1 - 0.02) * j / 56, p = at(hx, hy, rc, turns, u), spin = Math.sin(Math.PI * u) ** 2;
+      segs.push({ z: (prev[2] + p[2]) / 2, d: `M${f(prev[0])} ${f(prev[1])}L${f(p[0])} ${f(p[1])}`, c: hue(spin), w: (2.8 - 1.9 * spin) * p[3], a: 0.35 + 0.6 * j / 56 });
+      prev = p;
+    }
+    // A cube riding the line, at its head.
+    if (i % 3 === 0) {
+      const s = 7 * prev[3];
+      segs.push({ z: prev[2] + 1, cube: `<rect x="${f(prev[0] - s / 2)}" y="${f(prev[1] - s / 2)}" width="${f(s)}" height="${f(s)}" transform="rotate(${f(r() * 90)} ${f(prev[0])} ${f(prev[1])})" fill="${css(hue(Math.sin(Math.PI * u1) ** 2))}" stroke="#fff" stroke-opacity="0.35" stroke-width="0.8"/>` });
+    }
   }
+  segs.sort((a, b) => a.z - b.z);
+  const lines = segs.map(g => g.cube || `<path d="${g.d}" stroke="${css(g.c, f(g.a * (g.z < 0 ? 0.7 : 1)))}" stroke-width="${f(g.w)}"/>`).join('');
   let stars = '';
-  for (let i = 0; i < 170; i++) stars += `<circle cx="${f(r() * W)}" cy="${f(r() * H)}" r="${f(0.4 + r() * r() * 1.6)}" fill="${C.ink}" fill-opacity="${f(0.25 + r() * 0.6)}"/>`;
+  for (let i = 0; i < 170; i++) stars += `<circle cx="${f(r() * W)}" cy="${f(r() * H)}" r="${f(0.4 + r() * r() * 1.6)}" fill="${C_INK}" fill-opacity="${f(0.25 + r() * 0.6)}"/>`;
   return `<defs>${fade(500, 760)}
-    <radialGradient id="neb1" cx="0.78" cy="0.3" r="0.45"><stop offset="0" stop-color="${C.accent2}" stop-opacity="0.32"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0"/></radialGradient>
-    <radialGradient id="neb2" cx="0.92" cy="0.85" r="0.5"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.24"/><stop offset="1" stop-color="${C.accent}" stop-opacity="0"/></radialGradient>
-    <linearGradient id="hil" x1="${x0}" y1="${y0 + side}" x2="${x0 + side}" y2="${y0}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${C.accent}"/><stop offset="0.55" stop-color="${C.accent3}"/><stop offset="1" stop-color="${C.accent2}"/></linearGradient></defs>
+    <radialGradient id="neb1" cx="0.78" cy="0.3" r="0.45"><stop offset="0" stop-color="${COL.accent2}" stop-opacity="0.22"/><stop offset="1" stop-color="${COL.accent2}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="neb2" cx="0.92" cy="0.85" r="0.5"><stop offset="0" stop-color="${COL.accent}" stop-opacity="0.18"/><stop offset="1" stop-color="${COL.accent}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="core" x1="0" x2="1"><stop offset="0" stop-color="rgb(252 158 61)" stop-opacity="0"/><stop offset="0.5" stop-color="rgb(252 158 61)" stop-opacity="0.2"/><stop offset="1" stop-color="rgb(252 158 61)" stop-opacity="0"/></linearGradient></defs>
   <rect width="${W}" height="${H}" fill="url(#neb1)"/><rect width="${W}" height="${H}" fill="url(#neb2)"/>${stars}
-  <g mask="url(#fade)"><polyline points="${pts}" fill="none" stroke="url(#hil)" stroke-width="2.4" stroke-linejoin="round"/>${cubes}</g>`;
+  <g mask="url(#fade)"><rect x="${C[0] - 26}" y="0" width="52" height="${H}" fill="url(#core)"/><g fill="none" stroke-linecap="butt" stroke-linejoin="round">${lines}</g></g>`;
 };
 
 // Racing: crystal growth. Six-fold dendrites nucleated at different moments, so they reach

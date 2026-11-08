@@ -4,7 +4,7 @@
 //   0 About Me, Résumé, Contact  a maze carved by depth-first backtracking from the click
 //   1 Chess                      ink: a branching reach of soft fingers
 //   2 Racing                     crystal growth: six-armed ice stars nucleating and meeting
-//   3 Science                    a Hilbert curve: cubes flipping up in the order one line snakes past
+//   3 Science                    a vortex at the click whose cubes fly out and build the page
 //   4 Outdoors                   sheets unrolling, gilt rolls travelling across brick-laid panes
 //   5 Photography                a camera iris, then the print developing (halftone, dither, tone)
 // uH = 1: fog (fbm), for steps through history. A click's reach, crystals or maze are baked once
@@ -79,29 +79,28 @@ vec4 mazeCover(vec2 px, float E) {
   return vec4(col + glow, a);
 }
 
-// ---- 3: cubes along a Hilbert line ---------------------------------------------------------------
-// The screen's blocks in the order a Hilbert curve visits them, starting at the corner nearest the
-// click; each cell of cubes flips up (a chrome side turning away as a face of space turns toward
-// you) as the line reaches it, and a liquid-chrome snake leads.
-const float CUBE = 14.0;
-vec2 hFlip(vec2 q, vec2 O) { return vec2(O.x > R.x * 0.5 ? R.x - q.x : q.x, O.y < R.y * 0.5 ? R.y - q.y : q.y); }
-vec4 cubeFill(vec2 px, vec2 O, float E) {
-  vec2 cell = floor(px / CUBE);
-  vec2 cc = (cell + 0.5) * CUBE;
-  float A = 0.82 * hIndex(hBlock(hFlip(cc, O), R), R);
-  float h = hash(cell + 0.37);
-  float f = clamp((E - A) / 0.07 + (h - 0.5) * 0.3, 0.0, 1.0);
-  if (f <= 0.0) return vec4(0.0);
-  vec2 l = px / CUBE - cell - 0.5;
-  bool alongX = h > 0.5;
-  float la = alongX ? l.x : l.y, lo = alongX ? l.y : l.x;
-  float phi = (1.0 - f) * PI * 0.5;
-  float cw = cos(phi), sw = sin(phi);
-  float x = (la + 0.5) * (cw + sw);
-  float g = 0.5 * (0.84 + 0.16 * f);
-  if (abs(lo) > g || x > cw + sw) return vec4(0.0);
-  if (x < sw) return vec4(cosmosMetal(normalize(alongX ? vec3(-cw, 0.0, sw) : vec3(0.0, -cw, sw))) * 0.9, 1.0);
-  return vec4(sceneCosmos(px) * (0.55 + 0.45 * cw) + spectrum(f + h) * 0.12 * (1.0 - f), 1.0);
+// ---- 3: a vortex ------------------------------------------------------------------------------------
+// It spins up on an upright axis through the click, and its cubes (units.js, drawn by transit.js over
+// this cover) fly out along widening spirals and land, building the page outward from the axis
+// (flight.js vortexClickA). Here, each cell is the new world once its cube has landed; until then the
+// old page shows through a veil that darkens as the vortex grows, lit by its heart. uGrid is the
+// cubes' grid; without cubes (motion paused, or still compiling) the cells simply turn over.
+vec4 vortexCover(vec2 px, vec2 O, float E) {
+  vec4 g = uGrid.x > 1.5 ? uGrid : vec4(ceil(R / 14.0), R / ceil(R / 14.0));
+  vec2 c = floor(px / g.zw);
+  vec2 dest = (c + 0.5) * g.zw;
+  float far = dest.y > O.y ? R.y - O.y : O.y;
+  float along = abs(dest.y - O.y) / max(far, 1.0), across = abs(dest.x - O.x) / max(max(O.x, R.x - O.x), 1.0);
+  float v = vortexClickV(vortexClickA(along, across, vortexJit(dest, c)), E);
+  // The axis is busy where cubes are coming out of it now: those bound for the row (y - O.y) / 0.7
+  // away from the click.
+  float dq = (px.y - O.y) / (1.0 - 0.5 * VX_CLICK_DROP);
+  float Aq = vortexClickA(abs(dq) / max(dq > 0.0 ? R.y - O.y : O.y, 1.0), 0.0, 0.5);
+  float busy = exp(-pow((E - Aq - 0.36 * (0.5 - VX_CLICK_U0) / (1.0 - VX_CLICK_U0)) / 0.16, 2.0)) * (1.0 - smoothstep(0.85, 1.0, E));
+  vec3 glow = vortexCore(px, O.x, sign(px.y - O.y + 0.01), vortexRc(R), busy);
+  if (v >= 1.0) return vec4(sceneCosmos(px) + glow, 1.0);
+  float veil = 0.42 * smoothstep(0.0, 0.35, E);
+  return vec4(COS_BG * veil + glow, veil);
 }
 
 // ---- 2: crystals ----------------------------------------------------------------------------------
@@ -178,11 +177,7 @@ vec4 cover(int s, vec2 px, float e) {
     float haze = smoothstep(-0.1, 0.0, age) * (1.0 - fz) * 0.18;
     return vec4(col + vec3(0.8, 0.9, 1.0) * haze, max(fz, haze));
   }
-  if (s == 3) {
-    vec4 o = cubeFill(px, O, E);
-    Look L = hilbertSnake(hFlip(px, O), R, E / 0.82 + 0.02, 0.25, px);
-    return vec4(mix(o.rgb, L.c, L.m) + L.glow, max(o.a, L.m));
-  }
+  if (s == 3) return vortexCover(px, O, E);
   if (s == 4) {
     float laid;
     vec4 roll = sheetUnroll(px, O, far, E, laid);
@@ -234,11 +229,8 @@ vec3 reveal(int s, vec2 px, float e) {
     vec3 col = mix(iceOf(X, px, scene) + vec3(0.85, 0.95, 1.0) * X.y * 0.6, scene, clear);
     return col + vec3(0.9, 0.97, 1.0) * exp(-abs(e - ct) * 40.0) * 0.4;
   }
-  if (s == 3) {
-    // The line's tail drains away over the new page.
-    Look L = hilbertSnake(hFlip(px, O), R, 1.0 + e * 0.32, 0.25, px);
-    return mix(scene, L.c, L.m) + L.glow;
-  }
+  // 3: the vortex has spent itself building the page; nothing is left to let go.
+  if (s == 3) return scene;
   if (s == 4) {
     // The panes' gilt seams catch the light once more, then fade.
     vec4 g = vec4(0.0, 5.0, 0.0, R.y / 5.0);

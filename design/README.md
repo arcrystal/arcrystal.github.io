@@ -38,7 +38,7 @@ click through to the page (`flight.js` holds the maths, `reach.js` and `opens.js
 | Destination | Process |
 | --- | --- |
 | About Me, Résumé, Contact | **A maze carved by depth-first backtracking** from the click (a random spanning tree, carved on the CPU by `carveMaze` in `lerp.js`): corridors open down long winding passages and back out of dead ends, inked at their walls, and last the walls fill with paper; the ink fades in reverse order. |
-| Science | **A Hilbert space-filling curve**: one liquid-chrome line snakes through every block of the screen, and cubes break away (or flip up, on a click) in the order it passes. |
+| Science | **A vortex** (after the Burgers vortex, an exact solution of the Navier–Stokes equations): the page breaks into cubes along a funnel, starting right under the band above and travelling down toward Science; each spirals in toward an upright axis, turns fastest round its glowing core while the flow pulls it down the axis toward Science (the stretching), then spirals out lower down and lands mirrored, sky face up. The bottom rows dive out into Science; the top rows are refilled by cubes swirling down from the band above. Streamline ribbons trace the helices, teal where they turn slowly, orange at the core. On a click the funnel runs from the link across the page, building it as it goes. |
 | Racing | **Crystal growth**: nuclei appear across the screen and grow as six-armed stars, fastest along their arms (after Reiter's snowflakes), until they meet along bright grain boundaries (a Johnson–Mehl tessellation); each crystal flashes and clears. |
 | Outdoors | **Peeling sheets**: brick-laid panes peel back in a diagonal sweep, each a page curl from one corner (half a turn round a cylinder, then laid flat over itself), gilt underneath with the engraving pressed in; ice glitters, dust breaks loose, a caustic net pools beside each fold. On a click, gilt rolls unroll the plate across the panes. |
 | Photography | **A camera iris**: nine blades close as the light inside warms and overexposes, a diffraction star flares as they meet, and they open onto the darkroom, which develops from a **halftone** screen through **Bayer dithering** to full tone, with nine-sided bokeh. |
@@ -63,7 +63,7 @@ the hold plus 0.35 of a screen either side, about 2.5 screens in all.
 - **One process each.** Each seam runs its destination's process (above); the upper world comes
   apart into its own units, which fly, flow and settle into the lower world.
 - **Pure function of scroll.** Progress `p` (0..1 through the hold) maps to `P = transitP(p)`, and
-  each point flies while `P` passes its arrival (`flightAt`, `hilbertU`, `paneA`; the iris reads
+  each point flies while `P` passes its arrival (`flightAt`, `vortexU`, `paneA`; the iris reads
   `p` itself). Everything is computed from that and
   the seed alone, so scrolling back un-builds the world exactly; stopping mid-seam leaves the units
   hanging, still gently moving.
@@ -76,7 +76,7 @@ the hold plus 0.35 of a screen either side, about 2.5 screens in all.
 
 | From → to | Process | Units | Transit |
 | --- | --- | --- | --- |
-| About Me → Science | Hilbert curve | ~10,000 tiny cubes | A liquid-chrome line snakes through every block; the paper breaks into cubes in its order. They lift toward you, tumble and turn half over (paper face under, sky face up), chrome-sided, and each lands in another cell of its row. |
+| About Me → Science | a vortex (a longer hold: `HOLD.longer`, starting as the strip's top comes on screen) | ~18,000 cubes, ~1,600 streamlines | The paper breaks into cubes along a funnel, starting right under About Me. They spiral in, tumbling, turn fastest at the glowing core (coloured by speed, teal to orange) while it pulls them down toward Science, then spiral out lower and land mirrored, sky face up; the swirl travels down the page and is still turning as Science arrives. Scrolling back draws it all back up. |
 | Science → Racing | crystal growth | the liquid itself | Space liquefies and swirls in vortices, stirred by a real fluid sim (scroll and pointer push it), while six-armed crystals nucleate across it, grow and meet; each holds the swirl at its own tilt, then flashes and clears to the glacier. |
 | Racing → Outdoors | page curl | 4–5 rows of panes, ice dust | The ice cracks along the panes' edges; each pane peels back from a corner in a diagonal sweep, its gilt engraved underside laid over itself, glitters, sheds dust and tumbles away. |
 | Outdoors → Photography | iris, halftone, dither | none | Nine blades close over the plate as it warms and overexposes; a diffraction star; they open on the darkroom developing from halftone to dither to tone, safelight blooming, bokeh drifting. |
@@ -104,11 +104,11 @@ Each band's world also sweeps a prismatic sheen across itself once, the first ti
   | `house.js` | The crystal and the paper |
   | `ink.js`, `glacier.js`, `cosmos.js`, `folio.js`, `darkroom.js` | The worlds |
   | `seams.js` | The plain seams (reduced motion, and while the transits compile) |
-  | `flight.js` | The processes' maths, shared by every transition: the ink's branching reach, crystal growth, the Hilbert curve, the panes' sweep and curl, each point's flight, the row shuffle, the swirl, and reading a baked field |
-  | `reach.js` | Drawing shared by seams and clicks: the ink, the Hilbert snake, the iris, bokeh, halftone and Bayer development |
+  | `flight.js` | The processes' maths, shared by every transition: the ink's branching reach, crystal growth, the vortex, the panes' sweep and curl, each point's flight, the swirl, and reading a baked field |
+  | `reach.js` | Drawing shared by seams and clicks: the ink, the vortex's core, the iris, bokeh, halftone and Bayer development |
   | `transit.js` | The seams' ground (mode 8): live worlds at rest, snapshots where things move, each seam's process over both |
-  | `units.js` | The instanced units (cubes, sheets, ice dust, ink filaments), the fluid sim's passes and the bake (ink or crystals) |
-  | `opens.js` | The click transitions (cover, reveal, fog): the maze, Hilbert cubes, crystals, unrolling sheets, the iris, ink |
+  | `units.js` | The instanced units (cubes and streamlines, sheets, ice dust, ink filaments), the fluid sim's passes and the bake (ink or crystals) |
+  | `opens.js` | The click transitions (cover, reveal, fog): the maze, the vortex (its cubes drawn over by `transit.js`), crystals, unrolling sheets, the iris, ink |
 
   The canvas buffer drops its resolution when frames run long, and the pages fall back to their CSS art when even that is not enough.
 - **Transits.** `static/site/scene/transit.js` takes over each seam whose pair it knows. Each frame:
@@ -125,8 +125,8 @@ Each band's world also sweeps a prismatic sheen across itself once, the first ti
   - The grids coarsen on touch screens and when the resolution governor has stepped down.
   - The programs compile in parallel (`KHR_parallel_shader_compile`) or one per idle moment. Each
     draws a single pixel once it is ready, so the GPU builds its pipeline before the seam appears.
-  - The pure maths (`transitP`, `flightAt`, `arrivalRange`, `activeRows`, `shiftCol`, `holdAt`,
-    `paneArrival`, `irisOpen`, `hilbertIndex`, `carveMaze` in `lerp.js`) is tested in
+  - The pure maths (`transitP`, `flightAt`, `arrivalRange`, `activeRows`, `holdAt`, `paneArrival`,
+    `irisOpen`, `vortexA`, `vortexTurn`, `vortexAt`, `carveMaze` in `lerp.js`) is tested in
     `tools/site/tests/lerp.test.mjs`.
   - **Performance.** Measured in headless Chrome on an M1 Max at DPR 2.
     - Scrolling the whole page both ways (about 30 s each way at 1440×900): 4,048 frames, none over

@@ -1,16 +1,12 @@
 // What the transitions draw, shared by the click covers (opens.js) and the seams (transit.js). Each
 // destination is told apart by its process, not its colours (flight.js has the maths):
 //   Chess        ink: a branching reach of soft fingers (branchLook)
-//   Science      a Hilbert curve: one liquid-chrome line snaking through every block (hilbertSnake)
+//   Science      a vortex: cubes drawn in, spun and stretched along an axis (vortexCore, the light at its heart)
 //   Photography  a camera iris, then a print developing from halftone to dither to tone (irisAt, develop)
 // A Look is a colour c, its coverage m, and light it gives off (glow, added over everything, so it
 // also lights the old page through the gaps).
 export const REACH_LOOK = /* glsl */ `
 struct Look { vec3 c; float m; vec3 glow; };
-
-vec3 liquidMetal(vec2 px, float height) {
-  return cosmosMetal(normalize(vec3(-vec2(dFdx(height), dFdy(height)) * 50.0, 1.0)));
-}
 
 // Sunset, for the iris's light: 0 the first warm light, 1 the safelight's dark.
 vec3 sunset(float x) {
@@ -32,37 +28,18 @@ Look branchLook(Reach Rr, float P, vec2 px) {
   return Look(c * (0.85 + 0.3 * smoothstep(0.6, 1.0, wk)), m, vec3(0.0));
 }
 
-// ---- Science: the Hilbert line ---------------------------------------------------------------------
-// The stretch of the line between head - trail and head (0..1 along it), as a tube of liquid chrome
-// whose head sparks. Each block draws half-segments from its centre to the neighbours next to it on
-// the line.
-Look hilbertSnake(vec2 q, vec2 size, float head, float trail, vec2 px) {
-  ivec2 b = hBlock(q, size);
-  vec2 bs = hBlockSize(size);
-  float D = hIndex(b, size);
-  float step1 = 1.0 / (hPanels(size) * float(HN * HN) - 1.0);
-  int nx = int(hPanels(size)) * HN;
-  vec2 c = (vec2(b) + 0.5) * bs;
-  float best = 1e9, along = D;
-  for (int k = 0; k < 4; k++) {
-    ivec2 o = k == 0 ? ivec2(1, 0) : k == 1 ? ivec2(-1, 0) : k == 2 ? ivec2(0, 1) : ivec2(0, -1);
-    ivec2 nb = b + o;
-    if (nb.x < 0 || nb.y < 0 || nb.x >= nx || nb.y >= HN) continue;
-    float Dn = hIndex(nb, size);
-    if (abs(Dn - D) > step1 * 1.5) continue;
-    vec2 m = (c + (vec2(nb) + 0.5) * bs) * 0.5;
-    vec2 pa = q - c, ba = m - c;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    float dd = length(pa - ba * h);
-    if (dd < best) { best = dd; along = D + (Dn - D) * 0.5 * h; }
-  }
-  const float W = 3.1;
-  float alive = smoothstep(head - trail, head - trail + 0.03, along) * step(along, head);
-  float hgt = sqrt(max(1.0 - best * best / (W * W), 0.0));
-  float tip = exp(-max(head - along, 0.0) / (step1 * 10.0)) * step(along, head);
-  vec3 glow = (COS_CYAN * 0.55 + spectrum(along * 30.0 + T * 0.5) * 0.5) * tip * exp(-best / 9.0) * 0.9
-            + COS_CYAN * 0.12 * exp(-best / 5.0) * alive;
-  return Look(liquidMetal(px, hgt * 0.12) + spectrum(along * 12.0) * 0.08, smoothstep(W + 0.7, W - 0.5, best) * alive, glow);
+// ---- Science: the vortex's core --------------------------------------------------------------------
+// Light along the axis where the vortex is busy (amt 0..1, the caller's, by height): a narrow orange
+// heart, where it turns fastest, in a wider sheath of blue and teal, with streaks running along the
+// axis the way the flow goes (dir: 1 down, -1 up). ax: the axis; rc: the core's radius. Added over
+// everything.
+vec3 vortexCore(vec2 q, float ax, float dir, float rc, float amt) {
+  if (amt <= 0.001) return vec3(0.0);
+  float dx = abs(q.x - ax);
+  float streak = 0.55 + 0.45 * noise(vec2(dx * 0.06 + sign(q.x - ax) * 3.0, q.y * 0.012 - dir * T * 1.6));
+  vec3 heart = vortexHue(1.0) * exp(-pow(dx / (rc * 0.22), 2.0)) * 0.7;
+  vec3 sheath = mix(vortexHue(0.45), vortexHue(0.0), smoothstep(0.3, 1.2, dx / rc)) * exp(-pow(dx / rc, 2.0)) * 0.3;
+  return (heart + sheath) * streak * amt;
 }
 
 // ---- Photography: a camera iris --------------------------------------------------------------------
