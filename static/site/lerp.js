@@ -59,21 +59,29 @@ export function approach(current, target, dt, tau) {
 export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 
 // ---- Transits ----------------------------------------------------------------------------------
-// Mirrors scene/glsl/flight.js: where a seam's front is, how far a point is through its flight, which
-// rows of units can be in flight, and the shuffle that sends each unit to its landing cell.
+// Mirrors scene/glsl/flight.js: a seam's hold, where its front is and how far a point is through its
+// flight.
 
-// A seam's hold (home.js): PIN screens of scroll with the seam held full screen; the transit starts
-// LEAD screens before the hold and ends LEAD after. holdAt gives, for a hold whose page top is T and
-// whose length is H (CSS px, so H - vh of it is held), the strip's top on screen and the progress p.
-// pinTouch: phones and touch screens, where a long hold costs more thumb.
-// longer: transitions that take more scroll (the vortex into Science): their pin is that many times
-// longer, and their lead begins as soon as the strip's top comes on screen.
-export const HOLD = { pin: 1.75, pinTouch: 0.9, lead: 0.35, longer: { cosmos: { pin: 1.6, lead: 0.9 } } };
-export function holdAt(sy, T, H, vh, leadScreens = HOLD.lead) {
-  const R = Math.max(1, H - vh), lead = leadScreens * vh;
+// A seam's hold (home.js): PIN screens of scroll with the seam held full screen. Its transit is
+// drawn as if it were already held, on the whole screen; the strip's real place only reveals it. So
+// it begins LEAD_IN screens before the hold, as soon as the strip's top comes on screen under the
+// band above (the transit grows from the foot of the screen, right there), and ends LEAD_OUT after,
+// as the next band's heading arrives. holdAt gives, for a hold whose page top is T and whose length
+// is H (CSS px, so H - vh of it is held), the strip's top on screen and the progress p.
+// pinTouch: phones and touch screens, where a long hold costs more thumb. by: a style's own (pin: a
+// scale on the pin; leadIn, leadOut).
+export const HOLD = {
+  pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
+  by: { cosmos: { pin: 1.6 }, glass: { leadOut: 0.06 }, folio: { pin: 1.25, leadOut: 0.06 }, darkroom: { pin: 1.25, leadOut: 0.06 }, ink: { pin: 1.2 } },
+};
+export const holdFor = style => ({ pin: 1, leadIn: HOLD.leadIn, leadOut: HOLD.leadOut, ...HOLD.by[style] });
+export function holdAt(sy, T, H, vh, leadIn = HOLD.leadIn, leadOut = HOLD.leadOut) {
+  const R = Math.max(1, H - vh), a = leadIn * vh, b = leadOut * vh;
   const y = sy < T ? T - sy : sy > T + R ? T + R - sy : 0;
-  return { y, p: clamp01((sy - T + lead) / (R + 2 * lead)) };
+  return { y, p: clamp01((sy - T + a) / (R + a + b)) };
 }
+// Every transit starts slowly, giving time at the foot of the band above: the progress it plays at.
+export const holdEase = p => clamp01(p) ** 1.35;
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);
@@ -86,38 +94,30 @@ export const flightAt = (A, P, jit = 0.5) => clamp01(0.5 + (P - A + (jit - 0.5) 
 // 0.55 × (0.85..1.15) of rn, and the gaps fill up to 0.36 later, ±0.02 of noise.
 export const arrivalRange = rn => [Math.max(0, 0.4675 * rn - 0.02), Math.min(1, 0.6325 * rn + 0.38)];
 
-// The rows [from, to) of a grid (row 0 at the top) whose units can be in flight at P.
-export function activeRows(P, rows, pad = 1) {
-  // In flight: P - 0.2 < A < P + 0.2.
-  const lo = (P - 0.6) / 0.6325, hi = (P + 0.22) / 0.4675;   // the range of rn
-  return [Math.max(0, Math.floor((1 - hi) * rows) - pad), Math.min(rows, Math.ceil((1 - lo) * rows) + pad)];
-}
-
 // ---- The processes' pure parts (mirrors of scene/glsl/flight.js and opens.js) ----------------------
 
-// Outdoors: panes peel in a diagonal sweep from the strip's bottom-left (rn 0 at the foot, xn 0 at
-// the left; jit 0..1 the pane's own beat).
-export const paneArrival = (rn, xn, jit = 0.5) => 0.1 + 0.46 * clamp01(rn) + 0.16 * clamp01(xn) + (jit - 0.5) * 0.08;
+// Outdoors: three layers of sheets (flight.js layerA): when a sheet of layer k centred at rn (0 at the
+// foot of the screen) and xn (0 at the left) is mid-peel; jit 0..1 its own beat.
+export const layerArrival = (k, rn, xn, jit = 0.5) => 0.04 + 0.31 * clamp01(rn) + 0.1 * clamp01(xn) + (jit - 0.5) * 0.12 + 0.26 * k;
 
-// Photography: how open the iris is at seam progress p (1 wide open, 0 shut).
-export function irisOpen(p) {
-  const s = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-  return p < 0.5 ? 1 - s(0.16, 0.46, p) : s(0.54, 0.84, p);
-}
+// Photography: film (flight.js filmA, filmU, filmNeg): when a strip at rn is pulled; how far its pull
+// has gone at P; how far it has turned to a negative.
+export const filmArrival = (rn, jit = 0.5) => 0.1 + 0.74 * clamp01(rn) + (jit - 0.5) * 0.04;
+export const filmU = (A, P) => clamp01((P - A + 0.2) / 0.5);
+export const filmNeg = (A, P) => smoothstep((P - A + 0.28) / 0.08);
 
-// Science: a vortex (flight.js), its flow running down the axis toward Science. A seam's cube leaves
-// its cell and lands mirrored across the axis, vortexDrop(rows) rows lower (out of the strip for the
-// bottom rows; the top rows are refilled from the band above). vortexSeamA: when a cube is at the core
-// (home and dest in CSS px, size the strip's); vortexU its flight at P; coreEase eases through the
-// core; vortexAt where it is (x across, y down, z toward the viewer).
-export const VORTEX = { spin: 2.5, sink: 6, d: 0.6, drop: 0.38, tilt: 0.42 };
+// Science: a vortex (flight.js) standing up the middle of the screen, its flow running up the axis.
+// A seam's cube leaves its cell and lands mirrored across the axis, vortexDrop(rows) rows higher
+// (thrown out over the top, for the top rows; the bottom rows are filled from below the screen).
+// vortexSeamA: when a cube is at the core (home in CSS px, size the screen's); vortexU its flight at
+// P; coreEase eases through the core; vortexAt where it is (x across, y down, z toward the viewer).
+export const VORTEX = { spin: 2.5, sink: 6, d: 0.55, drop: 0.38, tilt: 0.42 };
 export const vortexDrop = rows => Math.floor(rows * VORTEX.drop + 0.5);
-const vortexEdge = (y, H) => (y < 0 || y > H ? 0 : smoothstep(((y - H / 2) / (H / 2) - 0.75) / 0.23));
-export function vortexSeamA(home, dest, [W, H], jit = 0.5) {
-  const down = (home[1] / H + VORTEX.drop) / (1 + VORTEX.drop);
-  const rn = Math.abs(home[0] / W - 0.5) * 2;
-  const A = 0.1 + 0.55 * clamp01(down) + 0.12 * Math.min(rn, 1) + (jit - 0.5) * 0.08;
-  return Math.min(Math.max(A, 0.1), 0.9 - 0.4 * Math.max(vortexEdge(home[1], H), vortexEdge(dest[1], H)));
+export function vortexSeamA([hx, hy], [W, H], jit = 0.5) {
+  const up = 1 - hy / H;
+  if (up < 0) return 0.075 + 0.04 * clamp01(up / VORTEX.drop + 1);
+  const rn = Math.abs(hx / W - 0.5) * 2;
+  return Math.min(Math.max(0.1 + 0.56 * up + 0.12 * Math.min(rn, 1) + (jit - 0.5) * 0.2, 0.1), 0.925);
 }
 export const vortexU = (A, P) => clamp01(0.5 + (P - A) / VORTEX.d);
 export const coreEase = (u, K) => (u * (1 + 0.5 * K) - K * Math.sin(2 * Math.PI * u) / (4 * Math.PI)) / (1 + 0.5 * K);

@@ -23,35 +23,42 @@ bool seamReach(vec2 q, float P, out Reach Rq, out float u) {
   return true;
 }
 
-// About Me → Science. The paper breaks into cubes that are drawn into a vortex standing up the middle
-// of the strip and carried down it toward Science (flight.js vortexAt), from the foot up; each lands
-// mirrored across the axis, kd rows lower. A cell is paper until its cube leaves, space once the cube
-// bound for it (from the mirror cell kd rows up, or from the band above) has landed; between, the
-// hole shows the dark beneath. The vortex's heart glows where cubes are rounding it.
+// About Me → Science. A vortex stands up the middle of the screen, its base at the foot (right
+// beneath About Me as the seam scrolls in), growing up the screen (flight.js vortexTop). Its base
+// gathers the paper into cubes from the foot up; they swirl up the core and its top throws them out to
+// land, mirrored, kd rows higher, building Science. A cell is paper until its cube leaves, then a
+// shaded hollow in the paper, darkening only as the cube bound for it (from the mirror cell kd rows
+// down, or from below the screen) comes in to land; Science once it has. The core glows from the
+// base to the top.
 vec3 groundCubes(vec2 q, vec2 px, float P) {
   ivec2 n = ivec2(uGrid.xy);
   ivec2 c = clamp(ivec2(floor(q / uGrid.zw)), ivec2(0), n - 1);
   vec2 S = uRegion.zw;
   int kd = vortexDrop(n.y);
-  float drop = float(kd) * uGrid.w;
   vec2 home = (vec2(c) + 0.5) * uGrid.zw;
-  float uX = vortexU(vortexSeamA(home, vec2(S.x - home.x, home.y + drop), S, vortexJit(home, vec2(c))), P);
-  ivec2 sc = ivec2(n.x - 1 - c.x, c.y - kd);
+  float uX = vortexU(vortexSeamA(home, S, vortexJit(home, vec2(c))), P);
+  ivec2 sc = ivec2(n.x - 1 - c.x, c.y + kd);
   vec2 from = (vec2(sc) + 0.5) * uGrid.zw;
-  float uY = vortexU(vortexSeamA(from, home, S, vortexJit(from, vec2(sc))), P);
+  float uY = vortexU(vortexSeamA(from, S, vortexJit(from, vec2(sc))), P);
   vec3 col;
   if (uX <= 0.0) col = sceneHouse(px);
   else if (uY >= 1.0) col = sceneCosmos(px);
-  else col = texB(q) * (0.22 + 0.5 * max(uX, uY));
-  // Cubes rounding the core at this height left about drop / 2 above it.
-  float Aq = vortexSeamA(vec2(0.0, q.y - drop * 0.5), vec2(0.0, q.y + drop * 0.5), S, 0.5);
-  return col + vortexCore(q, S.x * 0.5, 1.0, vortexRc(S), exp(-pow((Aq - P) / 0.16, 2.0)));
+  else {
+    // The paper a shade darker where its cube has gone, until the cube bound for it lands.
+    vec3 paper = sceneHouse(px);
+    col = mix(paper, paper * 0.9, smoothstep(0.0, 0.12, uX));
+  }
+  float top = vortexTop(P, S);
+  float amt = smoothstep(top - 30.0, top + 160.0, q.y) * smoothstep(-0.2, -0.02, P) * (1.0 - smoothstep(0.85, 1.02, P));
+  return col + vortexCore(q, S.x * 0.5, -1.0, vortexRc(S), amt);
 }
 
 // Science → Racing. Space liquefies and swirls (the vortex field, stirred by the fluid sim) while ice
-// crystals nucleate across it and grow as six-armed stars until they meet (flight.js crystalAt,
-// baked). Each crystal holds the swirl at its own tilt, its arms bright, its grain boundaries
-// glowing; then it flashes and clears to the glacier.
+// crystals nucleate across it from the foot of the screen and grow as six-armed stars until they
+// meet (flight.js crystalAt, baked). Each crystal holds the world at its own tilt and slowly freezes
+// through from space to glacier, its arms bright, glints running along them, a sheen crossing its
+// facets and its grain boundaries lit prismatic. The ice covers the screen through the hold, then a
+// last sweep up the screen flashes each crystal clear onto the glacier, just as Racing arrives.
 vec2 flowBack(vec2 q, float amt, float t) {
   vec2 p = q;
   for (int i = 0; i < 4; i++) {
@@ -61,19 +68,23 @@ vec2 flowBack(vec2 q, float amt, float t) {
   }
   return p;
 }
-vec3 crystalLook(vec4 X, vec2 q) {
+vec3 crystalLook(vec4 X, vec2 q, float through) {
   vec2 tilt = (vec2(hash(vec2(X.z, 1.0)), hash(vec2(X.z, 2.0))) - 0.5) * 40.0;
-  vec3 ice = texA(q + tilt + (q - uRegion.zw * 0.5) * 0.04 * (X.z - 0.5));
-  ice = mix(ice, vec3(luma(ice)) * vec3(0.75, 0.9, 1.0) + vec3(0.08, 0.16, 0.26), 0.45);
-  ice *= 0.82 + 0.36 * X.z;
-  ice += vec3(0.85, 0.95, 1.0) * X.x * 0.6;
+  vec2 lens = (q - uRegion.zw * 0.5) * 0.04 * (X.z - 0.5);
+  vec3 held = mix(texA(q + tilt + lens), texB(q + tilt * 0.4 + lens * 0.5), through);
+  // Ice deepens what it holds toward glacier blue, so it reads over the white glacier too.
+  vec3 ice = mix(held, vec3(luma(held)) * vec3(0.62, 0.8, 1.0) + vec3(0.04, 0.12, 0.24), 0.4 + 0.25 * through);
+  ice *= 0.78 + 0.34 * X.z;
+  ice += vec3(0.85, 0.95, 1.0) * X.x * 0.95;
   return ice;
 }
 vec3 groundCrystal(vec2 q, vec2 px, float P) {
   vec4 X = seamRaw(q);
   float A = X.w, age = P - A;
-  float u = flightAt(A, 0.5, P);
-  if (u >= 1.0) return sceneGlacier(px);
+  // When the last sweep clears this crystal: from the foot of the screen to the top.
+  float C = 0.93 + 0.17 * (1.0 - q.y / uRegion.w) + 0.03 * X.z;
+  float gone = smoothstep(C, C + 0.04, P);
+  if (gone >= 1.0) return sceneGlacier(px);
   float melt = smoothstep(-0.2, 0.0, age);
   if (melt <= 0.0) return sceneCosmos(px);
   vec3 col;
@@ -82,94 +93,166 @@ vec3 groundCrystal(vec2 q, vec2 px, float P) {
     col = texA(lq) + spectrum(length(lq - q) * 0.012 + T * 0.05) * 0.08 * melt;
     col = mix(col, col * vec3(0.8, 0.92, 1.05) + vec3(0.02, 0.05, 0.08), melt * 0.5);
   } else {
-    col = crystalLook(X, q);
-    float ct = 0.05 + 0.05 * X.z;
-    float clear = smoothstep(ct, ct + 0.04, age);
-    col = mix(col, texB(q), clear) + vec3(0.9, 0.97, 1.0) * exp(-abs(age - ct) * 60.0) * 0.55;
+    col = crystalLook(X, q, smoothstep(0.15, 0.6, age));
+    // Glints: tiny facets along the arms catching the light in turn.
+    float g = step(0.965, hash(floor(q * 0.45))) * pow(0.5 + 0.5 * sin(T * (5.0 + 9.0 * hash(floor(q * 0.45) + 3.0)) + X.z * 40.0), 10.0);
+    col += vec3(0.95, 0.98, 1.0) * g * (0.3 + 1.6 * X.x) * smoothstep(0.0, 0.05, age);
+    // A sheen crossing the facets, each crystal at its own angle.
+    float sh = sin(dot(q, vec2(0.0087, 0.005)) * (0.8 + X.z) - T * 1.1 + X.z * 9.0);
+    col += vec3(0.8, 0.92, 1.0) * pow(max(sh, 0.0), 14.0) * 0.22;
   }
   float front = exp(-abs(age) * 70.0);
-  col += vec3(0.75, 0.92, 1.0) * front * 0.75 + spectrum(age * 12.0 + X.z) * front * 0.2;
-  float gb = X.y * step(0.0, age) * (1.0 - smoothstep(0.05, 0.14, age));
-  col += (vec3(1.0, 0.35, 0.6) * 0.15 + vec3(0.85, 0.97, 1.0) * 0.5) * gb;
+  col += vec3(0.75, 0.92, 1.0) * front * 0.85 + spectrum(age * 12.0 + X.z) * front * 0.25;
+  // Grain boundaries: lit prismatic, brightest as the crystals meet, staying lit while the ice holds.
+  float gb = X.y * step(0.0, age) * (0.45 + 0.55 * exp(-age * 12.0));
+  col += (spectrum(q.x * 0.004 + q.y * 0.003 + T * 0.08) * 0.35 + vec3(0.85, 0.97, 1.0) * 0.45) * gb;
+  // The last sweep: each crystal flashes as it clears.
+  col = mix(col, sceneGlacier(px), gone) + vec3(0.9, 0.97, 1.0) * exp(-abs(P - C - 0.02) * 55.0) * 0.6 * (1.0 - gone * 0.5);
   return col;
 }
 
-// Racing → Outdoors. Panes of ice crack along their edges, then peel back and fly (units.js sheets).
-// Where a pane has peeled away, the engraving shows, shaded under the fold, and the light the curl
-// focuses pools beside it in a shimmering caustic net.
-vec3 groundSheets(vec2 q, vec2 px, float P) {
-  ivec2 c = paneCell(q, uGrid);
-  vec2 ctr = paneCentre(c, uGrid);
-  float jit = hash(vec2(c) + 0.61);
-  float raw = 0.5 + (P - paneA(ctr, uRegion.zw, jit)) / 0.3;
-  float u = clamp(raw, 0.0, 1.0);
-  if (u <= 0.0) {
+// Racing → Outdoors. Three layers of sheets peel from the foot of the screen up (flight.js sheetAt):
+// the glacier's ice, then a topographic trail map, then tracing vellum, then the Outdoors page. Here
+// is whichever layer still lies at each point: the ice cracking along its sheets' edges as the sweep
+// nears, each layer's own face with the seams between its sheets, and under a sheet curling away the
+// shade of its fold and the light it focuses, a shimmering caustic net. The sheets that peel and fly
+// are units.js sheets.
+vec3 underFold(vec3 col, SheetAt a, vec2 q) {
+  if (a.u <= 0.0 || a.s <= a.f) return col;
+  float L = a.g.w, R = L * 0.12, fly = sheetFly(a.u);
+  float past = (a.s - a.f) * L;
+  col *= 1.0 - 0.5 * exp(-past / (R * 2.2)) * (1.0 - fly);
+  float band = exp(-past / (4.0 * R)) * (1.0 - exp(-past / R)) * (1.0 - fly);
+  vec4 cv = voronoi(q * 0.06 + vec2(T * 0.25, -T * 0.18));
+  float caus = smoothstep(0.12, 0.0, cv.y - cv.x);
+  return col + (vec3(0.85, 0.94, 1.0) * (0.06 + 0.45 * caus) + vec3(1.0, 0.85, 0.55) * 0.08) * band;
+}
+float sheetSeam(SheetAt a) {
+  float e = min(min(a.s, 1.0 - a.s) * a.g.w, min(a.w, 1.0 - a.w) * a.g.z);
+  return smoothstep(1.6, 0.0, e);
+}
+vec3 sheetFace(int k, vec2 q, vec2 px, SheetAt a) {
+  if (k == 0) {
     vec3 col = sceneGlacier(px);
-    float pre = smoothstep(-0.7, 0.0, raw);
+    float pre = smoothstep(-0.7, 0.0, a.raw) * step(a.raw, 0.0);
     if (pre > 0.0) {
-      vec2 l = q - (ctr - uGrid.zw * 0.5);
-      float e = min(min(l.x, uGrid.z - l.x), min(l.y, uGrid.w - l.y));
+      float e = min(min(a.s, 1.0 - a.s) * a.g.w, min(a.w, 1.0 - a.w) * a.g.z);
       col = mix(col, vec3(0.42, 0.62, 0.86), smoothstep(1.4, 0.0, e) * pre * 0.4);
       col += vec3(0.9, 0.97, 1.0) * smoothstep(5.0, 2.0, e) * smoothstep(1.2, 2.0, e) * pre * 0.18;
-      // Frost glints wake along the cracks as the sweep nears.
       col += vec3(0.95, 0.98, 1.0) * step(0.985, hash(floor(q * 0.5))) * smoothstep(8.0, 0.0, e) * pre * (0.5 + 0.5 * sin(T * 7.0 + q.x));
     }
     return col;
   }
-  vec3 col = sceneFolio(px);
-  float L = uGrid.w, R = L * 0.12;
-  float s = clamp((ctr.y + L * 0.5 - q.y) / L, 0.0, 1.0), w = clamp((q.x - ctr.x) / uGrid.z + 0.5, 0.0, 1.0);
-  float roll = paneRoll(u), fly = paneFly(u);
-  float f = paneFront(roll, w, step(0.5, hash(vec2(c) + 2.9)));
-  float past = max(s - f, 0.0) * L;
-  col *= 1.0 - 0.55 * exp(-past / (R * 2.2)) * (1.0 - fly) * step(f, s);
-  float band = exp(-past / (4.0 * R)) * (1.0 - exp(-past / R)) * (1.0 - fly) * step(f, s);
-  // A caustic net: the bright seams of a slowly drifting Voronoi field, as light through rippled ice.
-  vec4 cv = voronoi(q * 0.06 + vec2(T * 0.25, -T * 0.18));
-  float caus = smoothstep(0.12, 0.0, cv.y - cv.x);
-  col += (vec3(0.85, 0.94, 1.0) * (0.06 + 0.45 * caus) + vec3(1.0, 0.85, 0.55) * 0.08) * band;
-  return col;
+  vec3 col = k == 1 ? topoMap(q) : vellum(sceneFolio(px), q);
+  return col * (1.0 - 0.22 * sheetSeam(a));
 }
-
-// Outdoors → Photography. A camera iris: nine blades close over the plate while the light inside
-// warms through sunset and overexposes; when they meet, a diffraction star flares; they open again
-// onto the darkroom, which develops from a halftone screen through ordered dithering to full tone,
-// the safelight blooming and nine-sided bokeh drifting through. p: the seam's progress (uH).
-float irisOpen(float p) {
-  return p < 0.5 ? 1.0 - smoothstep(0.16, 0.46, p) : smoothstep(0.54, 0.84, p);
-}
-vec3 groundIris(vec2 q, vec2 px, float p) {
-  vec2 C = uRegion.zw * 0.5;
-  float far = length(C) * 1.02;
-  float open = irisOpen(p);
-  bool closing = p < 0.5;
-  float x = smoothstep(0.16, 0.46, p), dv = smoothstep(0.54, 0.86, p);
-  vec3 light = closing ? mix(vec3(1.0, 0.85, 0.6), vec3(1.0, 0.55, 0.3), x) : mix(DR_RED * 1.4, EMBER, 0.25);
-  vec4 I = irisAt(q, C, far, open, light);
-  float a = open * far * 1.15, r = length(q - C);
-  vec3 inside;
-  if (closing) {
-    inside = sceneFolio(px);
-    if (x > 0.0) {
-      inside = mix(inside, inside * 0.5 + sunset(x * 0.7) * 0.7, x * 0.85);
-      inside += vec3(1.0, 0.85, 0.6) * pow(x, 4.0) * exp(-r / (a + 20.0)) * 0.9;
+vec3 groundSheets(vec2 q, vec2 px, float P) {
+  vec2 S = uRegion.zw;
+  SheetAt above;
+  for (int k = 0; k < SHEET_LAYERS; k++) {
+    SheetAt a = sheetAt(k, q, S, P);
+    if (sheetHere(a)) {
+      vec3 col = sheetFace(k, q, px, a);
+      return k > 0 ? underFold(col, above, q) : col;
     }
-  } else {
-    inside = develop(sceneDarkroom(px), q, dv);
-    inside += DR_RED * 0.4 * exp(-r / (a * 0.7 + 30.0)) * (1.0 - dv) + bokeh(q, sin(PI * dv) * 0.9);
+    above = a;
   }
-  vec3 col = mix(I.rgb, inside, I.a);
-  col += starburst(q, C, far, exp(-pow((p - 0.5) / 0.03, 2.0)), vec3(1.0, 0.92, 0.75));
-  col += (hash(px + fract(T) * 31.0) - 0.5) * 0.05 * (1.0 - open);
+  return underFold(sceneFolio(px), above, q);
+}
+
+// Outdoors → Photography. The page is exposed onto film and pulled away strip by strip (flight.js
+// film): on the table each strip is the Outdoors page until a flash crosses it and it turns to a
+// negative with sprocket holes; then it is pulled off from one end (units.js film). Where it has gone
+// the Photography page develops in the tray: ripples spread from the line where the film lifts, the
+// safelight glows, and the print comes up from a halftone screen through ordered dither to full tone.
+// The prints in the tray: the film's frames printed positive, white-bordered, each a little askew,
+// laid in a loose grid. Each comes up from blank paper through a halftone screen and dither to full
+// tone (develop) once the film has left its place, and dissolves near the end. rgb: the print; a: 1 on
+// a print, a soft shadow just outside it.
+vec4 filmPrint(vec2 q, vec2 S, float P) {
+  vec2 cell = vec2(236.0, 172.0);
+  vec2 c0 = floor(q / cell);
+  vec4 o = vec4(0.0);
+  vec4 g = filmGrid(S);
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+    vec2 c = c0 + vec2(float(i), float(j));
+    float h1 = hash(c + 1.9), h2 = hash(c + 4.7), h3 = hash(c + 8.3);
+    vec2 ctr = (c + 0.5 + (vec2(h1, h2) - 0.5) * 0.35) * cell;
+    float ang = (h3 - 0.5) * 0.2;
+    vec2 lp = rot(-ang) * (q - ctr);
+    vec2 half_ = vec2(98.0, 70.0);
+    vec2 e = abs(lp) - half_;
+    float sd = max(e.x, e.y);
+    // When its place was uncovered, from its strip's pull.
+    int r = clamp(int(floor(ctr.y / g.w)), 0, int(g.y) - 1);
+    float A = filmA(r, g, S), side = filmSide(r);
+    float l = side > 0.0 ? ctr.x : S.x - ctr.x;
+    float Pu = A - 0.2 + 0.5 * pow(clamp(l / (S.x + 700.0), 0.0, 1.0), 1.0 / 1.6);
+    float dv = smoothstep(Pu + 0.03, Pu + 0.3, P);
+    float gone = smoothstep(0.9 + 0.05 * h1, 0.99 + 0.03 * h1, P);
+    float show = step(Pu + 0.02, P) * (1.0 - gone);
+    if (show <= 0.0) continue;
+    if (sd < 0.0) {
+      vec3 col;
+      if (min(-e.x, -e.y) < 8.0) col = vec3(0.92, 0.9, 0.86);
+      else col = develop(texA(ctr + lp * 1.35) * 1.1, q, dv);
+      col = mix(vec3(0.93, 0.91, 0.87), col, smoothstep(0.0, 0.12, dv) * 0.9 + 0.1);
+      o = vec4(col * (0.8 + 0.2 * smoothstep(-40.0, 0.0, lp.y)), show);
+    } else if (o.a < 0.5) {
+      o.a = max(o.a, exp(-sd / 10.0) * 0.5 * show);
+    }
+  }
+  return o;
+}
+vec3 groundFilm(vec2 q, vec2 px, float P) {
+  vec2 S = uRegion.zw;
+  vec4 g = filmGrid(S);
+  int r = clamp(int(floor(q.y / g.w)), 0, int(g.y) - 1);
+  float A = filmA(r, g, S), u = filmU(A, P), side = filmSide(r);
+  float l = side > 0.0 ? q.x : S.x - q.x;
+  float pulled = filmPulled(u, S.x);
+  if (l >= pulled) {
+    float neg = filmNeg(A, P);
+    vec3 col = sceneFolio(px);
+    if (neg > 0.0) {
+      vec4 f = filmLook(col, q, g.w, neg);
+      col = f.a > 0.5 ? vec3(0.03, 0.01, 0.01) : f.rgb;
+    }
+    // The exposure: a flash crossing the strip from its far end.
+    float fl = exp(-pow((P - A + 0.24 - 0.03 * (1.0 - l / S.x)) / 0.012, 2.0));
+    col += vec3(1.0, 0.9, 0.75) * fl * 0.9;
+    // The shadow of the film lifting off just ahead.
+    if (pulled > 0.0) col *= 1.0 - 0.45 * exp(-(l - pulled) / 26.0);
+    return col;
+  }
+  // Uncovered: the tray. The developer ripples out from where the film lifts, under the safelight, and
+  // the frames come up in it as prints (filmPrint), until they dissolve into the Photography page as
+  // it arrives.
+  float d = pulled - l;
+  vec3 col = sceneDarkroom(px);
+  col += DR_RED * (0.1 + 0.18 * (0.5 + 0.5 * sin(d * 0.07 - T * 5.0)) * exp(-d / 260.0));
+  vec4 pr = filmPrint(q, S, P);
+  col = mix(col * (1.0 - 0.55 * pr.a), pr.rgb, step(0.5, pr.a) * pr.a) + bokeh(q, 0.35 * (1.0 - smoothstep(0.85, 1.0, P)));
   return col;
 }
 
-// Photography → Chess. Ink fingers climb from the foot and fork; behind them the developer clears
-// into wash along a soft, granulating wet edge; the tray's red lingers in the dark side.
-vec3 withBranches(vec3 col, Reach Rq, float P, float u, vec2 px) {
-  Look L = branchLook(Rq, P + BLEAD, px);
-  float fade = 1.0 - smoothstep(0.55, 1.0, u);
-  return mix(col, L.c, L.m * fade) + L.glow * fade;
+
+// Photography → Chess. Ink fingers climb from the foot and fork; around them the ink billows into the
+// water in clouds (inkVolume: domain-warped noise, thickest near the branches, growing as they do);
+// behind them the developer clears into wash along a soft, granulating wet edge; the tray's red
+// lingers in the dark side. The ink stays until the end and lets go as Chess arrives.
+// Done before the strip's foot comes on screen above Chess (P 1.02, the earliest, on a phone).
+float inkLetGo(float P) { return 1.0 - smoothstep(0.86, 1.02, P); }
+vec3 inkVolume(vec3 col, Reach Rq, vec2 q, float P) {
+  float grown = smoothstep(Rq.tb, Rq.tb + 0.22, P + BLEAD);
+  if (grown <= 0.0) return col;
+  float near = exp(-max(Rq.d - Rq.w, 0.0) / (18.0 + 34.0 * grown));
+  vec2 wq = q * 0.0052 + vec2(0.0, -T * 0.02);
+  wq += vec2(fbm3(wq * 1.7 + T * 0.03), fbm3(wq * 1.7 + 5.2 - T * 0.025)) * 0.9;
+  float b = fbm3(wq);
+  float dens = grown * smoothstep(0.4, 0.95, near + (b - 0.5) * 0.9) * inkLetGo(P) * 0.45;
+  vec3 ink = mix(INK_INDIGO, INK_BLACK, smoothstep(0.3, 0.9, near)) * (0.9 + 0.2 * b);
+  return mix(col, ink, dens);
 }
 vec3 groundInk(vec2 q, vec2 px, float P) {
   Reach Rq; float u;
@@ -189,7 +272,14 @@ vec3 groundInk(vec2 q, vec2 px, float P) {
     }
     col = mix(dark, wash, w);
   }
-  return live ? withBranches(col, Rq, P, u, px) : col;
+  if (P > 1.02) return col;
+  // Settled points still carry their ink until it lets go.
+  if (!live && u >= 1.0) Rq = seamReachAt(q);
+  if (u <= 0.0 && !live) return col;
+  col = inkVolume(col, Rq, q, P);
+  Look L = branchLook(Rq, P + BLEAD, px);
+  float keep = inkLetGo(P);
+  return mix(col, L.c, L.m * keep) + L.glow * keep;
 }
 
 vec3 transitGround(int a, vec2 q, vec2 px) {
@@ -198,7 +288,7 @@ vec3 transitGround(int a, vec2 q, vec2 px) {
   if (a == 0) return groundCubes(q, px, P);
   if (a == 3) return groundCrystal(q, px, P);
   if (a == 2) return groundSheets(q, px, P);
-  if (a == 4) return groundIris(q, px, uH);
+  if (a == 4) return groundFilm(q, px, P);
   return groundInk(q, px, P);
 }
 `;

@@ -1,6 +1,6 @@
 // The share card for one page, drawn in that page's style: its name in the style's display face,
 // its line, and on the right the process its transition is built on, drawn here in SVG (the maze,
-// the vortex, crystal growth, peeling sheets, the iris and halftone, branching ink). The
+// the vortex, crystal growth, layers of peeling sheets, film developed into prints, branching ink). The
 // homepage gets the crystal, one facet per destination. Everything is seeded, so a card only
 // changes when its words or this file do. Sets <html data-ready> once the fonts are in.
 import { carveMaze } from '/static/site/lerp.js';
@@ -23,7 +23,7 @@ const TYPE = {
 // What each style's transition is made of (the homepage's hold captions say the same).
 const PROCESS = {
   house: 'A maze carved depth-first', cosmos: 'A vortex', glass: 'Crystal growth',
-  folio: 'Peeling sheets', darkroom: 'An iris, then halftone', ink: 'Branching ink',
+  folio: 'Layers of sheets', darkroom: 'Film, developed', ink: 'Branching ink',
 };
 
 const PAGES = {
@@ -198,51 +198,29 @@ ART.folio = () => {
   <g mask="url(#fade)">${sheet(700, 92, -7)}${sheet(712, 74, -2.5)}${sheet(726, 60, 2, true)}</g>`;
 };
 
-// Photography: a camera iris (eight blades around an octagonal opening) over a halftone print,
-// dots sized by brightness, glowing red through the opening.
+// Photography: film pulled off the table in coils, sprocket holes along both edges (a wide dashed
+// stroke under a narrower one shows only in the margins), over prints developing in the red tray,
+// white-bordered, each a little askew, coming up from a halftone screen.
 ART.darkroom = () => {
-  const cx = 935, cy = 315, R = 212, open = 92, nb = 8, rot = 0.3;
-  const V = Array.from({ length: nb }, (_, i) => { const a = rot + i * 2 * Math.PI / nb; return [cx + Math.cos(a) * open, cy + Math.sin(a) * open]; });
-  // Where the line through v[i] and v[i+1], carried on past v[i+1], meets the outer ring.
-  const hit = i => {
-    const [x1, y1] = V[i], [x2, y2] = V[(i + 1) % nb], dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
-    const ox = x2 - cx, oy = y2 - cy, b = ox * ux + oy * uy, c = ox * ox + oy * oy - (R + 30) ** 2, t = -b + Math.sqrt(b * b - c);
-    return [x2 + ux * t, y2 + uy * t];
-  };
-  let blades = '';
-  for (let i = 0; i < nb; i++) {
-    const a = V[(i + 1) % nb], b = V[(i + 2) % nb], E1 = hit(i), E2 = hit((i + 1) % nb);
-    blades += `<path d="M${f(a[0])} ${f(a[1])}L${f(E1[0])} ${f(E1[1])}A${R + 30} ${R + 30} 0 0 1 ${f(E2[0])} ${f(E2[1])}L${f(b[0])} ${f(b[1])}Z" fill="${i % 2 ? '#1E1B18' : '#26221E'}" stroke="${hexA(C.ink, 0.2)}" stroke-width="1.2"/>`;
-  }
-  // The print: a sun over two ridges, as brightness at (x, y).
-  const lum = (x, y) => {
-    const sun = Math.exp(-(((x - 960) ** 2 + (y - 230) ** 2) / 9000));
-    const ridge1 = y > 360 - 70 * Math.exp(-(((x - 840) / 120) ** 2)) - 25 * Math.sin(x / 47) ? 0.18 : 0;
-    const ridge2 = y > 430 - 50 * Math.exp(-(((x - 1080) / 140) ** 2)) ? -0.2 : 0;
-    return Math.max(0, Math.min(1, 0.5 - (y - 120) / 900 + sun * 0.6 - ridge1 + ridge2));
-  };
-  let dots = '', inner = '';
-  for (let y = 7; y < H; y += 14) for (let x = 520 + ((y / 14) % 2) * 7; x < W; x += 14) {
-    const rr = f(6.4 * Math.sqrt(lum(x, y)));
-    if (rr < 0.5) continue;
-    dots += `<circle cx="${x}" cy="${y}" r="${rr}"/>`;
-    if ((x - cx) ** 2 + (y - cy) ** 2 < (open + 14) ** 2) inner += `<circle cx="${x}" cy="${y}" r="${rr}"/>`;
-  }
-  let ticks = '';
-  ['1.4', '2', '2.8', '4', '5.6', '8', '11', '16'].forEach((s, i) => {
-    const a = -Math.PI * 0.86 + i * Math.PI * 0.1, x = cx + Math.cos(a) * (R + 58), y = cy + Math.sin(a) * (R + 58);
-    ticks += `<text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="middle">${s}</text>`;
+  const r = rng(6);
+  let prints = '', defs = '';
+  const cells = [[640, 300], [860, 330], [1080, 300], [700, 470], [920, 500], [1140, 470], [760, 140], [1000, 150]];
+  cells.forEach(([x, y], i) => {
+    const w = 190, h = 136, a = (r() - 0.5) * 12, dev = i / cells.length;
+    defs += `<pattern id="ht${i}" width="${f(9 - 5 * dev)}" height="${f(9 - 5 * dev)}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="${f((9 - 5 * dev) / 2)}" cy="${f((9 - 5 * dev) / 2)}" r="${f(1.6 + 1.6 * r())}" fill="#9FB58C" fill-opacity="${f(0.5 + 0.4 * dev)}"/></pattern>`;
+    prints += `<g transform="rotate(${f(a)} ${x} ${y})"><rect x="${x - w / 2 + 8}" y="${y - h / 2 + 10}" width="${w}" height="${h}" fill="#000" fill-opacity="0.45" filter="url(#soft)"/>
+      <rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" fill="#EDEAE3"/>
+      <rect x="${x - w / 2 + 9}" y="${y - h / 2 + 9}" width="${w - 18}" height="${h - 18}" fill="#1F2E22"/>
+      <rect x="${x - w / 2 + 9}" y="${y - h / 2 + 9}" width="${w - 18}" height="${h - 18}" fill="url(#ht${i})"/></g>`;
   });
-  return `<defs>${fade(480, 660)}
-    <radialGradient id="safe" cx="${cx}" cy="${cy}" r="${open + 30}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.95"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0.55"/></radialGradient>
-    <radialGradient id="room" cx="0.76" cy="0.5" r="0.55"><stop offset="0" stop-color="${C.accent2}" stop-opacity="0.2"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0"/></radialGradient></defs>
-  <rect width="${W}" height="${H}" fill="url(#room)"/>
-  <g mask="url(#fade)"><g fill="${C.ink}" fill-opacity="0.22">${dots}</g>
-    <circle cx="${cx}" cy="${cy}" r="${open + 14}" fill="url(#safe)"/><g fill="#1A0605" fill-opacity="0.75">${inner}</g>
-    ${blades}
-    <circle cx="${cx}" cy="${cy}" r="${R + 30}" fill="none" stroke="#3A342E" stroke-width="16"/>
-    <circle cx="${cx}" cy="${cy}" r="${R + 39}" fill="none" stroke="${hexA(C.ink, 0.25)}"/>
-    <g fill="${C.mute}" font-family="JetBrains Mono" font-size="15" letter-spacing="0.06em">${ticks}</g></g>`;
+  const film = d => `<path d="${d}" stroke="#2A1408" stroke-width="58"/><path d="${d}" stroke="#0B0705" stroke-width="50" stroke-dasharray="5 7"/>
+    <path d="${d}" stroke="#C9783F" stroke-width="38"/><path d="${d}" stroke="#5A2A12" stroke-width="38" stroke-dasharray="2.5 58"/>
+    <path d="${d}" stroke="#FFE2C2" stroke-opacity="0.25" stroke-width="6" transform="translate(-6 -9)"/>`;
+  return `<defs>${fade(500, 700)}${defs}<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <radialGradient id="safe" cx="0.78" cy="0.55" r="0.6"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.55"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0.05"/></radialGradient></defs>
+  <g mask="url(#fade)"><rect width="${W}" height="${H}" fill="url(#safe)"/>${prints}
+    <g fill="none" stroke-linecap="butt">${film('M560 640 C 700 520, 900 600, 980 470 S 1220 300, 1080 210 S 820 220, 900 80 S 1120 -40, 1240 40')}
+    ${film('M1240 600 C 1120 560, 1060 420, 1150 360 S 1300 330, 1260 230')}</g></g>`;
 };
 
 // Chess: branching ink. Strokes split in two or three as they reach, thinning to hairlines, the

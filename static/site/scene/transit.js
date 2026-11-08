@@ -16,23 +16,29 @@
 // the scene's plain seams.
 import { VERTEX } from './glsl/index.js';
 import { UNIT_PROGRAMS, SIM, REACH_BAKE } from './glsl/units.js';
-import { transitP, activeRows, carveMaze } from '../lerp.js';
+import { transitP, carveMaze } from '../lerp.js';
 
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
 // bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach, or the crystals.
 const KINDS = {
-  '0-3': { id: 'cubes', units: ['cubes', 'streaks'] },                // About Me → Science: a vortex
+  '0-3': { id: 'cubes', units: ['flow', 'streaks', 'cubes'] },        // About Me → Science: a vortex
   '3-2': { id: 'crystals', units: [], sim: true, bake: 'crystals' },  // Science → Racing: crystal growth
   '2-4': { id: 'sheets', units: ['sheets', 'glitter'] },             // Racing → Outdoors: peeling sheets
-  '4-5': { id: 'iris', units: [] },                                  // Outdoors → Photography: an iris, halftone
+  '4-5': { id: 'film', units: ['film'] },                            // Outdoors → Photography: film, developed
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
 };
 // Cell sizes in CSS px (fine pointer, touch).
-const CELL = { cubes: [10, 13], streaks: [26, 36], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [16, 26] };
+const CELL = { cubes: [10, 13], streaks: [26, 36], flow: [40, 56], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [14, 22] };
 const FLY = 420;   // how far, CSS px, a unit can stray from its row
-// Science's cubes land this share of the rows below where they left (glsl/flight.js VX_DROP): the
-// seam draws that many extra rows of them, coming down from the band above.
+// Science's cubes land this share of the rows above where they left (glsl/flight.js VX_DROP): the
+// seam draws that many extra rows of them, rising from below the screen.
 const vortexDrop = rows => Math.floor(rows * 0.38 + 0.5);
+// Outdoors' layers of sheets (glsl/flight.js layerGrid): [cols, rows] of layer k.
+const SHEET_LAYERS = 3;
+function layerGrid(k, w, h) {
+  const rows = Math.max(3, Math.floor(h / (112 + 26 * k) + 0.5));
+  return [Math.max(3, Math.floor(w / ((h / rows) * 0.9) + 0.5)), rows];
+}
 
 export function createTransit(gl, { renderWorld, coarse }) {
   const programs = {};
@@ -274,18 +280,10 @@ export function createTransit(gl, { renderWorld, coarse }) {
     const cols = Math.max(1, Math.round(w / cell)), rows = Math.max(1, Math.round(h / cell));
     return [cols, rows, w / cols, h / rows];
   }
-  // Four or five rows of near-square panes filling the strip (odd rows are laid half a pane over,
-  // one pane longer).
-  function sheetGrid(w, h) {
-    const rows = h > 640 ? 5 : 4, ph = h / rows;
-    const cols = Math.max(3, Math.round(w / ph));
-    return [cols, rows, w / cols, ph];
-  }
-  // The rows that can be in flight and are near the screen, as [first instance, count]. Only the
-  // ink grows from the foot; the other processes can be anywhere on the screen at once.
-  function span(g, s, f, fromFoot) {
+  // The rows near the screen, as [first instance, count] (a held seam's region is the screen).
+  function span(g, s, f) {
     const [cols, rows, , ch] = g;
-    let [from, to] = fromFoot ? activeRows(transitP(s.p ?? 0), rows) : [0, rows];
+    let [from, to] = [0, rows];
     const y = s.region[1];
     from = Math.max(from, Math.floor((-y - FLY) / ch));
     to = Math.min(to, Math.ceil((f.vpH - y + FLY) / ch));
@@ -378,17 +376,18 @@ export function createTransit(gl, { renderWorld, coarse }) {
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, simOn ? sim.texture : null);
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, snap.reach?.t ?? null);
       gl.activeTexture(gl.TEXTURE0);
-      const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : K.id === 'sheets' ? sheetGrid(w, h) : null;
+      const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : null;
       const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn });
       if (!drew || !K.units.length) return drew;
-      gl.disable(gl.SCISSOR_TEST);
+      // The units keep the ground's scissor: while the strip scrolls in or out, they stay in it.
       for (const name of K.units) {
         const prog = programs[name], def = UNIT_PROGRAMS[name];
-        const g = name === 'sheets' ? ground : name === 'cubes' ? ground : grid(name, w, h, f);
-        // The vortex carries its units the whole height of the strip: all of them, plus the rows
-        // coming down from above.
+        const g = name === 'sheets' || name === 'film' ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
+        // The vortex carries its units the whole height of the screen: all of them, plus the rows
+        // rising from below it. The sheets draw a layer at a time, the lowest first.
         const vortex = name === 'cubes' || name === 'streaks';
-        const [first, count] = name === 'sheets' ? [0, (g[0] + 1) * g[1]] : vortex ? [0, g[0] * (g[1] + vortexDrop(g[1]))] : span(g, s, f, name === 'filaments');
+        const [first, count] = name === 'sheets' ? [0, 1] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
+          : vortex ? [0, g[0] * (g[1] + vortexDrop(g[1]))] : name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;
         gl.useProgram(p);
@@ -398,7 +397,6 @@ export function createTransit(gl, { renderWorld, coarse }) {
         gl.uniform1f(U.uH, s.p ?? 0);
         gl.uniform1f(U.uVel, s.vel ?? 0);
         gl.uniform4f(U.uGrid, ...g);
-        if (name === 'glitter') gl.uniform4f(U.uGrid2, ...ground);   // the panes the dust breaks from
         gl.uniform1i(U.uFirst, first);
         if (U.uClick) gl.uniform1f(U.uClick, 0);
         gl.uniform1i(U.uTexA, 0);
@@ -409,10 +407,15 @@ export function createTransit(gl, { renderWorld, coarse }) {
           gl.enable(gl.BLEND);
           if (def.blend === 'add') gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         }
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, count);
+        if (name === 'sheets') {
+          for (let k = SHEET_LAYERS - 1; k >= 0; k--) {
+            const [cols, rows] = layerGrid(k, w, h);
+            gl.uniform1i(U.uLayer, k);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, (cols + 1) * rows);
+          }
+        } else gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, count);
       }
       gl.disable(gl.BLEND);
-      gl.enable(gl.SCISSOR_TEST);
       restore();
       return true;
     },

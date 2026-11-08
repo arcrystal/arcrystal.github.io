@@ -10,7 +10,7 @@
 // Per frame this reads scrollY and writes only the header's ink (when the band under it changes)
 // and the crystal's state; everything else is measured on resize.
 import { onTick, clamp } from './lib/util.js';
-import { approach, smoothstep, HOLD, holdAt } from './lerp.js';
+import { approach, smoothstep, HOLD, holdAt, holdFor, holdEase } from './lerp.js';
 import { getScene, STYLE_ID } from './scene/scene.js';
 import { racePace } from './race-pace.js';
 import { skyline } from './skyline.js';
@@ -48,9 +48,9 @@ export function mount(main, ctx) {
     vw = root.clientWidth; vh = innerHeight; headH = header?.offsetHeight || 64;
     if (!holdVh || vw !== holdVw || Math.abs(vh - holdVh) > 140) { holdVh = vh; holdVw = vw; }
     const pin = coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin;
-    // Some transitions take longer (HOLD.longer: the vortex into Science).
+    // Some transitions take longer (lerp.js HOLD.by: the vortex into Science).
     holds.forEach(el => {
-      const h = `${Math.round(holdVh * (1 + pin * (HOLD.longer[el.dataset.to]?.pin || 1)))}px`;
+      const h = `${Math.round(holdVh * (1 + pin * holdFor(el.dataset.to).pin))}px`;
       if (el.style.height !== h) el.style.height = h;
     });
     const sy = scrollY;
@@ -321,11 +321,14 @@ export function mount(main, ctx) {
           const a = sections[i - 1], c = sections[i];
           if (!a || !c) return null;
           if (c.hold) {
-            const { y, p } = holdAt(scrollY, c.hold.top, c.hold.h, vh, HOLD.longer[c.style]?.lead);
+            const L = holdFor(c.style);
+            const { y, p: raw } = holdAt(scrollY, c.hold.top, c.hold.h, vh, L.leadIn, L.leadOut);
             if (y + vh <= 0 || y >= vh) return null;
+            const p = holdEase(raw);
             const cap = captions.get(i);
-            if (cap && Math.abs(cap.p - p) > 0.002) { cap.p = p; cap.el.style.setProperty('--p', p.toFixed(3)); }
-            return { region: [0, y, vw, vh], card: [0, y, vw, vh], mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
+            if (cap && Math.abs(cap.p - raw) > 0.002) { cap.p = raw; cap.el.style.setProperty('--p', raw.toFixed(3)); }
+            // Drawn on the whole screen as if held; the strip's place on screen (clip) reveals it.
+            return { region: [0, 0, vw, vh], clip: [0, y, vw, vh], card: [0, y, vw, vh], mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
               p, h: 1 - p, vel: clamp(vel, -3, 3) };
           }
           if (!c.seam) return null;
@@ -347,7 +350,7 @@ export function mount(main, ctx) {
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
   // Each hold names its transition while it plays, at the foot of the screen, with a thin line
   // for how far it has come: the process (glsl/flight.js) and where it is going.
-  const PROCESS = { cosmos: 'A vortex', glass: 'Crystal growth', folio: 'Peeling sheets', darkroom: 'An iris, then halftone', ink: 'Branching ink' };
+  const PROCESS = { cosmos: 'A vortex', glass: 'Crystal growth', folio: 'Layers of sheets', darkroom: 'Film, developed', ink: 'Branching ink' };
   const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;

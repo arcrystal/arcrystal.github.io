@@ -38,11 +38,11 @@ click through to the page (`flight.js` holds the maths, `reach.js` and `opens.js
 | Destination | Process |
 | --- | --- |
 | About Me, Résumé, Contact | **A maze carved by depth-first backtracking** from the click (a random spanning tree, carved on the CPU by `carveMaze` in `lerp.js`): corridors open down long winding passages and back out of dead ends, inked at their walls, and last the walls fill with paper; the ink fades in reverse order. |
-| Science | **A vortex** (after the Burgers vortex, an exact solution of the Navier–Stokes equations): the page breaks into cubes along a funnel, starting right under the band above and travelling down toward Science; each spirals in toward an upright axis, turns fastest round its glowing core while the flow pulls it down the axis toward Science (the stretching), then spirals out lower down and lands mirrored, sky face up. The bottom rows dive out into Science; the top rows are refilled by cubes swirling down from the band above. Streamline ribbons trace the helices, teal where they turn slowly, orange at the core. On a click the funnel runs from the link across the page, building it as it goes. |
-| Racing | **Crystal growth**: nuclei appear across the screen and grow as six-armed stars, fastest along their arms (after Reiter's snowflakes), until they meet along bright grain boundaries (a Johnson–Mehl tessellation); each crystal flashes and clears. |
-| Outdoors | **Peeling sheets**: brick-laid panes peel back in a diagonal sweep, each a page curl from one corner (half a turn round a cylinder, then laid flat over itself), gilt underneath with the engraving pressed in; ice glitters, dust breaks loose, a caustic net pools beside each fold. On a click, gilt rolls unroll the plate across the panes. |
-| Photography | **A camera iris**: nine blades close as the light inside warms and overexposes, a diffraction star flares as they meet, and they open onto the darkroom, which develops from a **halftone** screen through **Bayer dithering** to full tone, with nine-sided bokeh. |
-| Chess | **Branching ink**: a few trunks fork three times as they go (each level twice the branches), soft fingers that swell and pool, then the wash; strokes trace the vortex flow. |
+| Science | **A vortex** (after the Burgers vortex, an exact solution of the Navier–Stokes equations) standing up the middle of the screen, its base at the foot right beneath About Me: the base gathers the page into cubes from the foot up; they swirl up the core, fastest there and stretched along the axis, and the vortex's top throws them out to land mirrored, higher up, building Science behind it as it grows. Flow lines run from the base to the top on the clock, so it is one vortex throughout, and streamlines trace the cubes' helices, teal where they turn slowly, orange at the core. Where a cube has gone the paper only shades; Science appears where cubes land. On a click the funnel runs from the link across the page, building it as it goes. |
+| Racing | **Crystal growth**: from the foot of the screen, nuclei appear and grow as six-armed stars, fastest along their arms (after Reiter's snowflakes), until they meet along prismatic grain boundaries (a Johnson–Mehl tessellation). The ice holds the whole screen, each crystal freezing through from space to glacier, glints running along its arms and a sheen crossing its facets, until a last sweep up the screen flashes each one clear, just as Racing arrives. |
+| Outdoors | **Layers of sheets**: three layers lie over the page (the glacier's ice, a topographic trail map, tracing vellum), each of brick-laid sheets, and each peels from the foot of the screen up a little after the layer above, so the sheets come away in waves. A sheet curls from a corner of its own (a page curl), then lets go and flies like paper: unrolling, cupping, twisting along its length and fluttering, its normals taken from the bent surface. The ice's undersides are gilt; ice dust breaks loose; a caustic net pools under each fold. On a click, gilt rolls unroll the plate across the panes. |
+| Photography | **Film, developed**: strip by strip from the foot of the screen, a flash crosses the page and it turns to 35 mm colour negative (orange mask, sprocket holes, frame lines); each strip is pulled off the table from one end into a rising, twisting helix of film. Where it has gone, the frames come up as prints in the developer, white-bordered and askew, from a **halftone** screen through **Bayer dithering** to full tone, ripples spreading under the safelight; they dissolve into the Photography page as it arrives. On a click, **a camera iris** closes and opens on the darkroom. |
+| Chess | **Branching ink**: eight trunks climb from the foot of the screen and fork three times (each level twice the branches), soft fingers that swell and pool; around them ink billows into the water in clouds (domain-warped noise, thickest near the branches); strokes trace the flow; the darkroom clears into wash behind. The ink stays until it lets go as Chess arrives. |
 
 **Clicks** (a menu item, a band, a phrase, a next-page card) cover in 1.3 s and reveal in 1.2 s.
 Escape or a click skips to the end. **History steps** roll fog in and out in the destination's
@@ -57,18 +57,24 @@ Science lists every algorithm on the site, by field (`#algorithms`). Both come f
 
 With motion on, each seam has a stretch of page of its own, its **hold** (`home.js`, `HOLD` in
 `lerp.js`): the seam scrolls in with the page, fills the screen and stays put for 1.75 screens of
-scroll while its transit plays, then scrolls away as the next band arrives. The transit runs over
-the hold plus 0.35 of a screen either side, about 2.5 screens in all.
+scroll while its transit plays, then scrolls away as the next band arrives. The transit is drawn on
+the whole screen as if already held; the strip's place on screen only reveals it. So it begins as
+soon as the strip's top comes on screen (0.95 of a screen before the hold), from the foot of the
+screen, right beneath the band above, and ends a fifth of a screen after (less for Racing, Outdoors
+and Photography, whose headings follow straight after). Each starts slowly (`holdEase`). Science's
+hold is 1.6 times the others', Outdoors' and Photography's 1.25, Chess's 1.2 (`HOLD.by` in `lerp.js`).
 
 - **One process each.** Each seam runs its destination's process (above); the upper world comes
   apart into its own units, which fly, flow and settle into the lower world.
 - **Pure function of scroll.** Progress `p` (0..1 through the hold) maps to `P = transitP(p)`, and
-  each point flies while `P` passes its arrival (`flightAt`, `vortexU`, `paneA`; the iris reads
-  `p` itself). Everything is computed from that and
+  each point flies while `P` passes its arrival (`flightAt`, `vortexU`, `layerA`, `filmU`).
+  Everything is computed from that and
   the seed alone, so scrolling back un-builds the world exactly; stopping mid-seam leaves the units
   hanging, still gently moving.
-- **Clean edges.** `P` runs past both ends, so the strip is entirely the upper world while its top is
-  on screen above the hold, and entirely the lower one while its foot is on screen below.
+- **Clean edges.** `P` runs past both ends, so the strip is at rest at both. Every process starts at
+  the foot of the screen, so while the strip scrolls in, what lies at its top edge beside the band
+  above is still at rest; and each has finished at the foot before the strip's foot shows above the
+  band below.
 - **Chameleon units.** A unit carries the upper world's colour where it leaves and the lower
   world's where it lands.
 - **Fallbacks.** With motion off there are no holds: a still, plain seam straddles each boundary as
@@ -76,11 +82,11 @@ the hold plus 0.35 of a screen either side, about 2.5 screens in all.
 
 | From → to | Process | Units | Transit |
 | --- | --- | --- | --- |
-| About Me → Science | a vortex (a longer hold: `HOLD.longer`, starting as the strip's top comes on screen) | ~18,000 cubes, ~1,600 streamlines | The paper breaks into cubes along a funnel, starting right under About Me. They spiral in, tumbling, turn fastest at the glowing core (coloured by speed, teal to orange) while it pulls them down toward Science, then spiral out lower and land mirrored, sky face up; the swirl travels down the page and is still turning as Science arrives. Scrolling back draws it all back up. |
-| Science → Racing | crystal growth | the liquid itself | Space liquefies and swirls in vortices, stirred by a real fluid sim (scroll and pointer push it), while six-armed crystals nucleate across it, grow and meet; each holds the swirl at its own tilt, then flashes and clears to the glacier. |
-| Racing → Outdoors | page curl | 4–5 rows of panes, ice dust | The ice cracks along the panes' edges; each pane peels back from a corner in a diagonal sweep, its gilt engraved underside laid over itself, glitters, sheds dust and tumbles away. |
-| Outdoors → Photography | iris, halftone, dither | none | Nine blades close over the plate as it warms and overexposes; a diffraction star; they open on the darkroom developing from halftone to dither to tone, safelight blooming, bokeh drifting. |
-| Photography → Chess | branching ink | ~3,000 ink filaments | Ink fingers climb and fork; the darkroom lets go of its black like ink dropped in water, tapering strokes sinking along the flow, then bleeding into the wash along a granulating wet edge. |
+| About Me → Science | a vortex | ~18,000 cubes, ~1,600 streamlines, ~600 flow lines | A small swirl at the foot of the screen grows into a vortex up the page, gathering the paper into cubes from the foot up and throwing them out from its top to build Science; scrolling back draws it all back down. |
+| Science → Racing | crystal growth | the liquid itself | Space liquefies and swirls in vortices, stirred by a real fluid sim (scroll and pointer push it), while six-armed crystals nucleate from the foot, grow and meet; they hold the screen, freezing through to glacier, until a last sweep clears them as Racing arrives. |
+| Racing → Outdoors | layers of sheets | 3 layers of ~60–110 sheets, ice dust | The ice cracks along its sheets' edges; layer under layer (ice, trail map, vellum), sheets peel from a corner of their own and fly off like paper, unrolling, cupping, twisting and fluttering. |
+| Outdoors → Photography | negative film, prints developing | ~11 film strips | A flash turns each strip to a negative with sprocket holes; it is pulled off into a rising, twisting helix; prints of its frames develop in the tray beneath, halftone to dither to tone, under the safelight. |
+| Photography → Chess | branching ink | ~4,000 ink filaments | Eight trunks of ink climb and fork; ink billows into clouds around them; strokes trace the flow; the darkroom clears into wash; the ink lets go as Chess arrives. |
 
 Each band's world also sweeps a prismatic sheen across itself once, the first time it scrolls in.
 
@@ -125,8 +131,8 @@ Each band's world also sweeps a prismatic sheen across itself once, the first ti
   - The grids coarsen on touch screens and when the resolution governor has stepped down.
   - The programs compile in parallel (`KHR_parallel_shader_compile`) or one per idle moment. Each
     draws a single pixel once it is ready, so the GPU builds its pipeline before the seam appears.
-  - The pure maths (`transitP`, `flightAt`, `arrivalRange`, `activeRows`, `holdAt`, `paneArrival`,
-    `irisOpen`, `vortexA`, `vortexTurn`, `vortexAt`, `carveMaze` in `lerp.js`) is tested in
+  - The pure maths (`holdAt`, `holdEase`, `transitP`, `flightAt`, `arrivalRange`, `layerArrival`,
+    `filmArrival`, `vortexSeamA`, `vortexTurn`, `vortexAt`, `carveMaze` in `lerp.js`) is tested in
     `tools/site/tests/lerp.test.mjs`.
   - **Performance.** Measured in headless Chrome on an M1 Max at DPR 2.
     - Scrolling the whole page both ways (about 30 s each way at 1440×900): 4,048 frames, none over

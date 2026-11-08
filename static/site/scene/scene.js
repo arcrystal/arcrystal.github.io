@@ -115,10 +115,12 @@ function createScene() {
     canvas.height = Math.max(1, Math.round(h * d));
   }
 
+  // s.clip, where given, is the part of the region to show (a held seam scrolling in or out).
   function draw(s) {
     const [x, y, w, h] = s.region;
-    const X0 = Math.max(0, Math.floor(x * dpr)), Y1 = Math.min(canvas.height, Math.ceil((y + h) * dpr));
-    const X1 = Math.min(canvas.width, Math.ceil((x + w) * dpr)), Y0 = Math.max(0, Math.floor(y * dpr));
+    const [cx, cy, cw, ch] = s.clip || s.region;
+    const X0 = Math.max(0, Math.floor(cx * dpr)), Y1 = Math.min(canvas.height, Math.ceil((cy + ch) * dpr));
+    const X1 = Math.min(canvas.width, Math.ceil((cx + cw) * dpr)), Y0 = Math.max(0, Math.floor(cy * dpr));
     if (X1 <= X0 || Y1 <= Y0) return false;
     gl.scissor(X0, canvas.height - Y1, X1 - X0, Y1 - Y0);
     const paused = motion.paused;

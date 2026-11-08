@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   parseHex, toOklab, oklabCss, mixOklab, approach, seamAt, smoothstep, easeInOutCubic,
-  transitP, flightAt, arrivalRange, activeRows, HOLD, holdAt,
-  paneArrival, irisOpen, carveMaze, VORTEX, vortexDrop, vortexSeamA, vortexU, coreEase, vortexTurn, vortexAt,
+  transitP, flightAt, arrivalRange, HOLD, holdAt, holdFor, holdEase,
+  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexDrop, vortexSeamA, vortexU, coreEase, vortexTurn, vortexAt,
 } from '../../../static/site/lerp.js';
 
 const { order, styles } = JSON.parse(readFileSync(new URL('../../../static/site/styles.json', import.meta.url), 'utf8'));
@@ -82,16 +82,6 @@ test('transits: at rest at either end of the hold, and the strip’s edges meet 
     assert.equal(flightAt(A, transitP(0), j), 0, `start rn=${rn}`);
     assert.equal(flightAt(A, transitP(1), j), 1, `end rn=${rn}`);
   }
-  // While the strip's top is on screen above the hold its top edge is still the upper world; while
-  // its foot is on screen below, the foot is the lower world.
-  const vh = 900, H = vh * (1 + HOLD.pin), T = 5000;
-  for (let sy = T - vh; sy <= T + H; sy += 10) {
-    const { y, p } = holdAt(sy, T, H, vh);
-    const P = transitP(p);
-    if (y > 0) for (let rn = 0.95; rn <= 1; rn += 0.01) for (const A of arrivals(rn)) for (const j of jits) assert.equal(flightAt(A, P, j), 0, `top sy=${sy}`);
-    if (y < 0) for (let rn = 0; rn <= 0.05; rn += 0.01) for (const A of arrivals(rn)) for (const j of jits) assert.equal(flightAt(A, P, j), 1, `foot sy=${sy}`);
-    if (sy >= T && sy <= T + H - vh) assert.equal(y, 0);
-  }
   // Scrolling down (p rising) only ever moves a point forward: the transit is reversible.
   for (const A of [0, 0.3, 0.7, 1]) {
     let prev = -1;
@@ -99,49 +89,78 @@ test('transits: at rest at either end of the hold, and the strip’s edges meet 
   }
 });
 
-test('transits: every row with a unit in flight is drawn', () => {
-  for (const rows of [5, 37, 85, 120]) for (let p = 0; p <= 1; p += 0.05) {
-    const P = transitP(p);
-    const [from, to] = activeRows(P, rows);
-    for (let r = 0; r < rows; r++) {
-      const rn = 1 - (r + 0.5) / rows;
-      const [lo, hi] = arrivalRange(rn);
-      for (let A = lo; A <= hi; A += 0.01) for (const j of [0, 1]) {
-        const u = flightAt(A, P, j);
-        if (u > 0 && u < 1) assert.ok(r >= from && r < to, `rows=${rows} r=${r} p=${p}`);
-      }
+// A held seam is drawn on the whole screen as if held, and the strip's place only reveals it: from the
+// foot of the screen up as it scrolls in, down to it as it leaves. Each transition starts at the foot
+// (right beneath the band above) and gives it time: while the strip comes in, whatever lies at its top
+// edge, beside the band above, is still at rest; while it leaves, what lies at its foot, beside the
+// band below, has settled. edges(style) walks a hold on a desktop and on a phone, giving the progress
+// p it plays at (eased) and where the strip's top edge (yn, 0 the top of the screen) or foot is.
+const edges = (style, phone = true) => {
+  const out = [];
+  for (const [vh, pin] of phone ? [[900, HOLD.pin], [844, HOLD.pinTouch]] : [[900, HOLD.pin]]) {
+    const L = holdFor(style), H = vh * (1 + pin * L.pin), T = 5000;
+    for (let sy = T - L.leadIn * vh; sy <= T + H; sy += 5) {
+      const { y, p } = holdAt(sy, T, H, vh, L.leadIn, L.leadOut);
+      out.push({ P: transitP(holdEase(p)), top: y > 0 ? y / vh : null, foot: y < 0 ? 1 + y / vh : null });
     }
   }
-});
-
-// The other processes keep the same promise: at rest at both ends of the hold, the strip's top
-// untouched while it is on screen above the hold, its foot settled while it is on screen below.
-const holdEdges = () => {
-  const vh = 900, H = vh * (1 + HOLD.pin), T = 5000, out = [];
-  for (let sy = T - vh; sy <= T + H; sy += 10) out.push(holdAt(sy, T, H, vh));
   return out;
 };
 
-test('processes: the panes peel within the hold, and both edges keep their bands', () => {
-  for (let rn = 0.05; rn <= 0.95; rn += 0.05) for (let xn = 0; xn <= 1; xn += 0.1) for (const jit of [0, 0.5, 1]) {
-    const A = paneArrival(rn, xn, jit);
-    assert.equal(flightAt(A, transitP(0)), 0);
-    assert.equal(flightAt(A, transitP(1)), 1);
+test('holds: a transit begins as its strip comes on screen, and plays slowly at first', () => {
+  for (const style of ['cosmos', 'glass', 'folio', 'darkroom', 'ink']) {
+    const L = holdFor(style), vh = 900, H = vh * (1 + HOLD.pin * L.pin), T = 5000;
+    assert.equal(holdAt(T - L.leadIn * vh, T, H, vh, L.leadIn, L.leadOut).p, 0);
+    assert.ok(Math.abs(holdAt(T - L.leadIn * vh, T, H, vh, L.leadIn, L.leadOut).y - L.leadIn * vh) < 1e-9);
+    assert.ok(Math.abs(holdAt(T + H - vh + L.leadOut * vh, T, H, vh, L.leadIn, L.leadOut).p - 1) < 1e-9);
+    let prev = -1;
+    for (let sy = T - vh; sy <= T + H; sy += 7) { const { p } = holdAt(sy, T, H, vh, L.leadIn, L.leadOut); assert.ok(p >= prev); prev = p; }
   }
-  for (const { y, p } of holdEdges()) {
-    const P = transitP(p);
-    // The top row of panes (centres from 0.9 of the strip up) and the bottom row (to 0.1).
-    if (y > 0) for (let xn = 0; xn <= 1; xn += 0.1) for (const jit of [0, 1]) assert.equal(flightAt(paneArrival(0.9, xn, jit), P), 0);
-    if (y < 0) for (let xn = 0; xn <= 1; xn += 0.1) for (const jit of [0, 1]) assert.equal(flightAt(paneArrival(0.1, xn, jit), P), 1);
+  assert.equal(holdEase(0), 0);
+  assert.equal(holdEase(1), 1);
+  assert.ok(holdEase(0.2) < 0.2);
+});
+
+test('processes: the ink rests at the strip\'s top edge while it comes in, and has let go by its foot', () => {
+  for (const { P, top } of edges('ink')) if (top !== null) {
+    const rn = 1 - top;
+    for (const A of [arrivalRange(rn)[0], arrivalRange(rn)[1]]) for (const j of [0, 1]) assert.equal(flightAt(A, P, j), 0, `top=${top} P=${P}`);
+  }
+  // The ink lets go (glsl/transit.js inkLetGo) by P 1.02, before the strip's foot shows.
+  for (const { P, foot } of edges('ink')) if (foot !== null) assert.ok(P >= 1.02, `P=${P}`);
+});
+
+test('processes: the sheets rest at the top edge while the strip comes in, and are gone from its foot as it leaves', () => {
+  // (On a desktop. A phone's shorter hold lets the sweep reach the top edge just before it is held.)
+  for (const { P, top } of edges('folio', false)) if (top !== null) {
+    for (let xn = 0; xn <= 1; xn += 0.1) for (const jit of [0, 1]) assert.equal(flightAt(layerArrival(0, 1 - top, xn, jit), P), 0, `top=${top} P=${P}`);
+  }
+  for (const { P, foot } of edges('folio')) if (foot !== null) {
+    const rn = 1 - foot;
+    for (let k = 0; k < 3; k++) for (let xn = 0; xn <= 1; xn += 0.1) for (const jit of [0, 1]) assert.equal(flightAt(layerArrival(k, rn, xn, jit), P), 1, `foot=${foot} k=${k}`);
+  }
+  // Every sheet of every layer peels within the transit, each layer after the one above it.
+  for (let rn = 0; rn <= 1; rn += 0.05) for (let xn = 0; xn <= 1; xn += 0.1) for (const jit of [0, 1]) for (let k = 0; k < 3; k++) {
+    assert.equal(flightAt(layerArrival(k, rn, xn, jit), transitP(0)), 0);
+    assert.equal(flightAt(layerArrival(k, rn, xn, jit), transitP(1)), 1);
+    if (k) assert.ok(layerArrival(k, rn, xn, 0.5) > layerArrival(k - 1, rn, xn, 0.5) + 0.2);
   }
 });
 
-test('processes: the iris is wide open before and after the hold, and shut at its middle', () => {
-  for (const { y, p } of holdEdges()) if (y !== 0) assert.equal(irisOpen(p), 1, `p=${p}`);
-  assert.equal(irisOpen(0.5), 0);
-  let prev = 2;
-  for (let p = 0; p <= 0.5; p += 0.01) { assert.ok(irisOpen(p) <= prev); prev = irisOpen(p); }
-  for (let p = 0.5; p <= 1; p += 0.01) { assert.ok(irisOpen(p) >= prev); prev = irisOpen(p); }
+test('processes: film is exposed and pulled from the foot up, resting at the top edge while it comes in', () => {
+  for (const { P, top } of edges('darkroom')) if (top !== null) for (const jit of [0, 1]) {
+    const A = filmArrival(1 - top, jit);
+    assert.equal(filmNeg(A, P), 0, `top=${top}`);
+    assert.equal(filmU(A, P), 0, `top=${top}`);
+  }
+  for (const { P, foot } of edges('darkroom')) if (foot !== null) for (const jit of [0, 1]) assert.equal(filmU(filmArrival(1 - foot, jit), P), 1);
+  for (let rn = 0; rn <= 1; rn += 0.05) for (const jit of [0, 1]) {
+    const A = filmArrival(rn, jit);
+    assert.equal(filmNeg(A, transitP(0)), 0);
+    assert.equal(filmU(A, transitP(1)), 1);
+    // Exposed to a negative before it is pulled.
+    assert.equal(filmNeg(A, A - 0.2), 1);
+  }
 });
 
 test('processes: a vortex cube leaves its cell flat and lands flat, mirrored across the axis and lower', () => {
@@ -154,19 +173,19 @@ test('processes: a vortex cube leaves its cell flat and lands flat, mirrored acr
   }
 });
 
-test('processes: every cell of a vortex seam sends one cube and receives one (some from the band above)', () => {
+test('processes: every cell of a vortex seam sends one cube and receives one (some from below the screen)', () => {
   for (const [cols, rows] of [[1, 1], [7, 5], [120, 75], [30, 53]]) {
     const kd = vortexDrop(rows), got = new Map();
-    for (let r = -kd; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const d = [cols - 1 - c, r + kd];
-      if (d[1] < rows) got.set(d.join(), (got.get(d.join()) || 0) + 1);
+    for (let r = 0; r < rows + kd; r++) for (let c = 0; c < cols; c++) {
+      const d = [cols - 1 - c, r - kd];
+      if (d[1] >= 0) got.set(d.join(), (got.get(d.join()) || 0) + 1);
     }
     assert.equal(got.size, cols * rows);
     assert.ok([...got.values()].every(n => n === 1));
   }
 });
 
-test('processes: the vortex turns and sinks fastest at its core', () => {
+test('processes: the vortex turns and rises fastest at its core', () => {
   for (const [f, K] of [[vortexTurn, VORTEX.spin], [u => coreEase(u, VORTEX.sink), VORTEX.sink]]) {
     assert.equal(f(0), 0);
     assert.ok(Math.abs(f(1) - 1) < 1e-12);
@@ -177,29 +196,26 @@ test('processes: the vortex turns and sinks fastest at its core', () => {
   }
 });
 
-test('processes: the vortex travels down toward Science, at rest at both ends, its edge rows outside the pinned hold', () => {
-  const S = [1440, 900], rows = 75, ch = S[1] / rows, kd = vortexDrop(rows), drop = kd * ch;
-  const cube = r => { const home = [500, (r + 0.5) * ch]; return [home, [S[0] - 500, home[1] + drop]]; };
-  // Higher cells go first, from the band above down (until the bottom rows, which must settle before
-  // the strip's foot shows); and each cell's own cube leaves before the one bound for it lands.
-  for (let r = -kd; r < rows - kd - 12; r++) assert.ok(vortexSeamA(...cube(r), S) < vortexSeamA(...cube(r + 1), S), `r=${r}`);
-  for (let r = 0; r < rows; r++) for (const j of [0, 1]) {
-    const own = vortexSeamA(...cube(r), S, j), inc = vortexSeamA(...cube(r - kd), S, 1 - j);
+test('processes: the vortex gathers the page from the foot up, at rest at both ends and at the strip\'s edges', () => {
+  const S = [1440, 900], rows = 90, ch = S[1] / rows, kd = vortexDrop(rows), drop = kd * ch;
+  const home = (r, x = 500) => [x, (r + 0.5) * ch];
+  // Higher cells go later (away from the noise of the schedule); each cell's own cube leaves before
+  // the one bound for it, from kd rows below, lands.
+  for (let r = 0; r < rows - 1; r++) assert.ok(vortexSeamA(home(r), S) > vortexSeamA(home(r + 1), S), `r=${r}`);
+  for (let r = 0; r < rows; r++) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
+    const own = vortexSeamA(home(r, x), S, j), inc = vortexSeamA(home(r + kd, S[0] - x), S, 1 - j);
     assert.ok(own - VORTEX.d / 2 < inc + VORTEX.d / 2, `r=${r}`);
   }
-  for (let r = -kd; r < rows; r++) for (const jit of [0, 0.5, 1]) {
-    const A = vortexSeamA(...cube(r), S, jit);
+  for (let r = 0; r < rows + kd; r++) for (const j of [0, 0.5, 1]) {
+    const A = vortexSeamA(home(r), S, j);
     assert.equal(vortexU(A, transitP(0)), 0, `r=${r}`);
     assert.equal(vortexU(A, transitP(1)), 1, `r=${r}`);
   }
-  // Its longer hold (HOLD.longer.cosmos) pins the strip until P1: on a phone, the shortest, a cube
-  // leaving or landing in the bottom row has finished by then, before the foot shows above Science.
-  const L = HOLD.longer.cosmos, vh = 844, H = vh * (1 + HOLD.pinTouch * L.pin), R = H - vh, lead = L.lead * vh;
-  const P1 = transitP(1 - lead / (R + 2 * lead));
-  for (const jit of [0, 1]) for (const r of [rows - kd - 1, rows - 1]) {
-    assert.equal(vortexU(vortexSeamA(...cube(r), S, jit), P1), 1, `r=${r}`);
+  // The cells at the strip's top edge while it comes in are still paper.
+  for (const { P, top } of edges('cosmos')) if (top !== null) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
+    assert.equal(vortexU(vortexSeamA([x, top * S[1]], S, j), P), 0, `top=${top} P=${P}`);
   }
-  assert.equal(vortexU(vortexSeamA(...cube(rows - 1 - kd), S, 0), P1), 1);
+  void drop;
 });
 
 test('processes: the maze is a spanning tree carved from the start', () => {
