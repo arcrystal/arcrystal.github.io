@@ -1,0 +1,30 @@
+# Checks every push to main (and every pull request) before GitHub Pages publishes it: the tests,
+# that the built pages match their sources (tools/site/build_pages.py --check), that every page is
+# well formed (tools/site/check_pages.py), and that every text colour passes contrast. Standard
+# library only, so nothing is installed.
+name: Check the site
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests
+        run: node --test tools/site/tests/*.mjs
+      - name: Built pages match their sources
+        run: python3 tools/site/build_pages.py --check
+      - name: Pages are well formed
+        run: python3 tools/site/check_pages.py
+      - name: Text colours pass contrast
+        run: node tools/site/contrast.mjs
