@@ -1,0 +1,52 @@
+{
+  "docTitle": "Photography — Alex Crystal",
+  "description": "Photographs by Alex Crystal from Patagonia, Japan, Vietnam and New Hampshire: three places, a run of single frames and every photograph I’ve kept.",
+  "line": "Patagonia, Japan, Vietnam and home: fifty-six photographs, developed.",
+  "lede": "Granite and ice in Patagonia, volcanic valleys in Japan, karst in Vietnam and ridgelines at home. Fifty-six photographs I’ve kept.",
+  "index": [
+    [
+      "#patagonia",
+      "Patagonia"
+    ],
+    [
+      "#japan",
+      "Japan"
+    ],
+    [
+      "#vietnam",
+      "Vietnam"
+    ],
+    [
+      "#selected",
+      "Single frames"
+    ],
+    [
+      "#top-50",
+      "All 56"
+    ]
+  ],
+  "module": "page.js",
+  "styles": [
+    "page.css"
+  ],
+  "fragments": {
+    "#sources": "#stories"
+  },
+  "preview": {
+    "reel": [
+      "t-torres-towers",
+      "p33",
+      "t-mount-fuji",
+      "t-ninh-binh",
+      "glacier",
+      "p55",
+      "t-los-cuernos",
+      "t-sounkyo-valley",
+      "p10",
+      "t-ha-giang",
+      "p38",
+      "p54"
+    ]
+  },
+  "heroPrint": "glacier"
+}

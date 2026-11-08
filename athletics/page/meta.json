@@ -1,0 +1,87 @@
+{
+  "docTitle": "Racing — Alex Crystal",
+  "description": "Alex Crystal’s racing: two American Birkebeiners, every race on record from the mile to 84 miles on skis, training highlights, Birkie Race Intelligence and a pace calculator.",
+  "line": "Two Birkebeiners, a 4:54 mile and 84 miles on skis: every race on record.",
+  "lede": "Nordic ski racing and running, from the 50 km Birkebeiner to the mile, plus a half Ironman and a day around Jamaica Pond. Every race I’ve entered is here.",
+  "index": [
+    [
+      "#featured-race",
+      "The Birkie"
+    ],
+    [
+      "#races",
+      "Every race"
+    ],
+    [
+      "#training",
+      "Training"
+    ],
+    [
+      "#tools",
+      "Tools"
+    ],
+    [
+      "#soccer",
+      "Soccer"
+    ]
+  ],
+  "module": "page.js",
+  "styles": [
+    "page.css"
+  ],
+  "fragments": {
+    "#selected-results": "#races",
+    "#archive": "#races",
+    "#all-results": "#races",
+    "#raceList": "#races",
+    "#races-panel": "#races",
+    "#panel-races": "#races",
+    "#tab-races": "#races",
+    "#training-approach": "#training",
+    "#panel-training": "#training",
+    "#tab-training": "#training",
+    "#explore-data": "#tools",
+    "#panel-calculator": "#calculator",
+    "#tab-calculator": "#calculator",
+    "#panel-soccer": "#soccer",
+    "#tab-soccer": "#soccer",
+    "#soccer-log-title": "#soccer"
+  },
+  "preview": {
+    "caption": "American Birkebeiner · Feb 21, 2026",
+    "time": "2:28:49",
+    "timeSuffix": ".04",
+    "timeLabel": "Official result",
+    "route": "static/site/route-birkie.json",
+    "stats": [
+      [
+        "84.05 mi",
+        "Last Nordic Skier Standing, 11:10:39"
+      ],
+      [
+        "4:54",
+        "the mile, Home Meet 2024"
+      ],
+      [
+        "4,736 ft",
+        "up Mt. Washington in 1:37:00"
+      ],
+      [
+        "5:56:14",
+        "half Ironman, 2021"
+      ]
+    ]
+  },
+  "outdoors": [
+    "#hikes",
+    "#panel-hikes",
+    "#tab-hikes",
+    "#ultra-8",
+    "#panel-ultra-8",
+    "#tab-ultra-8",
+    "#ultraEightList",
+    "#nh-48",
+    "#panel-nh-48",
+    "#tab-nh-48"
+  ]
+}

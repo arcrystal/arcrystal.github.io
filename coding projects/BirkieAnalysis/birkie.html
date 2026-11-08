@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Explore 2022–2026 American Birkebeiner Skate and Classic results, waves, racer histories, and projected wave placement.">
+    <meta name="theme-color" content="#edf2f7">
+    <link rel="icon" href="../../static/crystal-mark.svg" type="image/svg+xml">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Birkie Race Analytics — Alex Crystal">
+    <meta property="og:description" content="A deep, interactive look at American Birkebeiner Skate and Classic results from 2022–2026.">
+    <meta property="og:image" content="https://arcrystal.github.io/static/og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Birkie Race Analytics — Alex Crystal</title>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../../static/subpages.css">
+    <link rel="stylesheet" href="birkie.css">
+    <link rel="stylesheet" href="../../static/alpine.css?v=20260821">
+    <link rel="stylesheet" href="../../static/expedition.css?v=20260924">
+</head>
+<body data-page="projects">
+<a class="skip-link" href="#dashboard">Skip to race dashboard</a>
+
+<header class="site-header" data-site-header>
+    <a class="wordmark" href="../../index.html" aria-label="Alex Crystal, home"><span class="wordmark-mark">AC</span><span class="wordmark-text">Alex Crystal</span></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span class="sr-only">Open navigation</span></button>
+    <nav class="site-nav" id="site-nav" aria-label="Primary navigation">
+        <a href="../../index.html" data-nav="home">Home</a>
+        <a href="../../athletics/athletics.html" data-nav="athletics">Athletics</a>
+        <a href="../../image%20portfolio/gallery.html" data-nav="gallery">Trips</a>
+        <a href="../../chess/chess.html" data-nav="chess">Chess</a>
+        <a href="../../resume/resume.html" data-nav="resume">Resume</a>
+        <a href="../projects.html" data-nav="projects">Projects</a>
+    </nav>
+    <a class="header-contact" href="mailto:crystal.a@northeastern.edu">Email <span aria-hidden="true">↗</span></a>
+</header>
+
+<main id="main">
+    <section class="birkie-hero">
+        <div class="birkie-hero-glow" aria-hidden="true"></div>
+        <div class="trail-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="shell birkie-hero-inner">
+            <div class="birkie-hero-copy reveal">
+                <p class="eyebrow"><span class="pulse-dot"></span> Slumberland American Birkebeiner · 2022–2026</p>
+                <h1>Read the<br><em>whole race.</em></h1>
+                <p class="hero-lede">A finish time tells only part of the day. Explore the field, compare starting waves, trace a skier across years, and see where one performance could place next.</p>
+                <div class="hero-actions">
+                    <a class="button button-light" href="#dashboard">Open dashboard <span aria-hidden="true">↓</span></a>
+                    <span class="hero-note">Skate + Classic · 50+ km</span>
+                </div>
+            </div>
+
+            <aside class="race-beacon reveal" aria-label="Race archive summary">
+                <div class="beacon-top"><span>Race archive</span><i></i><strong>LIVE</strong></div>
+                <div class="beacon-distance"><strong>50</strong><span>KM<br>TRAIL</span></div>
+                <div class="beacon-grid">
+                    <div><span>Years</span><strong>05</strong></div>
+                    <div><span>Disciplines</span><strong>02</strong></div>
+                    <div><span>Fields</span><strong>10</strong></div>
+                </div>
+                <p>Ski. Run. Bike. Live!</p>
+            </aside>
+        </div>
+    </section>
+
+    <section class="dashboard-shell shell" id="dashboard" aria-busy="true">
+        <div class="dashboard-chrome">
+            <div class="dashboard-brand">
+                <span class="dashboard-mark" aria-hidden="true">B</span>
+                <div><strong>Birkie Intelligence</strong><small>Race field explorer</small></div>
+            </div>
+
+            <div class="race-switch" role="group" aria-label="Choose race style">
+                <button type="button" class="active" data-race="skate" aria-pressed="true"><span>Skate</span><small>Freestyle</small></button>
+                <button type="button" data-race="classic" aria-pressed="false"><span>Classic</span><small>Diagonal</small></button>
+            </div>
+
+            <label class="year-control" for="yearSelect"><span>Edition</span><select id="yearSelect" aria-label="Race year"><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option></select></label>
+        </div>
+
+        <nav class="dashboard-tabs" aria-label="Dashboard views" role="tablist">
+            <button type="button" id="tab-overview" role="tab" aria-selected="true" aria-controls="panel-overview" data-view="overview"><span>01</span> Overview</button>
+            <button type="button" id="tab-results" role="tab" aria-selected="false" aria-controls="panel-results" data-view="results" tabindex="-1"><span>02</span> Results</button>
+            <button type="button" id="tab-waves" role="tab" aria-selected="false" aria-controls="panel-waves" data-view="waves" tabindex="-1"><span>03</span> Waves</button>
+            <button type="button" id="tab-predictor" role="tab" aria-selected="false" aria-controls="panel-predictor" data-view="predictor" tabindex="-1"><span>04</span> Predictor</button>
+        </nav>
+
+        <div class="dashboard-status" id="loadingState" role="status">
+            <span class="loading-scan" aria-hidden="true"></span>
+            <div><strong>Reading the trail…</strong><small>Loading the selected race field</small></div>
+        </div>
+        <div class="dashboard-error" id="errorState" hidden role="alert"><strong>The race archive could not be loaded.</strong><span id="errorMessage"></span><button type="button" id="retryLoad">Try again</button></div>
+
+        <div class="dashboard-content" id="dashboardContent" hidden>
+            <section class="dashboard-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" data-panel="overview">
+                <header class="panel-intro">
+                    <div><p class="micro-label">Field report · <span data-race-year></span></p><h2 id="overviewTitle">Birkebeiner Skate</h2></div>
+                    <p id="overviewSummary">A complete view of the selected race field.</p>
+                </header>
+
+                <div class="metric-grid" aria-label="Race summary">
+                    <article class="metric-card metric-primary"><span>Finishers</span><strong id="statFinishers">—</strong><small id="statCompletion">— of entries</small><i aria-hidden="true"></i></article>
+                    <article class="metric-card"><span>Winning time</span><strong id="statWinner">—</strong><small id="statWinnerName">Field leader</small></article>
+                    <article class="metric-card"><span>Median finish</span><strong id="statMedian">—</strong><small>Middle of the field</small></article>
+                    <article class="metric-card"><span>Largest wave</span><strong id="statLargestWave">—</strong><small id="statLargestWaveCount">— finishers</small></article>
+                </div>
+
+                <div class="overview-grid">
+                    <figure class="glass-data-card history-card">
+                        <figcaption><div><p class="micro-label">Five editions</p><h3>Field over time</h3></div><span>Finishers</span></figcaption>
+                        <div class="history-chart" id="historyChart" aria-label="Finishers by race year"></div>
+                    </figure>
+
+                    <article class="glass-data-card split-card">
+                        <header><div><p class="micro-label">Field makeup</p><h3>Gender split</h3></div><span id="genderTotal">— athletes</span></header>
+                        <div class="split-layout"><div class="donut" id="genderDonut" role="img" aria-label="Gender distribution"><span><strong id="genderPrimaryPct">—</strong><small>largest group</small></span></div><div class="split-legend" id="genderLegend"></div></div>
+                    </article>
+
+                    <figure class="glass-data-card distribution-card">
+                        <figcaption><div><p class="micro-label">Pace of the day</p><h3>Finish distribution</h3></div><span>30 min bins</span></figcaption>
+                        <div class="distribution-chart" id="timeDistribution" aria-label="Finish time distribution"></div>
+                    </figure>
+
+                    <article class="glass-data-card demographics-card">
+                        <header><div><p class="micro-label">Who raced</p><h3>Age groups</h3></div><span>Finishers</span></header>
+                        <div class="compact-bars" id="ageDistribution"></div>
+                    </article>
+
+                    <article class="glass-data-card regions-card">
+                        <header><div><p class="micro-label">Trailhead map</p><h3>Top regions</h3></div><span>Top 7</span></header>
+                        <div class="region-list" id="regionList"></div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="dashboard-panel" id="panel-results" role="tabpanel" aria-labelledby="tab-results" data-panel="results" hidden>
+                <header class="panel-intro results-intro">
+                    <div><p class="micro-label">Every entry · <span data-race-year></span></p><h2>Results room.</h2></div>
+                    <p>Search every skier, narrow the field, and open a result for deeper comparisons.</p>
+                </header>
+
+                <div class="results-toolbar glass-data-card">
+                    <label class="search-field" for="resultSearch"><span class="sr-only">Search name, bib, or location</span><i aria-hidden="true"></i><input id="resultSearch" type="search" placeholder="Search name, bib, or location…" autocomplete="off"></label>
+                    <label><span>Gender</span><select id="genderFilter"><option value="all">All genders</option><option value="M">Men</option><option value="F">Women</option></select></label>
+                    <label><span>Wave</span><select id="waveFilter"><option value="all">All waves</option></select></label>
+                    <label><span>Order</span><select id="resultSort"><option value="place">Overall place</option><option value="time">Finish time</option><option value="name">Name</option><option value="age">Age</option></select></label>
+                    <button type="button" id="clearResults">Clear</button>
+                </div>
+
+                <div class="results-meta"><strong id="resultsCount">— results</strong><span>Open any skier for a full performance card</span></div>
+                <div class="results-table-wrap">
+                    <table class="results-table">
+                        <thead><tr><th scope="col">Place</th><th scope="col">Skier</th><th scope="col">Bib</th><th scope="col">Wave</th><th scope="col">Age</th><th scope="col">Pace</th><th scope="col">Time</th><th scope="col"><span class="sr-only">Details</span></th></tr></thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
+                    <p class="results-empty" id="resultsEmpty" hidden>No skiers match those filters.</p>
+                </div>
+                <nav class="pagination" aria-label="Results pages"><button type="button" id="prevPage">← Previous</button><span id="pageStatus">Page 1</span><button type="button" id="nextPage">Next →</button></nav>
+            </section>
+
+            <section class="dashboard-panel" id="panel-waves" role="tabpanel" aria-labelledby="tab-waves" data-panel="waves" hidden>
+                <header class="panel-intro">
+                    <div><p class="micro-label">Starting groups · <span data-race-year></span></p><h2>Wave room.</h2></div>
+                    <p>See the shape of every start group, then place one skier against all of them.</p>
+                </header>
+
+                <div class="wave-layout">
+                    <section class="glass-data-card wave-field-card">
+                        <header><div><p class="micro-label">Finishers by start</p><h3>The field by wave</h3></div><span>Choose a wave</span></header>
+                        <div class="wave-bars" id="waveBars"></div>
+                    </section>
+                    <aside class="wave-inspector" id="waveInspector"><p class="micro-label">Wave profile</p><h3>Select a wave.</h3><p>Inspect its fastest time, median, gender mix, ages, and average overall place.</p></aside>
+                </div>
+
+                <section class="wave-racer glass-data-card">
+                    <div class="wave-racer-heading"><div><p class="micro-label">What if?</p><h3>Place a skier in every wave</h3></div><p>Search a finisher to see who they would have finished ahead of in each starting group.</p></div>
+                    <div class="typeahead-wrap">
+                        <label class="search-field" for="waveRacerSearch"><span class="sr-only">Search for a skier</span><i aria-hidden="true"></i><input id="waveRacerSearch" type="search" placeholder="Start typing a name or bib…" autocomplete="off"></label>
+                        <div class="search-suggestions" id="waveSuggestions" hidden></div>
+                    </div>
+                    <div class="wave-comparison-empty" id="waveComparisonEmpty">Choose a finisher to activate the cross-wave comparison.</div>
+                    <div class="wave-comparison" id="waveComparison" hidden></div>
+                </section>
+            </section>
+
+            <section class="dashboard-panel" id="panel-predictor" role="tabpanel" aria-labelledby="tab-predictor" data-panel="predictor" hidden>
+                <header class="panel-intro">
+                    <div><p class="micro-label">Next start · <span data-race-year></span></p><h2>Wave predictor.</h2></div>
+                    <p>Translate a finish into percent back from the leader and compare it with three historical cutoff sets.</p>
+                </header>
+
+                <div class="predictor-layout">
+                    <section class="predictor-input dark-data-card">
+                        <div><p class="micro-label">Enter a performance</p><h3>Find the next wave.</h3><p>Use a finish time, or pull one straight from this race.</p></div>
+                        <form id="predictorForm">
+                            <label for="finishTimeInput"><span>Finish time</span><input id="finishTimeInput" inputmode="numeric" placeholder="3:15:00" aria-describedby="timeHint"></label>
+                            <small id="timeHint">Hours : minutes : seconds</small>
+                            <button type="submit">Run projection <span aria-hidden="true">↗</span></button>
+                        </form>
+                        <div class="predictor-divider"><span>or</span></div>
+                        <div class="typeahead-wrap predictor-search-wrap">
+                            <label for="predictorRacerSearch"><span>Find a finisher</span><input id="predictorRacerSearch" type="search" placeholder="Name or bib…" autocomplete="off"></label>
+                            <div class="search-suggestions" id="predictorSuggestions" hidden></div>
+                        </div>
+                    </section>
+
+                    <section class="predictor-output" id="predictorOutput" aria-live="polite">
+                        <div class="predictor-placeholder"><span aria-hidden="true">↗</span><h3>Your trail starts here.</h3><p>Enter a time or select a finisher to calculate a projection.</p></div>
+                    </section>
+                </div>
+
+                <section class="cutoff-card glass-data-card">
+                    <header><div><p class="micro-label">Qualification model</p><h3>Cutoff translation</h3></div><label for="cutoffYear"><span>Reference cutoffs</span><select id="cutoffYear"><option>2025</option><option>2023</option><option>2022</option></select></label></header>
+                    <p class="cutoff-explainer">Historical percent-back cutoffs translated into equivalent times and places in the selected race field.</p>
+                    <div class="cutoff-table-wrap"><table class="cutoff-table"><thead><tr><th>Wave</th><th>Percent back</th><th>Equivalent time</th><th>Equivalent place</th></tr></thead><tbody id="cutoffBody"></tbody></table></div>
+                </section>
+            </section>
+        </div>
+    </section>
+
+    <section class="method-note shell">
+        <div><p class="eyebrow">About the analysis</p><h2>A performance lens, not a prediction of race-day conditions.</h2></div>
+        <div><p>The dashboard mirrors the core tools in the Birkie Stats Companion app: searchable results, wave comparisons, performance context, field statistics, and projected wave placement.</p><p class="data-note">All calculations happen in your browser from an archived 2022–2026 results dataset. This independent project is not affiliated with the American Birkebeiner Ski Foundation.</p></div>
+    </section>
+
+    <section class="page-end"><div class="shell page-end-inner reveal"><h2>The trail tells a story.</h2><a class="button" href="../../athletics/athletics.html#races">See my race log <span aria-hidden="true">↗</span></a></div></section>
+</main>
+
+<dialog class="racer-dialog" id="racerDialog" aria-labelledby="racerDialogTitle">
+    <button class="dialog-close" type="button" id="closeRacerDialog" aria-label="Close racer details">×</button>
+    <div id="racerDialogContent"></div>
+</dialog>
+
+<footer class="site-footer shell"><div><span class="wordmark-mark">AC</span><p>Work, training, chess, and trips.</p></div><div class="footer-links"><a href="../../athletics/athletics.html">Athletics</a><a href="../../image%20portfolio/gallery.html">Trips</a><a href="../../index.html">Home</a></div><p class="copyright">© <span data-year></span> Alex Crystal</p></footer>
+<script src="../../script.js"></script>
+<script src="birkie.js"></script>
+</body>
+</html>

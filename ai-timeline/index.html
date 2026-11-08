@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A compact, sourced timeline of the models, agents, chips, companies, and policy decisions that shaped AI from 2021 through August 21, 2026.">
+    <meta name="theme-color" content="#edf2f7">
+    <link rel="icon" href="../static/crystal-mark.svg" type="image/svg+xml">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://arcrystal.github.io/ai-timeline/">
+    <meta property="og:title" content="The AI Power Map — Alex Crystal">
+    <meta property="og:description" content="224 sourced moments that changed what AI could do—and who held the power.">
+    <meta property="og:image" content="https://arcrystal.github.io/static/og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="The AI Power Map — Alex Crystal">
+    <meta name="twitter:description" content="A scrollable AI timeline from 2021 through August 21, 2026.">
+    <meta name="twitter:image" content="https://arcrystal.github.io/static/og.jpg">
+    <title>The AI Power Map — Alex Crystal</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../static/subpages.css">
+    <link rel="stylesheet" href="timeline.css">
+    <link rel="stylesheet" href="../static/alpine.css?v=20260821">
+    <link rel="stylesheet" href="../static/expedition.css?v=20260924">
+</head>
+<body data-page="projects">
+<a class="skip-link" href="#timeline">Skip to the timeline</a>
+
+<header class="site-header" data-site-header>
+    <a class="wordmark" href="../index.html" aria-label="Alex Crystal, home"><span class="wordmark-mark">AC</span><span class="wordmark-text">Alex Crystal</span></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span class="sr-only">Open navigation</span></button>
+    <nav class="site-nav" id="site-nav" aria-label="Primary navigation"><a href="../index.html" data-nav="home">Home</a><a href="../athletics/athletics.html" data-nav="athletics">Athletics</a><a href="../image%20portfolio/gallery.html" data-nav="gallery">Trips</a><a href="../chess/chess.html" data-nav="chess">Chess</a><a href="../resume/resume.html" data-nav="resume">Resume</a><a href="../coding%20projects/projects.html" data-nav="projects">Projects</a></nav>
+    <a class="header-contact" href="../coding%20projects/projects.html">Projects <span aria-hidden="true">↗</span></a>
+</header>
+
+<main id="main" class="power-map-page">
+    <section class="map-intro shell">
+        <div class="map-title reveal">
+            <p class="eyebrow"><span class="pulse-dot"></span> 2021—August 21, 2026</p>
+            <h1>The AI <em>Power Map.</em></h1>
+        </div>
+        <div class="map-intro-copy reveal">
+            <p>I built this as a field guide to the releases and decisions that changed what AI could do—and who gained leverage when it did.</p>
+            <div class="map-meta"><span><strong>224</strong> moments</span><span><strong>312</strong> citations</span><a href="timeline.md" download>Research ↓</a></div>
+        </div>
+    </section>
+
+    <section class="felt-strip shell reveal" aria-labelledby="feltTitle">
+        <h2 id="feltTitle">When it felt different</h2>
+        <a href="#event-2022-11-30-chatgpt-turns-an-alignment-technique-into-a-mass-market-interface"><time datetime="2022-11-30">2022</time><span><strong>ChatGPT</strong> Everyone could talk to it.</span><b>↘</b></a>
+        <a href="#event-2026-02-05-claude-opus-4-6-in-claude-code-makes-sustained-delegation-feel-real"><time datetime="2026-02-05">2026</time><span><strong>Opus 4.6 + Claude Code</strong> Real work could be delegated.</span><b>↘</b></a>
+    </section>
+
+    <section class="timeline-shell shell" id="timeline" aria-labelledby="timelineTitle">
+        <header class="section-heading-compact reveal">
+            <div><p class="eyebrow">The complete record</p><h2 id="timelineTitle">Scroll the timeline.</h2></div>
+            <p>Open any moment for the technical change, reaction, winners, losers, and original sources.</p>
+        </header>
+
+        <div class="timeline-tool reveal" aria-label="Timeline filters">
+            <label class="timeline-search"><span aria-hidden="true">⌕</span><span class="sr-only">Search the timeline</span><input type="search" data-timeline-search placeholder="Search models, people, companies…" autocomplete="off"><kbd>/</kbd></label>
+            <label><span>Year</span><select data-year-filter><option value="all">All years</option><option>2021</option><option>2022</option><option>2023</option><option>2024</option><option>2025</option><option>2026</option></select></label>
+            <label><span>Topic</span><select data-topic-filter><option value="all">Everything</option><option value="inflection">Inflections</option><option value="models">Models</option><option value="agents">Agents</option><option value="hardware">Hardware</option><option value="business">Companies</option><option value="governance">Rules</option><option value="open">Open weights</option></select></label>
+            <label><span>Actor</span><select data-actor-filter><option value="all">Anyone</option></select></label>
+            <button type="button" class="reset-filter" data-clear-filters aria-label="Reset all filters">Reset</button>
+        </div>
+
+        <div class="timeline-status reveal">
+            <nav class="year-jumps" aria-label="Jump to a year">
+                <button type="button" data-year-jump="2021">2021</button><button type="button" data-year-jump="2022">2022</button><button type="button" data-year-jump="2023">2023</button><button type="button" data-year-jump="2024">2024</button><button type="button" data-year-jump="2025">2025</button><button type="button" data-year-jump="2026">2026</button>
+            </nav>
+            <p aria-live="polite"><strong data-result-count>224</strong> moments</p>
+        </div>
+
+        <div class="timeline-window reveal" data-timeline-window tabindex="0" aria-label="Scrollable AI development timeline">
+            <div class="timeline-results" data-timeline-results>
+                <div class="timeline-loading" role="status"><span></span><p>Loading the record…</p></div>
+            </div>
+        </div>
+        <noscript><p class="timeline-empty">JavaScript is needed for the explorer. The complete <a href="timeline.md">sourced Markdown</a> is still available.</p></noscript>
+    </section>
+
+    <section class="benchmark-section" id="benchmarks" aria-labelledby="benchmarkTitle">
+        <div class="shell">
+            <header class="benchmark-heading reveal">
+                <div><p class="eyebrow">Capability, directionally</p><h2 id="benchmarkTitle">Model family trend lines.</h2></div>
+                <p>Published headline scores show the broad climb. Harnesses, prompting, and evaluation methods vary, so compare direction—not tiny gaps.</p>
+            </header>
+
+            <div class="benchmark-card reveal">
+                <div class="benchmark-toolbar">
+                    <div class="benchmark-tabs" role="group" aria-label="Choose a benchmark">
+                        <button type="button" class="active" data-benchmark="knowledge" aria-pressed="true">Knowledge · MMLU</button>
+                        <button type="button" data-benchmark="coding" aria-pressed="false">Coding agents · SWE-bench</button>
+                    </div>
+                    <p data-benchmark-caption>MMLU / MMMLU · percent correct</p>
+                </div>
+                <div class="chart-wrap">
+                    <canvas data-benchmark-chart role="img" aria-label="Trend lines of model family benchmark scores"></canvas>
+                    <div class="chart-tooltip" data-chart-tooltip hidden></div>
+                </div>
+                <div class="chart-legend" data-chart-legend></div>
+                <details class="benchmark-sources">
+                    <summary>Method and sources</summary>
+                    <div data-benchmark-notes></div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <section class="map-end shell reveal">
+        <p><span>Last updated</span> August 21, 2026</p>
+        <a class="button button-primary" href="timeline.md" download>Download the sourced Markdown <span aria-hidden="true">↓</span></a>
+    </section>
+</main>
+
+<footer class="site-footer shell"><div><span class="wordmark-mark">AC</span><p>Models, systems, and power.</p></div><div class="footer-links"><a href="../coding%20projects/projects.html">Projects</a><a href="timeline.md" download>Research ↓</a><a href="https://github.com/arcrystal" target="_blank" rel="noreferrer">GitHub ↗</a></div><p class="copyright">© <span data-year></span> Alex Crystal</p></footer>
+
+<script src="../script.js"></script>
+<script src="timeline.js"></script>
+</body>
+</html>

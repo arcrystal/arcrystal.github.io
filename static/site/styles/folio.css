@@ -1,0 +1,75 @@
+/* Naturalist's Folio — deep nature, Victorian. Forest night and parchment, antique brass and a
+   touch of oxblood; engraved fern fronds, filigree corners, Cormorant italics. Outdoors. */
+
+[data-style="folio"] {
+  --c-bg: #0F1913; --c-surface: #17251C; --c-fg: #ECE2CC; --c-fg-mute: #B2AD95;
+  --c-accent: #CDA562; --c-accent-2: #7E9E6A; --c-accent-3: #8E3A2E;
+  --c-rule: rgb(205 165 98 / 0.27); --c-link: #D9B676; --c-on-accent: #0F1913; --c-focus: #D9B676;
+  --parchment: #EEE4CE; --brass: #A7834A; --ink-brown: #2A2318;
+  --font-display: 'Cormorant', 'Cormorant Garamond', Garamond, Georgia, serif;
+  --font-label: 'Cormorant', Garamond, Georgia, serif;
+  --t-label: 0.95rem; --tracking-label: 0.16em; --w-display: 500; --tracking-display: -0.01em; --lh-display: 0.92;
+  --t-lede: clamp(1.35rem, 1.1rem + 0.8vw, 1.85rem);
+  --radius-card: 0px; --radius-media: 0px;
+  --plate-frame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%238E6C38' stroke-width='1.3'%3E%3Cg transform='translate(20 20) rotate(0)'%3E%3Cpath d='M3 62V16Q3 3 16 3H62M9 62V21Q9 9 21 9H62M22 22C34 23 38 33 31 37C25 40 21 33 27 31M40 9C44 14 50 14 54 9M9 40C14 44 14 50 9 54'/%3E%3Ccircle cx='16.5' cy='16.5' r='3.2' fill='%238E6C38' stroke='none'/%3E%3C/g%3E%3Cg transform='translate(380 20) rotate(90)'%3E%3Cpath d='M3 62V16Q3 3 16 3H62M9 62V21Q9 9 21 9H62M22 22C34 23 38 33 31 37C25 40 21 33 27 31M40 9C44 14 50 14 54 9M9 40C14 44 14 50 9 54'/%3E%3Ccircle cx='16.5' cy='16.5' r='3.2' fill='%238E6C38' stroke='none'/%3E%3C/g%3E%3Cg transform='translate(380 480) rotate(180)'%3E%3Cpath d='M3 62V16Q3 3 16 3H62M9 62V21Q9 9 21 9H62M22 22C34 23 38 33 31 37C25 40 21 33 27 31M40 9C44 14 50 14 54 9M9 40C14 44 14 50 9 54'/%3E%3Ccircle cx='16.5' cy='16.5' r='3.2' fill='%238E6C38' stroke='none'/%3E%3C/g%3E%3Cg transform='translate(20 480) rotate(270)'%3E%3Cpath d='M3 62V16Q3 3 16 3H62M9 62V21Q9 9 21 9H62M22 22C34 23 38 33 31 37C25 40 21 33 27 31M40 9C44 14 50 14 54 9M9 40C14 44 14 50 9 54'/%3E%3Ccircle cx='16.5' cy='16.5' r='3.2' fill='%238E6C38' stroke='none'/%3E%3C/g%3E%3Crect x='12' y='12' width='376' height='476'/%3E%3C/g%3E%3C/svg%3E");
+  --flourish: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 16'%3E%3Cg fill='none' stroke='%23CDA562'%3E%3Cpath d='M0 8h98M142 8h98'/%3E%3Cpath d='M120 1.5l6.5 6.5-6.5 6.5-6.5-6.5z'/%3E%3Cpath d='M98 8c4-6 9-6 12 0M142 8c-4 6-9 6-12 0'/%3E%3C/g%3E%3Ccircle cx='120' cy='8' r='1.8' fill='%23CDA562'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+[data-style="folio"] .label { font-weight: 600; }
+
+/* ---- Art: fern fronds in the dark --------------------------------------------------------------- */
+.art--folio { background: radial-gradient(85% 70% at 50% 32%, #1C2C22 0%, #0F1913 58%, #08100B 100%); overflow: hidden; }
+.art--folio .art-ferns { position: absolute; bottom: 0; height: 96%; width: auto; max-width: none; }
+.art--folio .art-ferns--l { left: -2%; }
+.art--folio .art-ferns--r { right: -2%; }
+@media (max-width: 899px) { .art--folio .art-ferns { height: 64%; opacity: 0.8; } }
+.art--folio .art-rachis { fill: none; stroke: #2B4434; stroke-width: 2.4; stroke-linecap: round; }
+.art--folio .art-leaf { fill: #1C3024; stroke: rgb(205 165 98 / 0.16); stroke-width: 0.8; }
+.art--folio .art-frond--2 .art-leaf { fill: #213829; }
+.art--folio .art-frond--3 .art-leaf { fill: #17281E; }
+.art--folio .art-frond { transform-box: fill-box; transform-origin: 50% 100%; }
+.js:not(.motion-paused) .art--folio .art-frond--1 { animation: folio-sway 9s var(--ease-in-out) infinite alternate; }
+.js:not(.motion-paused) .art--folio .art-frond--2 { animation: folio-sway 12s var(--ease-in-out) -3s infinite alternate-reverse; }
+.js:not(.motion-paused) .art--folio .art-frond--3 { animation: folio-sway 10s var(--ease-in-out) -6s infinite alternate; }
+@keyframes folio-sway { from { rotate: -1.6deg; } to { rotate: 1.4deg; } }
+.art--folio .art-hatch { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgb(236 226 204 / 0.022) 0 1px, transparent 1px 6px); }
+.art--folio .art-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 70% at 50% 42%, transparent 48%, rgb(0 0 0 / 0.55)); }
+
+/* ---- Titles: the italic title inks in letter by letter on a slight wave ------------------------ */
+
+main[data-style="folio"] .d-title .ch {
+  opacity: calc(var(--ci) * (1 - var(--co)));
+  translate: 0 calc(sin(var(--i) * 1.3rad) * (1 - var(--ci)) * 0.2em + var(--co) * 0.18em);
+}
+
+
+/* ---- Destination hero: an engraved plate in a brass frame ------------------------------------ */
+main[data-style="folio"] .d-hero::after {
+  content: ""; position: absolute; inset: calc(var(--header-h) + 10px) 14px 14px; pointer-events: none;
+  border: 1px solid rgb(205 165 98 / 0.55); outline: 1px solid rgb(205 165 98 / 0.22); outline-offset: -9px;
+}
+main[data-style="folio"] .d-title { font-style: italic; font-size: clamp(3.6rem, 1rem + 10vw, 11rem); }
+main[data-style="folio"] .d-title::after { content: ""; display: block; width: min(320px, 60%); height: 18px; margin-top: 20px; background: var(--flourish) left center / contain no-repeat; }
+main[data-style="folio"] .d-kicker { color: #CDA562; font-style: italic; text-transform: none; letter-spacing: 0.08em; font-size: 1.1rem; }
+main[data-style="folio"] .d-lede { font-size: var(--t-lede); }
+main[data-style="folio"] .d-index a { border-radius: 0; border-color: rgb(205 165 98 / 0.45); font-family: 'Cormorant', serif; font-size: 1.05rem; font-weight: 600; font-variant: small-caps; letter-spacing: 0.08em; }
+main[data-style="folio"] .d-index a:hover { background: rgb(205 165 98 / 0.12); }
+
+main[data-style="folio"] .d-content { font-family: 'Cormorant', Georgia, serif; font-size: 1.22rem; }
+main[data-style="folio"] .d-content h2 { font-family: var(--font-display); font-style: italic; font-weight: 500; }
+
+.d-next[data-style="folio"] .d-next-card { background: #EEE4CE; color: #2A2318; border: 7px solid #A7834A; border-radius: 0; outline: 1px solid #A7834A; outline-offset: -16px; box-shadow: 0 40px 90px -40px #000; }
+.d-next[data-style="folio"] .d-next-title { font-style: italic; }
+.d-next[data-style="folio"] .d-next-n, .d-next[data-style="folio"] .d-next-line { color: #5E5440; }
+.d-next[data-style="folio"] .d-next-arrow { color: #8E3A2E; }
+
+/* ---- Expand without WebGL: the folio plate ----------------------------------------------------------------- */
+.xp-frame { border: 6px solid #A7834A; outline: 1px solid rgb(167 131 74 / 0.9); outline-offset: -14px; background: rgb(15 25 19 / 0); }
+.xp-frame > .xp-corner { position: absolute; width: 64px; height: 64px; }
+.xp-corner--tl { left: 10px; top: 10px; }
+.xp-corner--tr { right: 10px; top: 10px; rotate: 90deg; }
+.xp-corner--br { right: 10px; bottom: 10px; rotate: 180deg; }
+.xp-corner--bl { left: 10px; bottom: 10px; rotate: 270deg; }
+.xp-corner svg { width: 100%; height: 100%; fill: none; stroke: #CDA562; stroke-width: 1.4; overflow: visible; }
+.xp-corner circle { fill: #CDA562; stroke: none; }
+.xp-ink { inset: 0; width: 100%; height: 100%; }

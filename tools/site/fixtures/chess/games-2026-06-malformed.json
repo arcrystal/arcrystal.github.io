@@ -1,0 +1,112 @@
+{
+  "games": [
+    {
+      "url": "https://www.chess.com/game/live/900000000101",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.06.12\"]\n[Round \"-\"]\n[White \"example-player\"]\n[Black \"opponent-hazel\"]\n[Result \"1/2-1/2\"]\n[CurrentPosition \"r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQ1RK1 w - - 2 7\"]\n[Timezone \"UTC\"]\n[ECO \"C50\"]\n[ECOUrl \"https://www.chess.com/openings/Italian-Game\"]\n[UTCDate \"2026.06.12\"]\n[UTCTime \"19:00:00\"]\n[WhiteElo \"1490\"]\n[BlackElo \"1475\"]\n[TimeControl \"600\"]\n[Termination \"Game drawn by agreement\"]\n[StartTime \"19:00:00\"]\n[EndDate \"2026.06.12\"]\n[EndTime \"19:01:41\"]\n[Link \"https://www.chess.com/game/live/900000000101\"]\n\n1. e4 {[%clk 0:09:51.6]} 1... e5 {[%clk 0:09:47.4]} 2. Nf3 {[%clk 0:09:47.4]} 2... Nc6 {[%clk 0:09:39]} 3. Bc4 {[%clk 0:09:34.8]} 3... Bc5 {[%clk 0:09:34.8]} 4. c3 {[%clk 0:09:26.4]} 4... Nf6 {[%clk 0:09:22.2]} 5. d3 {[%clk 0:09:22.2]} 5... d6 {[%clk 0:09:13.8]} 6. O-O {[%clk 0:09:09.6]} 6... O-O {[%clk 0:09:09.6]} 1/2-1/2\n",
+      "time_control": "600",
+      "end_time": 1781290901,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000101",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQ1RK1 w - - 2 7",
+      "time_class": "rapid",
+      "rules": "chess",
+      "white": {
+        "rating": 1490,
+        "result": "agreed",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "black": {
+        "rating": 1475,
+        "result": "agreed",
+        "@id": "https://api.chess.com/pub/player/opponent-hazel",
+        "username": "opponent-hazel",
+        "uuid": "00000000-0000-4000-8000-0000000000a8"
+      },
+      "eco": "https://www.chess.com/openings/Italian-Game"
+    },
+    {
+      "url": "https://www.chess.com/game/live/900000000102",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.06.13\"]\n[Round \"-\"]\n[White \"example-player\"]\n[Black \"opponent-alder\"]\n[Result \"1-0\"]\n[Timezone \"UTC\"]\n[ECO \"C20\"]\n[ECOUrl \"https://www.chess.com/openings/Kings-Pawn-Opening\"]\n[UTCDate \"2026.06.13\"]\n[UTCTime \"19:00:00\"]\n[WhiteElo \"1491\"]\n[BlackElo \"1480\"]\n[TimeControl \"600\"]\n[Termination \"example-player won by resignation\"]\n[StartTime \"19:00:00\"]\n[EndDate \"2026.06.13\"]\n[EndTime \"19:01:35\"]\n[Link \"https://www.chess.com/game/live/900000000102\"]\n\n1. e4 {[%clk 0:09:58]} 1... e5 {[%clk 0:09:57]} 2. Ke3 {[%clk 0:09:50]} 2... Nc6 {[%clk 0:09:49]} 1-0\n",
+      "time_control": "600",
+      "end_time": 1781377295,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000102",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "time_class": "rapid",
+      "rules": "chess",
+      "white": {
+        "rating": 1491,
+        "result": "win",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "black": {
+        "rating": 1480,
+        "result": "resigned",
+        "@id": "https://api.chess.com/pub/player/opponent-alder",
+        "username": "opponent-alder",
+        "uuid": "00000000-0000-4000-8000-0000000000a1"
+      },
+      "eco": "https://www.chess.com/openings/Kings-Pawn-Opening"
+    },
+    {
+      "url": "https://www.chess.com/game/live/900000000103",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"\n[Date \"2026.06.14\"]\n[Round \"-\"]\n[White \"opponent-birch\"]\n[Black \"example-player\"]\n\n1. e4 {[%clk 0:04:59]} 1... c5 {[%clk 0:04:58]} 2. Nf",
+      "time_control": "300",
+      "end_time": 1781463695,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000103",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "time_class": "blitz",
+      "rules": "chess",
+      "white": {
+        "rating": 1420,
+        "result": "resigned",
+        "@id": "https://api.chess.com/pub/player/opponent-birch",
+        "username": "opponent-birch",
+        "uuid": "00000000-0000-4000-8000-0000000000a2"
+      },
+      "black": {
+        "rating": 1410,
+        "result": "win",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "eco": "https://www.chess.com/openings/Sicilian-Defense"
+    },
+    {
+      "url": "https://www.chess.com/game/live/900000000104",
+      "pgn": "[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.06.15\"]\n[Round \"-\"]\n[White \"example-player\"]\n[Black \"opponent-cedar\"]\n[Result \"1-0\"]\n[Timezone \"UTC\"]\n[ECO \"C60\"]\n[ECOUrl \"https://www.chess.com/openings/Ruy-Lopez-Opening\"]\n[UTCDate \"2026.06.15\"]\n[UTCTime \"19:00:00\"]\n[WhiteElo \"1492\"]\n[BlackElo \"1470\"]\n[TimeControl \"600\"]\n[Termination \"example-player won by checkmate\"]\n[StartTime \"19:00:00\"]\n[EndDate \"2026.06.15\"]\n[EndTime \"19:01:35\"]\n[Link \"https://www.chess.com/game/live/900000000104\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Zz9 Nf6 1-0\n",
+      "time_control": "600",
+      "end_time": 1781550095,
+      "rated": true,
+      "uuid": "00000000-0000-4000-9000-000000000104",
+      "initial_setup": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "time_class": "rapid",
+      "rules": "chess",
+      "white": {
+        "rating": 1492,
+        "result": "win",
+        "@id": "https://api.chess.com/pub/player/example-player",
+        "username": "example-player",
+        "uuid": "00000000-0000-4000-8000-0000000000a0"
+      },
+      "black": {
+        "rating": 1470,
+        "result": "checkmated",
+        "@id": "https://api.chess.com/pub/player/opponent-cedar",
+        "username": "opponent-cedar",
+        "uuid": "00000000-0000-4000-8000-0000000000a3"
+      },
+      "eco": "https://www.chess.com/openings/Ruy-Lopez-Opening"
+    }
+  ]
+}

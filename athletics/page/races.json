@@ -1,0 +1,382 @@
+{
+ "about": "Every race on record, newest first, from the matching Strava activities (checked Aug 14, 2026). time is the activity elapsed time; official, where present, is the race’s own timed result. The Half Ironman counts once, with its three legs.",
+ "races": [
+  {
+   "date": "2026-08-08",
+   "title": "Guinea Pig Mile",
+   "sport": "run",
+   "discipline": "Road",
+   "series": "Mile races",
+   "distance": "1.00 mi",
+   "climb": "72 ft",
+   "time": "5:17"
+  },
+  {
+   "date": "2026-07-12",
+   "title": "Loon Mountain Race",
+   "sport": "run",
+   "discipline": "Trail run",
+   "series": "Mountain & endurance",
+   "distance": "6.26 mi",
+   "climb": "3,097 ft",
+   "time": "1:14:32"
+  },
+  {
+   "date": "2026-06-27",
+   "title": "Mt. Washington Auto Road Race",
+   "sport": "run",
+   "discipline": "Run",
+   "series": "Mountain & endurance",
+   "distance": "7.62 mi",
+   "climb": "4,736 ft",
+   "time": "1:37:00"
+  },
+  {
+   "date": "2026-06-05",
+   "title": "24-hour Jamaica Pond Challenge",
+   "sport": "endurance",
+   "discipline": "Walk",
+   "series": "Mountain & endurance",
+   "distance": "62.96 mi",
+   "climb": "531 ft",
+   "time": "20:07:59"
+  },
+  {
+   "date": "2026-02-21",
+   "title": "Birkie 2026",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "American Birkebeiner",
+   "distance": "30.48 mi",
+   "climb": "2,302 ft",
+   "time": "2:28:48",
+   "official": "2:28:49.04"
+  },
+  {
+   "date": "2026-02-17",
+   "title": "TNR #7",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "10.53 mi",
+   "climb": "526 ft",
+   "time": "1:10:35"
+  },
+  {
+   "date": "2026-02-10",
+   "title": "TNR #6",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "4.40 mi",
+   "time": "26:00"
+  },
+  {
+   "date": "2026-02-03",
+   "title": "TNR #5",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "8.84 mi",
+   "climb": "410 ft",
+   "time": "56:07"
+  },
+  {
+   "date": "2026-01-30",
+   "title": "Last Nordic Skier Standing Race",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "Mountain & endurance",
+   "distance": "84.05 mi",
+   "climb": "10,717 ft",
+   "time": "11:10:39"
+  },
+  {
+   "date": "2026-01-27",
+   "title": "TNR #4",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "10.71 mi",
+   "climb": "602 ft",
+   "time": "1:35:19"
+  },
+  {
+   "date": "2026-01-20",
+   "title": "TNR #3",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "8.38 mi",
+   "climb": "455 ft",
+   "time": "58:31"
+  },
+  {
+   "date": "2026-01-13",
+   "title": "TNR #2",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "3.96 mi",
+   "climb": "267 ft",
+   "time": "19:14"
+  },
+  {
+   "date": "2026-01-06",
+   "title": "TNR #1",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "2.72 mi",
+   "climb": "188 ft",
+   "time": "15:41"
+  },
+  {
+   "date": "2025-12-30",
+   "title": "TNR Practice Race+",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "22.01 mi",
+   "climb": "1,108 ft",
+   "time": "2:23:29"
+  },
+  {
+   "date": "2025-11-19",
+   "title": "Triple Stadium",
+   "sport": "endurance",
+   "discipline": "Stairs",
+   "series": "Mountain & endurance",
+   "distance": "3.91 mi",
+   "climb": "3,515 ft",
+   "time": "1:49:44"
+  },
+  {
+   "date": "2025-11-02",
+   "title": "BUSA Bushwhack 2025",
+   "sport": "run",
+   "discipline": "Trail run",
+   "series": "BUSA Bushwhack",
+   "distance": "5.30 mi",
+   "time": "48:01"
+  },
+  {
+   "date": "2025-10-22",
+   "title": "Company 5K #2",
+   "sport": "run",
+   "discipline": "Road",
+   "series": "Road & cross country",
+   "distance": "3.09 mi",
+   "climb": "175 ft",
+   "time": "20:27"
+  },
+  {
+   "date": "2025-03-04",
+   "title": "TNR #10?: Handicapped",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "3.15 mi",
+   "climb": "128 ft",
+   "time": "20:22"
+  },
+  {
+   "date": "2025-02-22",
+   "title": "Birkie 2025",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "American Birkebeiner",
+   "distance": "31.48 mi",
+   "climb": "2,802 ft",
+   "time": "3:07:24"
+  },
+  {
+   "date": "2025-02-18",
+   "title": "TNR #7",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "32.06 mi",
+   "climb": "1,223 ft",
+   "time": "3:20:29"
+  },
+  {
+   "date": "2025-02-11",
+   "title": "TNR #6",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "5.94 mi",
+   "climb": "199 ft",
+   "time": "32:51"
+  },
+  {
+   "date": "2025-02-04",
+   "title": "TNR #5",
+   "sport": "ski",
+   "discipline": "Nordic ski",
+   "series": "TNR ski series",
+   "distance": "5.34 mi",
+   "climb": "204 ft",
+   "time": "25:56"
+  },
+  {
+   "date": "2024-04-20",
+   "title": "Brown Invite Mile",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Mile races",
+   "distance": "0.96 mi",
+   "time": "4:55"
+  },
+  {
+   "date": "2024-04-14",
+   "title": "UMass Lowell Invite 4×400",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Short track",
+   "distance": "0.24 mi",
+   "time": "0:55"
+  },
+  {
+   "date": "2024-04-13",
+   "title": "Newport Half Marathon",
+   "sport": "run",
+   "discipline": "Road",
+   "series": "Road & cross country",
+   "distance": "13.11 mi",
+   "climb": "393 ft",
+   "time": "1:22:12"
+  },
+  {
+   "date": "2024-03-24",
+   "title": "Home Meet Mile",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Mile races",
+   "distance": "1.00 mi",
+   "time": "4:54"
+  },
+  {
+   "date": "2024-03-03",
+   "title": "Mile at Harvard",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Mile races",
+   "distance": "1.00 mi",
+   "time": "5:13"
+  },
+  {
+   "date": "2024-03-03",
+   "title": "200m at Harvard",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Short track",
+   "distance": "0.12 mi",
+   "time": "0:25"
+  },
+  {
+   "date": "2024-02-25",
+   "title": "Mile at Brown",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Mile races",
+   "distance": "1.00 mi",
+   "time": "5:01"
+  },
+  {
+   "date": "2024-02-25",
+   "title": "400m at Brown",
+   "sport": "run",
+   "discipline": "Track",
+   "series": "Short track",
+   "distance": "0.24 mi",
+   "time": "0:58"
+  },
+  {
+   "date": "2023-11-11",
+   "title": "Mile TT",
+   "sport": "run",
+   "discipline": "Time trial",
+   "series": "Mile races",
+   "distance": "1.04 mi",
+   "time": "5:26"
+  },
+  {
+   "date": "2023-10-29",
+   "title": "BUSA 2023",
+   "sport": "run",
+   "discipline": "Run",
+   "series": "BUSA Bushwhack",
+   "distance": "9.79 mi",
+   "climb": "1,003 ft",
+   "time": "1:18:08"
+  },
+  {
+   "date": "2022-10-30",
+   "title": "BUSA Bushwhack 2022",
+   "sport": "run",
+   "discipline": "Run",
+   "series": "BUSA Bushwhack",
+   "distance": "10.05 mi",
+   "climb": "985 ft",
+   "time": "1:19:58"
+  },
+  {
+   "date": "2022-10-22",
+   "title": "NIRCA Regionals",
+   "sport": "run",
+   "discipline": "XC",
+   "series": "Road & cross country",
+   "distance": "4.90 mi",
+   "climb": "146 ft",
+   "time": "30:18"
+  },
+  {
+   "date": "2022-10-16",
+   "title": "Lunch Run",
+   "sport": "run",
+   "discipline": "XC",
+   "series": "Road & cross country",
+   "distance": "4.89 mi",
+   "climb": "148 ft",
+   "time": "30:54"
+  },
+  {
+   "date": "2022-09-24",
+   "title": "BC Race",
+   "sport": "run",
+   "discipline": "XC",
+   "series": "Road & cross country",
+   "distance": "5.03 mi",
+   "climb": "230 ft",
+   "time": "31:58"
+  },
+  {
+   "date": "2021-08-15",
+   "title": "Half Ironman",
+   "sport": "tri",
+   "discipline": "Triathlon",
+   "series": "Half Ironman",
+   "distance": "2,125 yd swim · 58.00 mi ride · 13.10 mi run",
+   "time": "5:56:14",
+   "legs": [
+    {
+     "leg": "Swim",
+     "distance": "2,125 yd",
+     "time": "47:29"
+    },
+    {
+     "leg": "Ride",
+     "distance": "58.00 mi",
+     "time": "3:21:20"
+    },
+    {
+     "leg": "Run",
+     "distance": "13.10 mi",
+     "time": "1:47:25"
+    }
+   ]
+  }
+ ]
+}

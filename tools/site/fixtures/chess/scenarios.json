@@ -1,0 +1,106 @@
+{
+  "about": "Chess.com API scenarios for browser tests. Resources: profile (/pub/player/<user>), stats, archives (/games/archives), games/YYYY/MM, pgn/YYYY/MM. A rule is { file | json | text, status, headers, delay } or { fail: Fetch errorReason } or { hang: true }; 'games/*' and '*' are fallbacks. Scenario fields: base (inherit routes), delay (added to every answer), first (rule for the first request to each resource), all (rule for every request). See ../README.md.",
+  "player": "example-player",
+  "scenarios": {
+    "success": {
+      "about": "Every endpoint answers. Three monthly archives with seven games: six standard (castling both sides, en passant by each colour, a queen promotion, a knight underpromotion, a threefold repetition) and one Chess960.",
+      "expect": "Profile, stats and recent games show live data. The Chess960 game is not counted as standard chess. Every standard game replays to its final position.",
+      "routes": {
+        "profile": { "file": "profile.json" },
+        "stats": { "file": "stats.json" },
+        "archives": { "file": "archives.json" },
+        "games/2026/09": { "file": "games-2026-09.json" },
+        "games/2026/08": { "file": "games-2026-08.json" },
+        "games/2026/07": { "file": "games-2026-07.json" },
+        "games/2026/06": { "file": "games-2026-06-malformed.json" },
+        "games/*": { "status": 404, "json": { "code": 0, "message": "Data provider not found for this archive." } },
+        "*": { "status": 404, "json": { "code": 0, "message": "Data provider not found for this key." } }
+      }
+    },
+    "slow": {
+      "base": "success",
+      "delay": 2500,
+      "about": "As success, but every answer waits 2.5 s.",
+      "expect": "Each panel shows its loading state first, then live data, independently. Navigating away during the wait cancels the requests (page.requests show canceled: true) and nothing from them is applied to the next page."
+    },
+    "empty": {
+      "base": "success",
+      "about": "The archive list is empty (an account without public games).",
+      "expect": "Recent games show the empty state; profile and stats are live; the saved snapshot stays labelled as saved.",
+      "routes": { "archives": { "file": "archives-empty.json" } }
+    },
+    "empty-month": {
+      "base": "success",
+      "about": "The archive list names one month, and that month has no games.",
+      "expect": "Recent games show the empty state without an error.",
+      "routes": {
+        "archives": { "json": { "archives": ["https://api.chess.com/pub/player/example-player/games/2026/10"] } },
+        "games/2026/10": { "file": "games-empty.json" }
+      }
+    },
+    "sparse-stats": {
+      "base": "success",
+      "about": "Stats for a new account: rapid only, no best rating, empty tactics and puzzle rush.",
+      "expect": "Missing modes show a placeholder rather than 0, NaN or undefined.",
+      "routes": { "stats": { "file": "stats-sparse.json" } }
+    },
+    "partial-failure": {
+      "base": "success",
+      "about": "Profile and the archive list answer; stats fail with HTTP 500; the August archive fails at the network level; July answers 404; September answers.",
+      "expect": "Profile is live. Stats show an error with retry while the saved snapshot stays visible and is labelled stale. Recent games come from September only (two standard games) or say that some months could not be loaded; no panel blocks another.",
+      "routes": {
+        "stats": { "status": 500, "json": { "code": 0, "message": "An internal error has occurred." } },
+        "games/2026/08": { "fail": "Failed" },
+        "games/2026/07": { "status": 404, "json": { "code": 0, "message": "Data provider not found for this archive." } }
+      }
+    },
+    "malformed": {
+      "base": "success",
+      "about": "The only archive is June 2026: one valid game and three malformed PGNs (an illegal move, an unterminated tag with movetext cut off mid-move, an unknown move token).",
+      "expect": "The valid game is listed and replays; the malformed ones are skipped or marked as unreadable; no exception reaches the console; the replay board never shows a half-loaded game.",
+      "routes": { "archives": { "file": "archives-malformed.json" } }
+    },
+    "retry": {
+      "base": "success",
+      "first": { "status": 503, "json": { "code": 0, "message": "Service temporarily unavailable." } },
+      "about": "The first request to each resource fails with HTTP 503; every later request succeeds.",
+      "expect": "Each panel shows its error with a retry control; pressing retry loads live data for that panel only."
+    },
+    "timeout": {
+      "base": "success",
+      "all": { "hang": true },
+      "about": "No request is ever answered.",
+      "expect": "The page's own timeout fires: each panel leaves its loading state for an error or stale state with retry; the saved snapshot stays visible."
+    },
+    "network-error": {
+      "base": "success",
+      "all": { "fail": "Failed" },
+      "about": "Every request fails at the network level immediately (net::ERR_FAILED).",
+      "expect": "Error or stale states with retry; the saved snapshot stays visible."
+    },
+    "offline": {
+      "base": "success",
+      "all": { "fail": "InternetDisconnected" },
+      "about": "Every request fails as if the device were offline (net::ERR_INTERNET_DISCONNECTED).",
+      "expect": "As network-error; the message may say the device is offline."
+    },
+    "server-error": {
+      "base": "success",
+      "all": { "status": 503, "json": { "code": 0, "message": "Service temporarily unavailable." } },
+      "about": "Every request answers HTTP 503.",
+      "expect": "Error or stale states with retry."
+    },
+    "rate-limited": {
+      "base": "success",
+      "all": { "status": 429, "headers": { "Retry-After": "60" }, "json": { "code": 0, "message": "Too many requests." } },
+      "about": "Every request answers HTTP 429 with Retry-After: 60.",
+      "expect": "Error or stale states; retrying immediately is allowed but not automatic in a loop."
+    },
+    "not-found": {
+      "base": "success",
+      "all": { "status": 404, "json": { "code": 0, "message": "User \"example-player\" not found." } },
+      "about": "Every request answers HTTP 404, as for an account that does not exist.",
+      "expect": "Error states; the saved snapshot stays visible and labelled as saved."
+    }
+  }
+}

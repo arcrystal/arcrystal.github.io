@@ -1,0 +1,77 @@
+{
+  "about": "Earth's Extremes on the Outdoors page (tools/site/build_pages.py extremes_list). art names an engraving drawn by the build; source is where the figures come from.",
+  "extremes": [
+    {
+      "id": "k2", "kind": "Mountain", "where": "Karakoram · Pakistan–China", "name": "K2",
+      "stat": "8,611 m", "sub": "28,251 ft",
+      "text": "The second-highest mountain on Earth and the hardest of the 8,000-metre peaks: first climbed in 1954, and not in winter until January 2021.",
+      "art": "k2", "source": "https://en.wikipedia.org/wiki/K2"
+    },
+    {
+      "id": "alpamayo", "kind": "Mountain", "where": "Cordillera Blanca · Peru", "name": "Alpamayo",
+      "stat": "5,947 m", "sub": "19,511 ft",
+      "text": "A near-perfect pyramid of fluted ice, its southwest face ribbed from summit to snowfield. A 1966 poll of climbers named it the most beautiful mountain in the world.",
+      "art": "alpamayo", "source": "https://en.wikipedia.org/wiki/Alpamayo"
+    },
+    {
+      "id": "chopicalqui", "kind": "Mountain", "where": "Cordillera Blanca · Peru", "name": "Chopicalqui",
+      "stat": "6,354 m", "sub": "20,846 ft",
+      "text": "A broad, heavily glaciated giant beside Huascarán, Peru’s highest peak, climbed by its southwest ridge through séracs and crevasses since 1932.",
+      "art": "chopicalqui", "source": "https://en.wikipedia.org/wiki/Chopicalqui"
+    },
+    {
+      "id": "amazon", "kind": "Jungle", "where": "Nine countries · South America", "name": "The Amazon",
+      "stat": "5.5 million km²", "sub": "of rainforest",
+      "text": "The largest tropical rainforest on Earth, home to about one in ten known species. Its trees breathe out so much water that they help make their own rain.",
+      "art": "canopy", "source": "https://en.wikipedia.org/wiki/Amazon_rainforest"
+    },
+    {
+      "id": "atacama", "kind": "Desert", "where": "Chile", "name": "Atacama",
+      "stat": "< 1 mm", "sub": "of rain a year in places",
+      "text": "The driest non-polar desert on Earth. Some of its weather stations have never recorded rain, and its soils are close enough to Mars’s that rover teams test there.",
+      "art": "dunes", "source": "https://en.wikipedia.org/wiki/Atacama_Desert"
+    },
+    {
+      "id": "bryce", "kind": "Hoodoos", "where": "Utah · USA", "name": "Bryce Canyon",
+      "stat": "200+", "sub": "freeze–thaw days a year",
+      "text": "The largest collection of hoodoos on Earth: limestone spires split apart by ice that freezes and thaws in their cracks on more than 200 days a year.",
+      "art": "hoodoos", "source": "https://www.nps.gov/brca/learn/nature/hoodoos.htm"
+    },
+    {
+      "id": "angel", "kind": "Waterfall", "where": "Canaima · Venezuela", "name": "Angel Falls",
+      "stat": "979 m", "sub": "3,212 ft",
+      "text": "The tallest uninterrupted waterfall on Earth, dropping 807 m in a single fall off the edge of Auyán-tepui, a table mountain rising out of the rainforest.",
+      "art": "falls", "source": "https://en.wikipedia.org/wiki/Angel_Falls"
+    },
+    {
+      "id": "mauna", "kind": "Volcano", "where": "Hawaiʻi · USA", "name": "Mauna Kea and Mauna Loa",
+      "stat": "10,210 m", "sub": "Mauna Kea, seafloor to summit",
+      "text": "Measured from its base on the ocean floor, Mauna Kea is taller than Everest. Its neighbour Mauna Loa is the largest active volcano on Earth.",
+      "art": "shield", "source": "https://en.wikipedia.org/wiki/Mauna_Kea"
+    },
+    {
+      "id": "kelp", "kind": "Undersea forest", "where": "Pacific Ocean", "name": "Kelp and black coral",
+      "stat": "60 cm", "sub": "of giant kelp in a day",
+      "text": "Giant kelp grows up to 60 cm a day into forests over 45 m tall. Far below, deep-sea black corals off Hawaiʻi have been dated to more than 4,000 years old.",
+      "art": "kelp", "source": "https://en.wikipedia.org/wiki/Kelp_forest"
+    },
+    {
+      "id": "son-doong", "kind": "Cave", "where": "Phong Nha-Kẻ Bàng · Vietnam", "name": "Hang Sơn Đoòng",
+      "stat": "38.5 million m³", "sub": "the largest known cave passage",
+      "text": "Found by a local man, Hồ Khanh, in 1990 and first explored in 2009: more than 5 km long and 200 m high, with its own jungle under collapsed skylights, and its own clouds.",
+      "art": "cave", "source": "https://en.wikipedia.org/wiki/H%E1%BA%A1ng_S%C6%A1n_%C4%90o%C3%B2ng"
+    },
+    {
+      "id": "challenger", "kind": "Ocean trench", "where": "Mariana Trench · Pacific", "name": "Challenger Deep",
+      "stat": "10,935 m", "sub": "35,876 ft below sea level",
+      "text": "The deepest known point in the ocean: Everest would fit inside with more than 2 km of water to spare. Far fewer people have been to the bottom than to space.",
+      "art": "trench", "source": "https://en.wikipedia.org/wiki/Challenger_Deep"
+    },
+    {
+      "id": "vostok", "kind": "Ice", "where": "East Antarctica", "name": "Vostok Station",
+      "stat": "−89.2 °C", "sub": "−128.6 °F · July 21, 1983",
+      "text": "The coldest air ever measured at a weather station, on an ice sheet more than 3.7 km thick. Satellites have since found hollows of the plateau near −98 °C.",
+      "art": "ice", "source": "https://en.wikipedia.org/wiki/Vostok_Station"
+    }
+  ]
+}

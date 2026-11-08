@@ -1,0 +1,65 @@
+/* Darkroom — black walls under a red safelight, prints coming up in the tray. Print white on
+   darkroom black, safelight red for the few things that glow; light DM Sans and film-edge numbers
+   in JetBrains Mono. The scene draws the safelight and the developer's ripples; the gradients below
+   stand in without WebGL. Photography. */
+
+[data-style="darkroom"] {
+  --c-bg: #0B0A09; --c-surface: #171513; --c-fg: #F2EEE6; --c-fg-mute: #A39C91;
+  --c-accent: #E5483F; --c-accent-2: #C7302A; --c-accent-3: #D8B98A;
+  --c-rule: rgb(242 238 230 / 0.14); --c-link: #F07A72; --c-on-accent: #0B0A09; --c-focus: #E5483F;
+  --font-label: 'JetBrains Mono', ui-monospace, monospace;
+  --tracking-label: 0.1em; --w-display: 300; --tracking-display: -0.05em; --lh-display: 0.92;
+  --radius-card: 2px; --radius-media: 0px;
+  color-scheme: dark;
+}
+
+/* ---- Art without WebGL: the safelight and the tray ------------------------------------------ */
+.art--darkroom { background: #0B0A09; overflow: hidden; }
+.art--darkroom .art-safelight { position: absolute; inset: 0; background: radial-gradient(60% 46% at 50% -6%, rgb(199 48 42 / 0.42), rgb(199 48 42 / 0.1) 55%, transparent 75%); }
+.art--darkroom .art-tray {
+  position: absolute; left: 8%; right: 8%; bottom: -30%; height: 60%; border-radius: 50%;
+  background: repeating-radial-gradient(ellipse at 50% 40%, rgb(199 48 42 / 0.1) 0 2px, transparent 2px 22px), radial-gradient(ellipse at 50% 30%, rgb(60 20 18 / 0.7), transparent 70%);
+}
+.js:not(.motion-paused) .art--darkroom .art-tray { animation: darkroom-rock 9s var(--ease-in-out) infinite alternate; }
+@keyframes darkroom-rock { to { translate: 0 -1.5%; scale: 1.02; } }
+.art--darkroom .art-grain { position: absolute; inset: 0; opacity: 0.25; background: repeating-conic-gradient(rgb(255 255 255 / 0.03) 0 0.5deg, transparent 0.5deg 1deg); }
+
+/* ---- Titles: each letter develops, dark-first, out of a blur --------------------------------- */
+main[data-style="darkroom"] .d-title .ch {
+  opacity: clamp(0, var(--ci) * 1.4, 1);
+  filter: blur(calc((1 - var(--ci)) * 10px));
+  color: color-mix(in oklab, #F2EEE6 calc(var(--ci) * 100%), #C7302A);
+}
+
+/* ---- Destination hero and content ------------------------------------------------------------ */
+main[data-style="darkroom"] .d-title { font-size: clamp(3.2rem, 0.8rem + 9vw, 10.5rem); }
+main[data-style="darkroom"] .d-kicker { font-family: var(--font-label); color: #E5483F; }
+main[data-style="darkroom"] .d-kicker::before { content: "▸"; }
+main[data-style="darkroom"] .d-index a { border-radius: 0; border-color: rgb(242 238 230 / 0.25); background: rgb(11 10 9 / 0.6); font-family: var(--font-label); font-size: var(--t-label); letter-spacing: 0.08em; text-transform: uppercase; }
+main[data-style="darkroom"] .d-index a:hover { border-color: #E5483F; color: #fff; }
+main[data-style="darkroom"] .d-content h2 { font-weight: 300; letter-spacing: -0.04em; }
+.band[data-style="darkroom"] .band-n { color: #E5483F; }
+.band[data-style="darkroom"] .band-n::before { content: "▸ "; }
+
+.d-next[data-style="darkroom"] .d-next-card { background: #F2EEE6; color: #0B0A09; border: 0; border-radius: 0; box-shadow: 0 0 0 10px #F2EEE6, 0 40px 90px -30px rgb(0 0 0 / 0.9); }
+.d-next[data-style="darkroom"] .d-next-line, .d-next[data-style="darkroom"] .d-next-n { color: #5A544C; }
+.d-next[data-style="darkroom"] .d-next-arrow { color: #C7302A; }
+
+/* ---- Expand without WebGL: the safelight floods, then the print comes up ------------------------ */
+.xp-safelight { inset: 0; background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), #7A1C18 0, #2A0B09 45%, #0B0A09 80%); }
+
+/* ---- The hero print: it comes up in the tray as the hero arrives ------------------------------ */
+.d-hero-print { position: absolute; z-index: 0; right: max(var(--gutter), calc((100vw - var(--wrap)) / 2 + var(--gutter))); top: 54%; width: min(44vw, 640px); margin: 0; translate: 0 -50%; rotate: 1.2deg; }
+.d-hero-print img { display: block; width: 100%; height: auto; background: #F2EEE6; box-shadow: 0 0 0 10px #F2EEE6, 0 40px 90px -30px rgb(0 0 0 / 0.9); }
+.d-hero-print figcaption { margin-top: 20px; font-family: var(--font-label); font-size: var(--t-label); letter-spacing: 0.08em; color: var(--c-fg-mute); }
+.d-hero-print figcaption::before { content: "▸ 01  "; color: #E5483F; white-space: pre; }
+.js:not(.motion-paused) [data-hero]:not(.is-in) .d-hero-print img { filter: brightness(2.4) contrast(0.2) sepia(0.7); }
+.js:not(.motion-paused) [data-hero].is-in .d-hero-print img { animation: darkroom-develop 3200ms 300ms cubic-bezier(0.3, 0, 0.2, 1) both; }
+@keyframes darkroom-develop {
+  0% { filter: brightness(2.4) contrast(0.2) sepia(0.7); }
+  45% { filter: brightness(1.1) contrast(0.9) sepia(0.85) saturate(1.3) hue-rotate(-12deg); }
+  100% { filter: none; }
+}
+@media (max-width: 899px) { .d-hero-print { position: relative; right: auto; top: auto; translate: none; width: calc(100% - 2 * var(--gutter)); margin: 0 var(--gutter) var(--s-6); grid-row: 1; } }
+main[data-style="darkroom"] .d-hero-inner { position: relative; z-index: 1; }
+@media (min-width: 900px) { main[data-style="darkroom"] .d-hero-inner > * { max-width: min(46vw, 700px); } }

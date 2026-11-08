@@ -1,0 +1,18 @@
+{
+  "avatar": "https://images.chesscomfiles.com/uploads/v1/user/example.png",
+  "player_id": 900000001,
+  "@id": "https://api.chess.com/pub/player/example-player",
+  "url": "https://www.chess.com/member/example-player",
+  "name": "Example Player",
+  "username": "example-player",
+  "followers": 42,
+  "country": "https://api.chess.com/pub/country/XX",
+  "location": "Fixture Lake",
+  "last_online": 1790000000,
+  "joined": 1420070400,
+  "status": "basic",
+  "is_streamer": false,
+  "verified": false,
+  "league": "Stone",
+  "streaming_platforms": []
+}

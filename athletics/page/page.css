@@ -1,0 +1,338 @@
+/* Racing page, in Glacier Glass (static/site/styles/glass.css). Every rule is scoped under
+   main[data-destination="racing"] and uses the shared tokens. A light scheme of ice and frosted glass,
+   with one night band for the featured race: polar navy under an aurora. */
+main[data-destination="racing"] {
+  --r-vermilion: var(--c-accent);         /* glacier blue: bars, rules, the current row */
+  --r-ice: #EAF3F9;                       /* text on the night band */
+  --r-forest: #0B2236;                    /* the night band */
+  --r-link: #1767C2;                      /* links on ice: 4.9:1 */
+  --r-link-dark: #8FD0FF;                 /* links and the official time on the night band: 9.8:1 */
+  --r-card: rgb(255 255 255 / 0.55);
+  --r-radius: var(--radius-media, 16px);
+  --r-gap: clamp(16px, 2.2vw, 32px);
+}
+
+main[data-destination="racing"] a:not(.intro *) { color: var(--r-link); text-underline-offset: 0.18em; }
+main[data-destination="racing"] a:not(.intro *):hover { color: var(--r-vermilion); }
+main[data-destination="racing"] :focus-visible:not(.intro *) { outline: 3px solid var(--r-vermilion); outline-offset: 3px; border-radius: 4px; }
+
+/* ---- section heads ---- */
+main[data-destination="racing"] .r-head { margin-bottom: clamp(32px, 4.5vw, 72px); }
+main[data-destination="racing"] .r-head .label { margin: 0 0 var(--s-4, 16px); color: var(--r-link); }
+main[data-destination="racing"] .r-head h2 {
+  margin: 0; font-size: var(--t-h2); font-weight: var(--w-medium); line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-heading); text-wrap: balance;
+}
+main[data-destination="racing"] .r-head .lede { margin: var(--s-5, 24px) 0 0; font-size: var(--t-lede); line-height: 1.4; color: var(--c-fg-mute); }
+main[data-destination="racing"] section[id] { scroll-margin-top: calc(var(--header-h, 64px) + 16px); }
+main[data-destination="racing"] [id] { scroll-margin-top: calc(var(--header-h, 64px) + 16px); }
+main[data-destination="racing"] .r-subhead { margin: 0 0 var(--s-4, 16px); font-size: var(--t-h3); font-weight: var(--w-medium); line-height: 1.15; letter-spacing: var(--tracking-heading); }
+main[data-destination="racing"] .source-note { margin: var(--s-6, 32px) 0 0; font-size: var(--t-small); color: var(--c-fg-mute); max-width: var(--measure); }
+
+/* ---- 01 featured race (dark band) ---- */
+main[data-destination="racing"] .r-feature {
+  --c-fg: var(--r-ice); --c-fg-mute: #A7BACB; --c-rule: rgb(234 243 249 / 0.16);
+  --r-link: var(--r-link-dark);
+  background: radial-gradient(70% 60% at 88% 0%, rgb(43 217 168 / 0.2), transparent 62%), radial-gradient(70% 70% at 0% 100%, rgb(23 103 194 / 0.38), transparent 62%), var(--r-forest);
+  color: var(--c-fg);
+  padding-block: var(--section-gap);
+}
+main[data-destination="racing"] .r-feature a:hover { color: #fff; }
+main[data-destination="racing"] .r-figure { margin: 0; }
+main[data-destination="racing"] .r-figure img { display: block; width: 100%; height: auto; }
+main[data-destination="racing"] .r-figure figcaption { margin-top: var(--s-3, 12px); font-size: var(--t-small); color: var(--c-fg-mute); max-width: var(--measure); }
+main[data-destination="racing"] .r-badge {
+  display: inline-block; margin-right: 0.4em; padding: 1px 9px; border: 1px solid currentColor; border-radius: 999px;
+  font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg);
+}
+main[data-destination="racing"] .r-figure--hero img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-radius); background: #0c120f; }
+main[data-destination="racing"] .r-feature-body {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-7, 48px); margin-top: clamp(40px, 6vw, 96px); align-items: start;
+}
+main[data-destination="racing"] .r-story p { margin: 0 0 1.1em; font-size: var(--t-body); line-height: var(--lh-body); }
+main[data-destination="racing"] .r-card {
+  border: 1px solid var(--c-rule); border-radius: var(--r-radius); padding: clamp(20px, 2.6vw, 36px);
+  background: var(--r-card); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 24px 60px -36px rgb(10 42 68 / 0.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+}
+main[data-destination="racing"] .r-feature .r-card { background: rgb(255 255 255 / 0.07); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18); }
+main[data-destination="racing"] .r-figure--route {
+  margin-top: clamp(40px, 6vw, 96px); display: grid; justify-items: center; gap: var(--s-4, 16px);
+  padding: clamp(24px, 4vw, 56px); border: 1px solid rgb(234 243 249 / 0.16); border-radius: var(--r-radius);
+  background: linear-gradient(150deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.02));
+}
+main[data-destination="racing"] .r-route-svg { display: block; width: 100%; max-width: 360px; height: auto; max-height: 52vh; overflow: visible; }
+main[data-destination="racing"] .r-feature .rt-line { stroke: #8FD0FF; }
+main[data-destination="racing"] .r-feature .rt-glow { stroke: #2BD9A8; stroke-opacity: 0.3; }
+main[data-destination="racing"] .r-feature .rt-start, main[data-destination="racing"] .r-feature .rt-end { stroke: var(--r-forest); }
+main[data-destination="racing"] .r-times .label { margin: 0 0 var(--s-5, 24px); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-time { padding-bottom: var(--s-5, 24px); margin-bottom: var(--s-5, 24px); border-bottom: 1px solid var(--c-rule); }
+main[data-destination="racing"] .r-time strong, main[data-destination="racing"] .r-time b {
+  display: block; font-size: clamp(2.5rem, 1.4rem + 3.4vw, 4.5rem); line-height: 1; letter-spacing: -0.03em; font-weight: var(--w-medium);
+  font-variant-numeric: tabular-nums;
+}
+main[data-destination="racing"] .r-time--official strong { color: var(--r-link-dark); }
+main[data-destination="racing"] .r-time-label { display: block; margin-top: var(--s-2, 8px); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-facts { margin: 0; }
+main[data-destination="racing"] .r-facts > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding-block: var(--s-3, 12px); border-top: 1px solid var(--c-rule); }
+main[data-destination="racing"] .r-facts > div:first-child { border-top: 0; padding-top: 0; }
+main[data-destination="racing"] .r-facts dt { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-facts dd { margin: 0; font-size: var(--t-body); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-figure--map { margin-top: clamp(40px, 6vw, 96px); }
+main[data-destination="racing"] .r-figure--map > a { display: block; max-width: 1035px; }
+main[data-destination="racing"] .r-figure--map img { border-radius: 12px; background: #e9efe9; }
+
+/* ---- 02 selected results ---- */
+main[data-destination="racing"] .r-results-section { padding-block: var(--section-gap); }
+main[data-destination="racing"] .r-groups { display: grid; gap: clamp(40px, 5vw, 80px); }
+main[data-destination="racing"] .r-group h3 { margin: 0 0 var(--s-4, 16px); font-size: var(--t-h3); font-weight: var(--w-medium); letter-spacing: var(--tracking-heading); }
+main[data-destination="racing"] .r-table { border-top: 2px solid var(--c-fg); }
+main[data-destination="racing"] .r-tr {
+  display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.1fr) minmax(0, 1.5fr) minmax(0, 0.8fr) minmax(0, 1.5fr);
+  gap: var(--s-4, 16px); align-items: start; padding: var(--s-4, 16px) var(--s-3, 12px); border-bottom: 1px solid var(--c-rule);
+}
+main[data-destination="racing"] .r-tr--head { padding-block: var(--s-3, 12px); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-tr.is-featured { background: var(--r-card); box-shadow: inset 4px 0 0 var(--r-vermilion); }
+main[data-destination="racing"] .r-title { display: block; font-size: var(--t-body); font-weight: var(--w-medium); line-height: 1.25; }
+main[data-destination="racing"] .r-sub { display: block; margin-top: 4px; font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-pill { display: inline-block; padding: 0 8px; border: 1px solid var(--c-rule); border-radius: 999px; font-size: var(--t-label); color: var(--c-fg); background: var(--c-bg); }
+main[data-destination="racing"] .r-cell { font-size: var(--t-body); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-cell time { color: var(--c-fg-mute); font-size: var(--t-small); }
+main[data-destination="racing"] .r-bar { display: block; height: 4px; width: var(--w, 0%); max-width: 100%; margin-bottom: 8px; border-radius: 2px; background: var(--r-vermilion); transform-origin: 0 50%; }
+main[data-destination="racing"].r-motion .r-bar:not(.is-in) { transform: scaleX(0); }
+main[data-destination="racing"] .r-bar { transition: transform 700ms var(--ease-out, ease-out); }
+main[data-destination="racing"] .r-cell--time strong, main[data-destination="racing"] .r-cell--time b { font-weight: var(--w-medium); }
+main[data-destination="racing"] .r-cell--time .r-time { padding: 0 0 8px; margin: 0 0 8px; border: 0; }
+main[data-destination="racing"] .r-cell--time .r-time:last-child { padding-bottom: 0; margin-bottom: 0; }
+main[data-destination="racing"] .r-cell--time .r-time strong, main[data-destination="racing"] .r-cell--time .r-time b { display: inline; font-size: inherit; letter-spacing: 0; }
+main[data-destination="racing"] .r-cell--time .r-time--official b { color: var(--r-link); }
+main[data-destination="racing"] .time-label { display: block; font-size: var(--t-label); letter-spacing: 0.02em; color: var(--c-fg-mute); font-weight: var(--w-regular); }
+
+/* ---- 03 training and approach ---- */
+main[data-destination="racing"] .r-training { padding-block: var(--section-gap); background: var(--r-card); }
+main[data-destination="racing"] .r-tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--r-gap); margin: 0; padding: 0; list-style: none; }
+main[data-destination="racing"] .r-tiles li { padding-top: var(--s-5, 24px); border-top: 2px solid var(--c-fg); }
+main[data-destination="racing"] .r-num { margin: 0 0 var(--s-3, 12px); font-size: clamp(3rem, 1.6rem + 4.2vw, 5.5rem); line-height: 1; letter-spacing: -0.04em; font-weight: var(--w-medium); color: var(--r-link); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-num span { font-size: 0.4em; letter-spacing: 0; color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-tiles h3 { margin: 0 0 var(--s-2, 8px); font-size: var(--t-h3); font-weight: var(--w-medium); line-height: 1.15; }
+main[data-destination="racing"] .r-tiles p:not(.r-num) { margin: 0; font-size: var(--t-body); line-height: var(--lh-body); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-routes { margin-top: clamp(48px, 6vw, 96px); }
+main[data-destination="racing"] .r-route-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--r-gap); margin: 0; padding: 0; list-style: none; }
+main[data-destination="racing"] .r-route-list a { display: block; color: var(--c-fg); text-decoration: none; }
+main[data-destination="racing"] .r-route-list img { display: block; width: 100%; height: auto; border-radius: 12px; background: #e9efe9; border: 1px solid var(--c-rule); }
+main[data-destination="racing"] .r-route-list span { display: block; margin-top: var(--s-2, 8px); font-size: var(--t-small); }
+main[data-destination="racing"] .r-route-list a:hover span { text-decoration: underline; }
+main[data-destination="racing"] .r-hikes { margin-top: clamp(56px, 7vw, 112px); padding-top: var(--s-7, 48px); border-top: 1px solid var(--c-rule); }
+main[data-destination="racing"] .r-hikes header .label { margin: 0 0 var(--s-3, 12px); color: var(--r-link); }
+main[data-destination="racing"] .r-hikes header p.measure { margin: 0; font-size: var(--t-body); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-hike-summary { display: flex; flex-wrap: wrap; gap: var(--s-6, 32px) var(--s-8, 64px); margin: var(--s-6, 32px) 0; }
+main[data-destination="racing"] .r-hike-summary p { margin: 0; display: grid; gap: 2px; }
+main[data-destination="racing"] .r-hike-summary strong { font-size: var(--t-h2); line-height: 1; letter-spacing: -0.03em; font-weight: var(--w-medium); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-hike-summary span { max-width: 22ch; font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-ultra { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: var(--s-4, 16px); margin: 0 0 var(--s-6, 32px); padding: 0; list-style: none; }
+main[data-destination="racing"] .r-hike { padding: var(--s-4, 16px); border: 1px solid var(--c-rule); border-radius: 12px; background: var(--c-bg); }
+main[data-destination="racing"] .r-hike.is-complete { box-shadow: inset 0 3px 0 var(--r-vermilion); }
+main[data-destination="racing"] .r-hike h4 { margin: 4px 0; font-size: var(--t-body); font-weight: var(--w-medium); }
+main[data-destination="racing"] .r-hike p { margin: 0; font-size: var(--t-small); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-hike-where b { font-weight: var(--w-medium); color: var(--c-fg); }
+
+/* ---- 04 explore the data ---- */
+main[data-destination="racing"] .r-explore { padding-block: var(--section-gap); }
+main[data-destination="racing"] .r-explore-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--r-gap); }
+main[data-destination="racing"] .r-card h3 { margin: 0 0 var(--s-3, 12px); font-size: var(--t-h3); font-weight: var(--w-medium); line-height: 1.12; letter-spacing: var(--tracking-heading); }
+main[data-destination="racing"] .r-card .label { margin: 0 0 var(--s-4, 16px); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-card p { margin: 0 0 var(--s-4, 16px); font-size: var(--t-body); line-height: 1.5; }
+main[data-destination="racing"] .r-card p.label { font-size: var(--t-label); line-height: 1.3; }
+main[data-destination="racing"] .r-card--app { --c-fg: var(--r-ice); --c-fg-mute: #A7BACB; --c-rule: rgb(238 243 246 / 0.16); --r-link: var(--r-link-dark); background: var(--r-forest); color: var(--c-fg); border-color: transparent; }
+main[data-destination="racing"] .r-card--log { background: var(--r-card); }
+main[data-destination="racing"] .r-note { font-size: var(--t-small) !important; color: var(--c-fg-mute); margin-bottom: 0 !important; }
+main[data-destination="racing"] a.r-button {
+  display: inline-flex; align-items: center; gap: 0.6em; min-height: 48px; padding: 0 22px; border-radius: 999px;
+  background: var(--r-vermilion); color: #FFFFFF; font-weight: var(--w-medium); text-decoration: none; font-size: var(--t-body);
+  transition: transform var(--d-short, 250ms) var(--ease-out, ease-out), background var(--d-short, 250ms);
+}
+main[data-destination="racing"] a.r-button:hover { background: #0F55A6; color: #FFFFFF; transform: translateY(-1px); }
+main[data-destination="racing"] a.r-button--quiet { background: transparent; color: var(--c-fg); border: 1px solid var(--c-fg); }
+main[data-destination="racing"] a.r-button--quiet:hover { background: var(--c-fg); color: var(--c-bg); }
+
+/* ---- disclosures ---- */
+main[data-destination="racing"] .r-disclosure { border-top: 1px solid var(--c-rule); }
+main[data-destination="racing"] .r-disclosure:last-of-type, main[data-destination="racing"] .r-calc { border-bottom: 1px solid var(--c-rule); }
+main[data-destination="racing"] .r-disclosure > summary {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px var(--s-4, 16px);
+  padding: var(--s-5, 24px) 0; cursor: pointer; list-style: none; min-height: 48px;
+}
+main[data-destination="racing"] .r-disclosure > summary::-webkit-details-marker { display: none; }
+main[data-destination="racing"] .r-disclosure > summary > span { font-size: var(--t-h3); font-weight: var(--w-medium); line-height: 1.15; letter-spacing: var(--tracking-heading); }
+main[data-destination="racing"] .r-disclosure > summary > small { grid-column: 1; font-size: var(--t-small); color: var(--c-fg-mute); max-width: var(--measure); }
+main[data-destination="racing"] .r-disclosure > summary::after {
+  content: ''; grid-column: 2; grid-row: 1 / span 2; width: 14px; height: 14px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-3px, -3px); transition: transform var(--d-medium, 400ms) var(--ease-out, ease-out); margin-right: 6px;
+}
+main[data-destination="racing"] .r-disclosure[open] > summary::after { transform: rotate(-135deg) translate(-3px, -3px); }
+main[data-destination="racing"] .r-disclosure[open] > summary { padding-bottom: var(--s-4, 16px); }
+main[data-destination="racing"] .r-disclosure > summary:hover > span { color: var(--r-link); }
+main[data-destination="racing"] .r-disclosure .r-disclosure { border-top: 0; }
+main[data-destination="racing"] .r-disclosure .r-disclosure > summary > span { font-size: var(--t-body); }
+main[data-destination="racing"] .r-calc { margin-top: var(--r-gap); }
+main[data-destination="racing"] .r-calc-body { display: grid; gap: var(--s-8, 64px); padding: var(--s-4, 16px) 0 var(--s-8, 64px); }
+
+/* ---- calculator ---- */
+main[data-destination="racing"] .r-form { display: grid; gap: var(--s-6, 32px); }
+main[data-destination="racing"] .r-form-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-4, 16px); }
+main[data-destination="racing"] .r-form-head .label { margin: 0 0 var(--s-2, 8px); color: var(--r-link); }
+main[data-destination="racing"] .r-form-head h3 { margin: 0; font-size: var(--t-h3); font-weight: var(--w-medium); }
+main[data-destination="racing"] .r-reset { min-height: 44px; padding: 0 18px; border: 1px solid var(--c-rule); border-radius: 999px; background: transparent; color: var(--c-fg); font: inherit; font-size: var(--t-small); cursor: pointer; }
+main[data-destination="racing"] .r-reset:hover { border-color: var(--c-fg); }
+main[data-destination="racing"] .r-bench, main[data-destination="racing"] .r-exact { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-5, 24px); }
+main[data-destination="racing"] .r-field { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: var(--s-2, 8px); align-content: start; }
+main[data-destination="racing"] .r-field legend { padding: 0; margin-bottom: var(--s-2, 8px); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-flabel, main[data-destination="racing"] .r-time-inputs span { font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-form select, main[data-destination="racing"] .r-form input {
+  width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--c-rule); border-radius: 10px; background: var(--c-bg); color: var(--c-fg);
+  font: inherit; font-size: var(--t-body); font-variant-numeric: tabular-nums;
+}
+main[data-destination="racing"] .r-form select:hover, main[data-destination="racing"] .r-form input:hover { border-color: var(--c-mute); }
+main[data-destination="racing"] .r-time-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3, 12px); }
+main[data-destination="racing"] .r-time-inputs label { display: grid; gap: 6px; }
+main[data-destination="racing"] .r-custom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-3, 12px); }
+main[data-destination="racing"] .r-custom[hidden] { display: none; }
+main[data-destination="racing"] .r-readout { display: grid; align-content: start; gap: 4px; padding: var(--s-5, 24px); border-radius: var(--r-radius); background: var(--r-forest); color: var(--r-ice); }
+main[data-destination="racing"] .r-readout .label { margin: 0; color: #A7BACB; }
+main[data-destination="racing"] .r-readout strong { font-size: clamp(2rem, 1.2rem + 2.4vw, 3.5rem); line-height: 1; letter-spacing: -0.03em; font-weight: var(--w-medium); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-readout span { color: #A7BACB; font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-table-wrap { overflow-x: auto; }
+main[data-destination="racing"] .r-projection { width: 100%; min-width: 520px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-projection th, main[data-destination="racing"] .r-projection td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--c-rule); font-weight: var(--w-regular); }
+main[data-destination="racing"] .r-projection thead th { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); vertical-align: bottom; }
+main[data-destination="racing"] .r-projection thead small { display: block; text-transform: none; letter-spacing: 0; font-size: var(--t-label); margin-top: 2px; }
+main[data-destination="racing"] .r-projection tbody th { font-weight: var(--w-medium); }
+
+/* ---- archive ---- */
+main[data-destination="racing"] .r-archive { padding-block: var(--section-gap); background: var(--r-card); }
+main[data-destination="racing"] .race-groups { display: grid; gap: 0; margin-top: var(--s-2, 8px); }
+main[data-destination="racing"] .race-group { border-top: 1px solid var(--c-rule); }
+main[data-destination="racing"] .race-group > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-4, 16px); padding: var(--s-4, 16px) 0; cursor: pointer; list-style: none; min-height: 48px; }
+main[data-destination="racing"] .race-group > summary::-webkit-details-marker { display: none; }
+main[data-destination="racing"] .race-group > summary b { display: block; font-size: var(--t-body); font-weight: var(--w-medium); }
+main[data-destination="racing"] .race-group > summary small { display: block; font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .race-group > summary em { font-style: normal; font-variant-numeric: tabular-nums; font-size: var(--t-small); min-width: 2em; text-align: center; padding: 2px 10px; border-radius: 999px; background: var(--c-bg); border: 1px solid var(--c-rule); }
+main[data-destination="racing"] .race-group[open] > summary em { background: var(--r-vermilion); border-color: var(--r-vermilion); color: #FFFFFF; }
+main[data-destination="racing"] .race-row {
+  display: grid; grid-template-columns: 8.5em minmax(0, 1.8fr) minmax(0, 1fr) minmax(7em, auto); gap: var(--s-4, 16px); align-items: center;
+  padding: var(--s-3, 12px) 0; border-top: 1px solid var(--c-rule);
+}
+main[data-destination="racing"] .race-row time { font-size: var(--t-small); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .race-row > div:not(.race-time):not(.race-result) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+main[data-destination="racing"] .race-title { font-weight: var(--w-medium); font-size: var(--t-body); }
+main[data-destination="racing"] .discipline-pill { padding: 0 8px; border: 1px solid var(--c-rule); border-radius: 999px; font-size: var(--t-label); background: var(--c-bg); }
+main[data-destination="racing"] .race-meta { margin: 0; font-size: var(--t-small); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .race-row strong, main[data-destination="racing"] .race-row .race-time b { font-weight: var(--w-medium); font-variant-numeric: tabular-nums; font-size: var(--t-body); }
+main[data-destination="racing"] .race-row .race-time, main[data-destination="racing"] .race-row .race-result { text-align: right; display: grid; justify-items: end; gap: 0; }
+main[data-destination="racing"] .race-row .race-time + .race-time { margin-top: 6px; }
+main[data-destination="racing"] .race-row .race-time--official b { color: var(--r-link); }
+main[data-destination="racing"] .race-row .time-label { font-size: var(--t-label); }
+main[data-destination="racing"] .race-pace { font-size: var(--t-label); color: var(--c-fg-mute); }
+main[data-destination="racing"] .race-strava-link { font-size: var(--t-label); }
+main[data-destination="racing"] .race-route-thumb { flex: 0 0 auto; display: block; width: 104px; }
+main[data-destination="racing"] .race-route-thumb img { display: block; width: 104px; height: 35px; object-fit: cover; border-radius: 6px; border: 1px solid var(--c-rule); }
+main[data-destination="racing"] .summit-activities { display: grid; gap: 0; margin-top: var(--s-2, 8px); }
+main[data-destination="racing"] .summit-activities details { border-top: 1px solid var(--c-rule); }
+main[data-destination="racing"] .summit-activities summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-4, 16px); align-items: center; padding: var(--s-3, 12px) 0; cursor: pointer; list-style: none; min-height: 44px; }
+main[data-destination="racing"] .summit-activities summary::-webkit-details-marker { display: none; }
+main[data-destination="racing"] .summit-activities b { display: block; font-weight: var(--w-medium); font-size: var(--t-body); }
+main[data-destination="racing"] .summit-activities small { display: block; font-size: var(--t-small); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .summit-activities em { font-style: normal; font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .summit-activities ul { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 0; padding: 0 0 var(--s-4, 16px); list-style: none; }
+main[data-destination="racing"] .summit-activities li { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--c-rule); font-size: var(--t-small); background: var(--c-bg); }
+
+/* soccer */
+main[data-destination="racing"] .r-soccer { display: grid; gap: var(--s-6, 32px); padding-bottom: var(--s-6, 32px); }
+main[data-destination="racing"] .soccer-metrics { display: flex; flex-wrap: wrap; gap: var(--s-5, 24px) var(--s-8, 64px); }
+main[data-destination="racing"] .soccer-metrics div { display: grid; gap: 2px; }
+main[data-destination="racing"] .soccer-metrics strong { font-size: var(--t-h2); line-height: 1; letter-spacing: -0.03em; font-weight: var(--w-medium); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .soccer-metrics span { font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .soccer-session-list { display: grid; gap: 10px; max-width: 640px; }
+main[data-destination="racing"] .soccer-session-list > div { display: grid; grid-template-columns: 4.5em minmax(0, 1fr) 5.5em; gap: var(--s-4, 16px); align-items: center; font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .soccer-session-list time { font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .soccer-session-list span { height: 6px; border-radius: 3px; background: var(--c-rule); overflow: hidden; }
+main[data-destination="racing"] .soccer-session-list i { display: block; height: 100%; width: var(--session, 0%); background: var(--r-vermilion); border-radius: 3px; }
+main[data-destination="racing"] .soccer-session-list strong { text-align: right; font-weight: var(--w-medium); font-size: var(--t-small); }
+main[data-destination="racing"] a.palace-card { display: grid; gap: 2px; justify-self: start; min-width: min(100%, 280px); padding: var(--s-5, 24px) var(--s-5, 24px) var(--s-5, 24px) calc(var(--s-5, 24px) + 14px); border-radius: var(--r-radius); border: 1px solid var(--c-rule); background: var(--c-bg); color: var(--c-fg); text-decoration: none; position: relative; overflow: hidden; }
+main[data-destination="racing"] .palace-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 14px; background: linear-gradient(90deg, #1B458F 0 50%, #C4122E 50% 100%); }
+main[data-destination="racing"] .palace-card > span:first-child { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+main[data-destination="racing"] .palace-card strong { font-size: var(--t-h3); font-weight: var(--w-medium); }
+main[data-destination="racing"] .palace-card small { font-size: var(--t-small); color: var(--r-link); }
+main[data-destination="racing"] a.palace-card:hover { border-color: var(--c-fg); color: var(--c-fg); }
+
+/* ---- wider screens ---- */
+@media (min-width: 720px) {
+  main[data-destination="racing"] .r-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  main[data-destination="racing"] .r-route-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  main[data-destination="racing"] .r-bench { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.9fr); align-items: start; }
+  main[data-destination="racing"] .r-exact { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr); align-items: start; }
+}
+@media (min-width: 1024px) {
+  main[data-destination="racing"] .r-feature-body { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(48px, 7vw, 128px); }
+  main[data-destination="racing"] .r-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  main[data-destination="racing"] .r-explore-grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+}
+
+/* ---- phones: result rows become cards ---- */
+@media (max-width: 719px) {
+  main[data-destination="racing"] .r-tr--head { display: none; }
+  main[data-destination="racing"] .r-tr { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 12px; padding: var(--s-4, 16px) var(--s-3, 12px); }
+  main[data-destination="racing"] .r-tr .r-event { grid-column: 1 / -1; order: -2; }
+  main[data-destination="racing"] .r-cell::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+  main[data-destination="racing"] .r-cell--dist { grid-column: 1 / -1; order: -1; }
+  main[data-destination="racing"] .r-cell--dist .r-bar { margin-bottom: 6px; }
+  main[data-destination="racing"] .r-cell { font-size: var(--t-small); }
+  main[data-destination="racing"] .r-cell .r-v, main[data-destination="racing"] .r-cell--time strong { font-size: var(--t-body); }
+  main[data-destination="racing"] .race-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: var(--s-4, 16px) 0; }
+  main[data-destination="racing"] .race-row time { grid-column: 1 / -1; }
+  main[data-destination="racing"] .race-row .race-meta { grid-column: 1; grid-row: 3; }
+  main[data-destination="racing"] .race-row > div:not(.race-time):not(.race-result) { grid-column: 1; }
+  main[data-destination="racing"] .race-row > strong, main[data-destination="racing"] .race-row > .race-time, main[data-destination="racing"] .race-row > .race-result { grid-column: 2; grid-row: 2 / span 2; }
+  main[data-destination="racing"] .race-route-thumb { width: 88px; }
+  main[data-destination="racing"] .race-route-thumb img { width: 88px; height: 30px; }
+  main[data-destination="racing"] .r-form-head { flex-wrap: wrap; }
+}
+
+html.motion-paused main[data-destination="racing"] .r-bar, html.motion-paused main[data-destination="racing"] a.r-button, html.motion-paused main[data-destination="racing"] .r-disclosure > summary::after { transition: none; }
+html.motion-paused main[data-destination="racing"].r-motion .r-bar:not(.is-in) { transform: none; }
+html.motion-paused main[data-destination="racing"] .r-bar, html.motion-paused main[data-destination="racing"] a.r-button { transition: none; }
+html.motion-paused main[data-destination="racing"].r-motion .r-bar:not(.is-in) { transform: none; }
+
+/* ---- v3: the Birkie at race pace, every race, the move notice ---------------------------------- */
+@media (min-width: 1000px) { main[data-destination="racing"] .r-feature-body { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); align-items: center; } }
+main[data-destination="racing"] .r-feature-body .r-figure--route { margin-top: 0; }
+main[data-destination="racing"] .r-feature .r-story { margin-top: clamp(32px, 4vw, 56px); }
+main[data-destination="racing"] .r-route-svg { max-width: 420px; }
+main[data-destination="racing"] .r-pace { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; width: 100%; max-width: 420px; margin: 0; font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-pace-clock { font-size: clamp(2.2rem, 1.4rem + 2.4vw, 3.6rem); font-weight: 700; letter-spacing: -0.04em; color: var(--r-link-dark); }
+main[data-destination="racing"] .r-pace-km { font-size: var(--t-label); letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-feature .rt-dot { stroke: #8FD0FF; fill: var(--r-forest); }
+main[data-destination="racing"] .r-replay { margin-left: 8px; padding: 2px 12px; border: 1px solid currentColor; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: var(--t-label); cursor: pointer; }
+main[data-destination="racing"] .r-replay[hidden] { display: none; }
+main[data-destination="racing"] .r-note { max-width: 60ch; }
+
+main[data-destination="racing"] .r-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--s-5, 24px); }
+main[data-destination="racing"] .r-filters[hidden] { display: none; }
+main[data-destination="racing"] .r-chip { display: inline-flex; align-items: baseline; gap: 8px; min-height: 40px; padding: 0 16px; border: 1px solid var(--c-rule); border-radius: 999px; background: var(--r-card); color: var(--c-fg); font: inherit; font-size: var(--t-small); cursor: pointer; }
+main[data-destination="racing"] .r-chip small { color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-chip[aria-pressed="true"] { background: var(--c-fg); color: var(--c-bg); border-color: var(--c-fg); }
+main[data-destination="racing"] .r-chip[aria-pressed="true"] small { color: inherit; opacity: 0.7; }
+main[data-destination="racing"] .r-race-list { margin: 0; padding: 0; list-style: none; border-top: 2px solid var(--c-fg); }
+main[data-destination="racing"] .r-race { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 20px; padding: 14px 0; border-bottom: 1px solid var(--c-rule); align-items: baseline; }
+main[data-destination="racing"] .r-race[hidden] { display: none; }
+@media (min-width: 820px) { main[data-destination="racing"] .r-race { grid-template-columns: 8.5rem minmax(0, 1fr) minmax(0, 15rem) 9rem; } }
+main[data-destination="racing"] .r-race time { font-size: var(--t-small); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-race-title { font-weight: var(--w-medium); }
+main[data-destination="racing"] .r-race-sub { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-top: 2px; font-size: var(--t-small); color: var(--c-fg-mute); }
+main[data-destination="racing"] .r-race-dist { font-size: var(--t-small); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-race-time { text-align: right; font-variant-numeric: tabular-nums; }
+main[data-destination="racing"] .r-race-time strong { font-size: 1.05rem; }
+main[data-destination="racing"] .r-race-time small { display: block; font-size: var(--t-label); color: var(--c-fg-mute); }
+@media (max-width: 819px) { main[data-destination="racing"] .r-race time, main[data-destination="racing"] .r-race-dist { grid-column: 1; } main[data-destination="racing"] .r-race-time { grid-column: 2; grid-row: 1 / 3; } }
+main[data-destination="racing"] .r-moved { margin-top: clamp(48px, 6vw, 96px); padding: var(--s-5, 24px); border: 1px dashed var(--c-rule); border-radius: var(--r-radius); font-size: var(--t-body); }
+main[data-destination="racing"] .r-soccer-section { padding-block: var(--section-gap); }

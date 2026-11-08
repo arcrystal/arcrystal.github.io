@@ -1,0 +1,55 @@
+{
+  "docTitle": "Coding — Alex Crystal",
+  "description": "Case studies by Alex Crystal: the AI Power Map, Birkie Race Intelligence and mBONITA, plus further work in language models and applied AI.",
+  "line": "Signal in the dark: three working systems, from a sourced map of AI to multiomics research.",
+  "lede": "Three case studies, each with the problem behind it, Alex’s part in it and what exists as a result, plus further work in language models and applied AI.",
+  "index": [
+    [
+      "#projects",
+      "Case studies"
+    ],
+    [
+      "#ai-power-map",
+      "AI Power Map"
+    ],
+    [
+      "#birkie-race-intelligence",
+      "Birkie Race Intelligence"
+    ],
+    [
+      "#mbonita",
+      "mBONITA"
+    ]
+  ],
+  "module": null,
+  "styles": [
+    "coding.css"
+  ],
+  "fragments": {},
+  "preview": {
+    "image": "images/pv-aimap-top.webp",
+    "imageSize": [
+      960,
+      600
+    ],
+    "imageAlt": "",
+    "prompt": "ls ~/case-studies",
+    "rows": [
+      [
+        "01",
+        "ai-power-map",
+        "224 moments · 312 citations"
+      ],
+      [
+        "02",
+        "birkie-race-intel",
+        "full-field results explorer"
+      ],
+      [
+        "03",
+        "mbonita",
+        "J. Proteome Res. · 2023"
+      ]
+    ]
+  }
+}

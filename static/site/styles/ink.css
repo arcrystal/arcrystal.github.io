@@ -1,0 +1,75 @@
+/* Ink & Mist — ink wash, without motifs. Warm paper, ink black and one deep indigo; abstract ridges
+   dissolving into mist (drawn by the scene; the SVG ridges below stand in without WebGL), a brushed
+   board, Shippori Mincho and wide margins. Chess. */
+
+[data-style="ink"] {
+  --c-bg: #F3EEE3; --c-surface: #FBF8F1; --c-fg: #1C1A17; --c-fg-mute: #6B645A;
+  --c-accent: #2F4A6B; --c-accent-2: #8E877C; --c-accent-3: #9A9389;
+  --c-rule: rgb(28 26 23 / 0.16); --c-link: #2F4A6B; --c-on-accent: #FBF8F1; --c-focus: #2F4A6B;
+  --font-display: 'Shippori Mincho', Georgia, 'Times New Roman', serif;
+  --w-display: 800; --tracking-display: -0.01em; --lh-display: 1.04;
+  --tracking-label: 0.28em; --radius-card: 2px; --radius-media: 0px;
+  --brush: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 22' preserveAspectRatio='none'%3E%3Cpath d='M3 13C36 6 92 3 168 4c26 0 52 2 68 5 3 1 2 5-2 5-44-1-108 1-170 5-26 2-46 3-58 3-5 0-6-6-3-9z' fill='%231C1A17'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+
+/* ---- Art without WebGL: ridges in mist on paper --------------------------------------------- */
+.art--ink { background: #F3EEE3; overflow: hidden; }
+.art--ink .art-mist { position: absolute; left: 0; bottom: 0; width: 100%; height: 58%; }
+.js:not(.motion-paused) .art--ink .art-mist path:last-child { animation: ink-drift 26s var(--ease-in-out) infinite alternate; }
+.js:not(.motion-paused) .art--ink .art-mist path:nth-last-child(2) { animation: ink-drift 34s var(--ease-in-out) -9s infinite alternate-reverse; }
+@keyframes ink-drift { to { translate: -40px 0; } }
+
+/* ---- Titles: the title is brushed in from the left; it lifts away upward ----------------------- */
+
+main[data-style="ink"] .d-title .tt {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--in) * 135% - 35%), transparent calc(var(--in) * 135%));
+  mask-image: linear-gradient(90deg, #000 calc(var(--in) * 135% - 35%), transparent calc(var(--in) * 135%));
+}
+
+main[data-style="ink"] .d-title::after {
+  content: ""; display: block; width: min(68%, 360px); height: 0.2em; margin-top: 0.12em; background: var(--brush) left / 100% 100% no-repeat;
+  clip-path: inset(0 calc((1 - clamp(0, var(--in) * 2 - 1, 1)) * 100%) 0 0);
+  opacity: calc(1 - var(--out));
+}
+
+/* ---- Preview: the Scotch Game on a brushed board ------------------------------------------- */
+.pv--chess { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: 4%; padding: 11% 11% 8%; text-align: center; }
+.pv--chess .pv-cap { display: grid; gap: 4px; font-family: 'Shippori Mincho', Georgia, serif; font-weight: 800; font-size: clamp(0.95rem, 0.7rem + 0.6vw, 1.35rem); line-height: 1.2; color: #1C1A17; }
+.pv--chess .pv-moves { font-family: var(--font); font-weight: 500; font-size: 0.6em; letter-spacing: 0.1em; color: #6B645A; }
+.pv--chess .pv-board-wrap { height: 100%; aspect-ratio: 1; min-height: 0; padding: 4px; }
+.pv-board { width: 100%; height: 100%; overflow: visible; }
+.pv-sq-light { fill: #FBF8F1; }
+.pv-sq-dark { fill: #1C1A17; fill-opacity: 0.2; }
+.pv-edge { fill: none; stroke: #1C1A17; stroke-width: 3.2; stroke-linejoin: round; }
+.pv-hl { fill: #2F4A6B; fill-opacity: 0.34; }
+.pv-drop { fill: #1C1A17; transform-box: fill-box; transform-origin: center; }
+.js:not(.motion-paused) .pv-drop { animation: ink-drop 1100ms var(--ease-out) both; }
+@keyframes ink-drop { from { transform: scale(0.15); fill-opacity: 0.5; } to { transform: scale(1.7); fill-opacity: 0; } }
+.pv-board use { transition: transform 460ms var(--ease-out), opacity 300ms; }
+.pv--chess .pv-ratings { display: grid; grid-template-columns: repeat(3, auto); justify-content: center; gap: 0 clamp(16px, 3vw, 40px); }
+.pv--chess .pv-ratings dt { font-size: 0.6rem; letter-spacing: 0.26em; text-transform: uppercase; color: #6B645A; }
+.pv--chess .pv-ratings dd { margin: 2px 0 0; font-family: 'Shippori Mincho', Georgia, serif; font-weight: 800; font-size: clamp(1.1rem, 0.7rem + 1vw, 1.65rem); font-variant-numeric: tabular-nums; color: #1C1A17; }
+.pv--chess .pv-ratings.is-offline > div { display: none; }
+.pv--chess .pv-ratings.is-offline::after { content: "Live ratings on Chess.com"; grid-column: 1 / -1; font-size: 0.66rem; letter-spacing: 0.24em; text-transform: uppercase; color: #6B645A; }
+
+/* ---- Destination hero ---------------------------------------------------------------------- */
+main[data-style="ink"] .d-title { font-size: clamp(3.6rem, 1rem + 9vw, 10rem); }
+/* The ridges can rise behind the hero's lines: a halo of paper keeps them legible. */
+main[data-style="ink"] .d-lede, main[data-style="ink"] .d-kicker { text-shadow: 0 0 14px #F3EEE3, 0 0 4px #F3EEE3, 0 0 28px #F3EEE3; }
+main[data-style="ink"] .d-hero .art-mist { height: 46%; }
+main[data-style="ink"] .d-kicker::before { content: ""; width: 22px; height: 2px; background: currentColor; align-self: center; }
+main[data-style="ink"] .d-index a { border-radius: 2px; border-color: rgb(28 26 23 / 0.45); background: rgb(251 248 241 / 0.78); }
+main[data-style="ink"] .d-index a:hover { background: #1C1A17; color: #FBF8F1; }
+
+/* ---- Content ----------------------------------------------------------------------------- */
+main[data-style="ink"] .d-content h2 { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; }
+main[data-style="ink"] .d-content h3 { font-family: var(--font-display); font-weight: 800; }
+main[data-style="ink"] .d-content a { text-decoration-color: rgb(47 74 107 / 0.55); }
+
+.d-next[data-style="ink"] .d-next-card { background: #FBF8F1; border: 1px solid rgb(28 26 23 / 0.18); border-radius: 2px; box-shadow: 0 34px 70px -40px rgb(28 26 23 / 0.5); }
+.d-next[data-style="ink"] .d-next-arrow { color: #2F4A6B; }
+
+/* ---- Expand without WebGL: one sweep of ink, then it lifts --------------------------------- */
+.xp-inkwash { inset: 0; width: 100%; height: 100%; }
+.xp-inkwash path { fill: none; stroke: #1C1A17; stroke-linecap: butt; }

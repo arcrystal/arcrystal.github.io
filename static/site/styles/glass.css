@@ -1,0 +1,76 @@
+/* Glacier — clean, glassy. Ice white and glacier blue with a mint and a race-bib red used sparingly.
+   The scene draws caustic light through ice and the card's own frost and refraction; the soft orbs
+   below stand in without WebGL. Tight DM Sans. Racing. */
+
+[data-style="glass"] {
+  --c-bg: #E8F0F6; --c-surface: rgb(255 255 255 / 0.58); --c-fg: #0A1E2C; --c-fg-mute: #46596A;
+  --c-accent: #1767C2; --c-accent-2: #2BD9A8; --c-accent-3: #FF5A3C;
+  --c-rule: rgb(10 30 44 / 0.12); --c-link: #1767C2; --c-on-accent: #FFFFFF; --c-focus: #1767C2;
+  --glass: rgb(255 255 255 / 0.5); --glass-edge: rgb(255 255 255 / 0.9);
+  --w-display: 720; --tracking-display: -0.055em; --lh-display: 0.9;
+  --radius-card: 24px; --radius-media: 18px;
+  color-scheme: light;
+}
+
+/* ---- Art: light through ice ------------------------------------------------------------- */
+.art--glass { background: linear-gradient(160deg, #F4F9FC 0%, #E4EEF6 46%, #D6E5F1 100%); overflow: hidden; }
+.art--glass .art-orb { position: absolute; border-radius: 50%; }
+.art--glass .art-orb--1 { width: 70vmax; height: 70vmax; left: -22vmax; top: -30vmax; background: radial-gradient(circle, rgb(120 182 240 / 0.6) 0%, transparent 62%); }
+.art--glass .art-orb--2 { width: 58vmax; height: 58vmax; right: -18vmax; top: 18%; background: radial-gradient(circle, rgb(110 236 200 / 0.42) 0%, transparent 62%); }
+.art--glass .art-orb--3 { width: 50vmax; height: 50vmax; left: 28%; bottom: -26vmax; background: radial-gradient(circle, rgb(255 255 255 / 0.95) 0%, transparent 62%); }
+.js:not(.motion-paused) .art--glass .art-orb--1 { animation: glass-drift 26s var(--ease-in-out) infinite alternate; }
+.js:not(.motion-paused) .art--glass .art-orb--2 { animation: glass-drift 32s var(--ease-in-out) -8s infinite alternate-reverse; }
+.js:not(.motion-paused) .art--glass .art-orb--3 { animation: glass-drift 22s var(--ease-in-out) -4s infinite alternate; }
+@keyframes glass-drift { to { translate: 6vmax 4vmax; } }
+.art--glass .art-grid {
+  position: absolute; inset: 0;
+  background-image: linear-gradient(rgb(10 30 44 / 0.07) 1px, transparent 1px), linear-gradient(90deg, rgb(10 30 44 / 0.07) 1px, transparent 1px);
+  background-size: 72px 72px; background-position: center;
+  -webkit-mask: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 80%); mask: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 80%);
+}
+.art--glass .art-streak { position: absolute; inset: -30%; background: linear-gradient(115deg, transparent 44%, rgb(255 255 255 / 0.55) 49%, transparent 54%); }
+.js:not(.motion-paused) .art--glass .art-streak { animation: glass-streak 11s var(--ease-in-out) infinite; }
+@keyframes glass-streak { 0%, 55% { translate: -40% 0; } 100% { translate: 40% 0; } }
+
+main[data-style="glass"] .d-title .ch {
+  --e: calc(1 - (1 - var(--ci)) * (1 - var(--ci)) * (1 - var(--ci)));
+  translate: 0 calc((1 - var(--e)) * 0.7em + var(--co) * var(--co) * 0.6em);
+  opacity: calc(clamp(0, var(--ci) * 2, 1) * (1 - var(--co)));
+}
+
+ }
+
+.js:not(.motion-paused) .r-route-svg.is-drawn .rt-line { animation: route-draw 1800ms 200ms var(--ease-in-out) both; }
+@keyframes route-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+/* ---- Destination hero: a frosted pane -------------------------------------------------- */
+main[data-style="glass"] .d-hero-inner {
+  width: auto; max-width: 1040px; padding: clamp(28px, 4vw, 64px);
+  margin-left: max(var(--gutter), calc((100vw - var(--wrap)) / 2 + var(--gutter))); margin-right: var(--gutter);
+  background: rgb(255 255 255 / 0.42); border: 1px solid rgb(255 255 255 / 0.9); border-radius: 36px;
+  -webkit-backdrop-filter: blur(26px) saturate(1.5); backdrop-filter: blur(26px) saturate(1.5);
+  box-shadow: inset 0 1px 0 #fff, 0 40px 90px -40px rgb(10 42 68 / 0.35);
+}
+main[data-style="glass"] .d-kicker { color: #1767C2; }
+main[data-style="glass"] .d-title { font-size: clamp(3.4rem, 1rem + 9vw, 10.5rem); }
+main[data-style="glass"] .d-index a { background: rgb(255 255 255 / 0.55); border-color: rgb(255 255 255 / 0.95); box-shadow: 0 6px 16px -10px rgb(10 42 68 / 0.4); }
+main[data-style="glass"] .d-index a:hover { background: #fff; }
+.js:not(.motion-paused) main[data-style="glass"] [data-hero].is-in .d-hero-inner { animation: glass-pane 1100ms var(--ease-spring) both; }
+@keyframes glass-pane { from { opacity: 0; scale: 0.96; translate: 0 30px; } to { opacity: 1; scale: 1; translate: 0 0; } }
+
+body[data-style="glass"] { background: radial-gradient(90vmax 60vmax at 0% 0%, rgb(160 205 245 / 0.5), transparent 60%), radial-gradient(80vmax 60vmax at 100% 60%, rgb(150 240 210 / 0.32), transparent 60%), #E8F0F6; background-attachment: fixed; }
+main[data-style="glass"] .d-content h2 { font-weight: 720; letter-spacing: -0.04em; }
+
+.d-next[data-style="glass"] .d-next-card {
+  background: rgb(255 255 255 / 0.5); border: 1px solid rgb(255 255 255 / 0.95); border-radius: 32px;
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5); box-shadow: inset 0 1px 0 #fff, 0 40px 90px -40px rgb(10 42 68 / 0.35);
+}
+
+/* ---- Expand: a fresh pane ------------------------------------------------------------------ */
+.xp-pane { inset: 0; background: rgb(240 246 250 / 0.6); -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5); overflow: hidden; }
+.xp-pane::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 1px 0 #fff, inset 0 0 0 1px rgb(255 255 255 / 0.8); border-radius: inherit; }
+.xp-spec { position: absolute; top: -20%; bottom: -20%; width: 40%; background: linear-gradient(105deg, transparent, rgb(255 255 255 / 0.85) 50%, transparent); filter: blur(6px); }
+.xp-pane.is-clearing {
+  -webkit-mask: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent var(--xp-r), #000 calc(var(--xp-r) + 160px));
+  mask: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent var(--xp-r), #000 calc(var(--xp-r) + 160px));
+}

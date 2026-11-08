@@ -1,0 +1,65 @@
+/* Science page, in the Liquid Cosmos style: four chapters, each a short text beside a live
+   experiment (sims/*.js, mounted by page.js). Until an experiment runs, and without JavaScript, a
+   still drawn in CSS holds its place. Everything is scoped under [data-destination="science"]. */
+[data-destination="science"] .sx-chapter { padding-block: var(--section-gap); scroll-margin-top: calc(var(--header-h) + 16px); }
+[data-destination="science"] .sx-chapter + .sx-chapter { border-top: 1px solid var(--c-rule); }
+[data-destination="science"] .sx-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(28px, 4vw, 64px); }
+@media (min-width: 1000px) {
+  [data-destination="science"] .sx-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; }
+  [data-destination="science"] .sx-grid--flip > .sx-head { order: 2; }
+}
+[data-destination="science"] .sx-head .label { display: flex; gap: 12px; color: var(--c-accent); font-family: var(--font-label); }
+[data-destination="science"] .sx-n { color: var(--c-accent-2); }
+[data-destination="science"] .sx-head h2 { margin: var(--s-3) 0 var(--s-5); font-size: var(--t-h2); line-height: var(--lh-heading); text-wrap: balance; }
+[data-destination="science"] .sx-text { max-width: 52ch; font-size: var(--t-body); line-height: var(--lh-body, 1.6); color: var(--c-fg); }
+[data-destination="science"] .sx-hint { margin-top: var(--s-4); font-family: var(--font-label); font-size: var(--t-label); letter-spacing: 0.04em; color: var(--c-fg-mute); }
+[data-destination="science"] .sx-hint::before { content: "→ "; color: var(--c-accent); }
+
+/* The experiment frames: an instrument window with corner brackets. */
+[data-destination="science"] .sx-sim {
+  position: relative; margin: 0; aspect-ratio: 4 / 3; border: 1px solid var(--c-rule); border-radius: var(--radius-card); overflow: hidden;
+  background: radial-gradient(70% 60% at 70% 30%, rgb(91 59 255 / 0.16), transparent 70%), rgb(13 15 34 / 0.7);
+}
+[data-destination="science"] .sx-sim--wide { aspect-ratio: 16 / 10; }
+[data-destination="science"] .sx-sim--short { aspect-ratio: 16 / 5; }
+[data-destination="science"] .sx-sim::after {
+  content: ""; position: absolute; inset: 8px; pointer-events: none; z-index: 3;
+  --b: linear-gradient(#22E6FF, #22E6FF);
+  background: var(--b) top left / 14px 1.5px no-repeat, var(--b) top left / 1.5px 14px no-repeat, var(--b) top right / 14px 1.5px no-repeat, var(--b) top right / 1.5px 14px no-repeat,
+    var(--b) bottom left / 14px 1.5px no-repeat, var(--b) bottom left / 1.5px 14px no-repeat, var(--b) bottom right / 14px 1.5px no-repeat, var(--b) bottom right / 1.5px 14px no-repeat;
+  opacity: 0.7;
+}
+[data-destination="science"] .sx-pair, [data-destination="science"] .sx-stack { display: grid; gap: var(--s-4); }
+@media (min-width: 700px) { [data-destination="science"] .sx-pair { grid-template-columns: 1fr 1fr; } }
+[data-destination="science"] .sx-sources { padding-block: var(--s-7) var(--section-gap); border-top: 1px solid var(--c-rule); }
+[data-destination="science"] .sx-sources h2 { margin-bottom: var(--s-4); color: var(--c-fg-mute); }
+[data-destination="science"] .sx-source-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: var(--t-small); }
+[data-destination="science"] .sx-source-list a { color: var(--c-fg-mute); text-decoration-color: rgb(185 166 255 / 0.4); }
+[data-destination="science"] .sx-source-list a:hover { color: var(--c-fg); }
+
+/* Controls drawn over an experiment: the phyllotaxis angle, and the Drake equation's form. */
+.sx-control { position: absolute; left: 14px; right: 14px; top: 12px; z-index: 4; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: var(--t-label); color: #A29FC9; }
+.sx-control input { accent-color: #22E6FF; width: 100%; }
+.sx-control output { min-width: 13ch; text-align: right; color: #ECE9FF; font-variant-numeric: tabular-nums; }
+[data-destination="science"] .sx-sim--form { aspect-ratio: auto; padding: 22px 22px 18px; }
+.sx-drake { position: relative; z-index: 2; display: grid; gap: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.sx-drake-n { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; color: #A29FC9; }
+.sx-drake-n output { font-family: 'Unbounded', sans-serif; font-size: clamp(2rem, 1.2rem + 2.4vw, 3.4rem); color: #22E6FF; font-variant-numeric: tabular-nums; }
+.sx-drake-n small { font-size: var(--t-label); }
+.sx-drake-rows { display: grid; gap: 8px; }
+.sx-drake-rows label { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) 9ch; align-items: center; gap: 12px; font-size: var(--t-label); color: #C2BFE6; }
+.sx-drake-rows input { accent-color: #FF3DCB; width: 100%; }
+.sx-drake-rows output { text-align: right; color: #ECE9FF; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .sx-drake-rows label { grid-template-columns: minmax(0, 1fr) 9ch; } .sx-drake-rows input { grid-column: 1 / -1; grid-row: 2; } }
+
+/* The algorithms behind the site: by field, a card each (build_pages.py algorithms_list). */
+[data-destination="science"] .sx-algorithms .sx-head { max-width: 46rem; }
+[data-destination="science"] .sx-i { display: inline-grid; place-items: center; inline-size: 1.4em; block-size: 1.4em; border: 1px solid currentColor; border-radius: 50%; font: italic 600 0.8em/1 Georgia, serif; vertical-align: 0.1em; }
+[data-destination="science"] .sx-algos { display: grid; gap: clamp(40px, 5vw, 72px); margin-top: clamp(32px, 4vw, 56px); }
+[data-destination="science"] .sx-algo-field h3 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 var(--s-4); padding-bottom: 10px; border-bottom: 1px solid var(--c-rule); font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-accent); }
+[data-destination="science"] .sx-algo-field h3 span { color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+[data-destination="science"] .sx-algo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: var(--s-4); margin: 0; padding: 0; list-style: none; }
+[data-destination="science"] .sx-algo-list li { padding: var(--s-4) var(--s-5) var(--s-5); border: 1px solid var(--c-rule); background: rgb(10 12 30 / 0.55); scroll-margin-top: calc(var(--header-h) + 24px); }
+[data-destination="science"] .sx-algo-list h4 { margin: 0 0 6px; font-size: 1.05rem; font-weight: var(--w-medium); line-height: 1.3; }
+[data-destination="science"] .sx-algo-list p { margin: 0; font-size: var(--t-small); line-height: 1.55; color: var(--c-fg-mute); }
+[data-destination="science"] .sx-algo-list .sx-algo-where { margin-top: 8px; font-family: var(--font-label); font-size: var(--t-label); letter-spacing: 0.06em; color: var(--c-accent); }

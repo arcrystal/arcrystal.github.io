@@ -1,0 +1,50 @@
+{
+  "docTitle": "About Me — Alex Crystal",
+  "description": "Alex Crystal, generative AI engineer at MITRE: favourite quotes and inspirations, an interest in research in AI and technology, my path since 2019, and links.",
+  "line": "Generative AI engineer at MITRE, drawn to research in AI and technology.",
+  "lede": "I’m a generative AI engineer at MITRE, drawn to research in AI and technology. Here are the words I keep coming back to, and how I got here.",
+  "index": [
+    [
+      "#quotes",
+      "Quotes and inspirations"
+    ],
+    [
+      "#interests",
+      "What I’m drawn to"
+    ],
+    [
+      "#timeline",
+      "Path"
+    ],
+    [
+      "#experience",
+      "Experience"
+    ],
+    [
+      "#personal",
+      "The rest of me"
+    ]
+  ],
+  "module": "page.js",
+  "styles": [
+    "about.css"
+  ],
+  "fragments": {
+    "#biography": "#interests",
+    "#now": "#interests",
+    "#focus": "#interests",
+    "#built": "#interests",
+    "#ai-power-map": "#interests",
+    "#birkie-race-intelligence": "#interests",
+    "#mbonita": "#interests",
+    "#links": "#personal",
+    "#projects": "#interests",
+    "#case-studies": "#interests",
+    "#further-work": "#interests",
+    "#outside": "#personal"
+  },
+  "preview": {
+    "role": "Generative AI engineer at MITRE",
+    "interest": "Drawn to research in AI and technology: how models learn and reason, what they can be trusted with, and what becomes possible next."
+  }
+}

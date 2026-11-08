@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "about": "The six styles of the site: five destination styles and the neutral house style (About Me, the homepage, the résumé). colors are the page tokens; scene is the style's id in the WebGL scene (static/site/scene). Read by the builder (theme-color, inline data), the homepage and tools/site/contrast.mjs.",
+  "order": [
+    "house",
+    "ink",
+    "glass",
+    "cosmos",
+    "folio",
+    "darkroom"
+  ],
+  "styles": {
+    "house": {
+      "name": "House",
+      "scheme": "light",
+      "colors": {
+        "bg": "#F4F2EE",
+        "surface": "#FFFFFF",
+        "ink": "#141416",
+        "mute": "#5C5C63",
+        "accent": "#1D1D22",
+        "accent2": "#A39E93",
+        "accent3": "#D9D4CA",
+        "rule": "#1414161F"
+      },
+      "scene": 0
+    },
+    "ink": {
+      "name": "Ink & Mist",
+      "scheme": "light",
+      "colors": {
+        "bg": "#F3EEE3",
+        "surface": "#FBF8F1",
+        "ink": "#1C1A17",
+        "mute": "#6B645A",
+        "accent": "#2F4A6B",
+        "accent2": "#8E877C",
+        "accent3": "#9A9389",
+        "rule": "#1C1A1729"
+      },
+      "scene": 1
+    },
+    "glass": {
+      "name": "Glacier",
+      "scheme": "light",
+      "colors": {
+        "bg": "#E8F0F6",
+        "surface": "#FFFFFF8C",
+        "ink": "#0A1E2C",
+        "mute": "#46596A",
+        "accent": "#1767C2",
+        "accent2": "#2BD9A8",
+        "accent3": "#FF5A3C",
+        "rule": "#0A1E2C1F"
+      },
+      "scene": 2
+    },
+    "cosmos": {
+      "name": "Liquid Cosmos",
+      "scheme": "dark",
+      "colors": {
+        "bg": "#05060F",
+        "surface": "#0D0F22",
+        "ink": "#ECE9FF",
+        "mute": "#A29FC9",
+        "accent": "#22E6FF",
+        "accent2": "#FF3DCB",
+        "accent3": "#B9A6FF",
+        "rule": "#B9A6FF38"
+      },
+      "scene": 3
+    },
+    "folio": {
+      "name": "Naturalist’s Folio",
+      "scheme": "dark",
+      "colors": {
+        "bg": "#0F1913",
+        "surface": "#17251C",
+        "ink": "#ECE2CC",
+        "mute": "#B2AD95",
+        "accent": "#CDA562",
+        "accent2": "#7E9E6A",
+        "accent3": "#8E3A2E",
+        "rule": "#CDA56245"
+      },
+      "scene": 4
+    },
+    "darkroom": {
+      "name": "Darkroom",
+      "scheme": "dark",
+      "colors": {
+        "bg": "#0B0A09",
+        "surface": "#171513",
+        "ink": "#F2EEE6",
+        "mute": "#A39C91",
+        "accent": "#E5483F",
+        "accent2": "#C7302A",
+        "accent3": "#D8B98A",
+        "rule": "#F2EEE624"
+      },
+      "scene": 5
+    }
+  },
+  "contrast": [
+    [
+      "colors.ink",
+      "colors.bg",
+      4.5
+    ],
+    [
+      "colors.mute",
+      "colors.bg",
+      4.5
+    ],
+    [
+      "colors.accent",
+      "colors.bg",
+      4.5
+    ],
+    [
+      "colors.ink",
+      "colors.surface",
+      4.5,
+      "over bg"
+    ],
+    [
+      "colors.mute",
+      "colors.surface",
+      4.5,
+      "over bg"
+    ]
+  ]
+}

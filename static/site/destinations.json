@@ -1,0 +1,21 @@
+{
+  "version": 3,
+  "site": "https://arcrystal.github.io",
+  "destinations": [
+    { "id": "about", "title": "About Me", "dir": "about", "url": "/about/", "style": "house", "number": "01", "next": "science" },
+    { "id": "science", "title": "Science", "dir": "science", "url": "/science/", "style": "cosmos", "number": "02", "next": "racing" },
+    { "id": "racing", "title": "Racing", "dir": "athletics", "url": "/athletics/athletics.html", "style": "glass", "number": "03", "next": "outdoors" },
+    { "id": "outdoors", "title": "Outdoors", "dir": "outdoors", "url": "/outdoors/", "style": "folio", "number": "04", "next": "photography" },
+    { "id": "photography", "title": "Photography", "dir": "image portfolio", "url": "/image%20portfolio/gallery.html", "style": "darkroom", "number": "05", "next": "chess" },
+    { "id": "chess", "title": "Chess", "dir": "chess", "url": "/chess/chess.html", "style": "ink", "number": "06", "next": "about" }
+  ],
+  "pages": [
+    { "id": "home", "title": "Alex Crystal", "url": "/", "style": "house" },
+    { "id": "resume", "title": "Résumé", "url": "/resume/resume.html", "style": "house" }
+  ],
+  "redirects": [
+    { "from": "/work/", "to": "/about/", "title": "About Me" },
+    { "from": "/coding%20projects/projects.html", "to": "/about/#interests", "title": "About Me" }
+  ],
+  "nav": ["about", "science", "racing", "outdoors", "photography", "chess", "resume", "contact"]
+}
