@@ -13,7 +13,7 @@ vec3 texB(vec2 q) { return texture(uTexB, tUV(q)).rgb; }
 const float BLEAD = 0.22;
 // The ink's reach at a seam point, where it matters: false where the point's height alone says
 // nothing has grown there yet (u = 0) or it settled long ago (u = 1).
-bool seamReach(vec2 q, int s, float P, out Reach Rq, out float u) {
+bool seamReach(vec2 q, float P, out Reach Rq, out float u) {
   float rn = clamp(1.0 - q.y / uRegion.w, 0.0, 1.0);
   Rq = Reach(1e9, 1.0, 1.0, 1.0, 1.0);
   if (P + BLEAD < 0.4675 * rn - 0.01) { u = 0.0; return false; }
@@ -65,7 +65,7 @@ vec2 flowBack(vec2 q, float amt, float t) {
   }
   return p;
 }
-vec3 crystalLook(vec4 X, float age, vec2 q, vec3 liquid) {
+vec3 crystalLook(vec4 X, vec2 q) {
   vec2 tilt = (vec2(hash(vec2(X.z, 1.0)), hash(vec2(X.z, 2.0))) - 0.5) * 40.0;
   vec3 ice = texA(q + tilt + (q - uRegion.zw * 0.5) * 0.04 * (X.z - 0.5));
   ice = mix(ice, vec3(luma(ice)) * vec3(0.75, 0.9, 1.0) + vec3(0.08, 0.16, 0.26), 0.45);
@@ -86,7 +86,7 @@ vec3 groundCrystal(vec2 q, vec2 px, float P) {
     col = texA(lq) + spectrum(length(lq - q) * 0.012 + T * 0.05) * 0.08 * melt;
     col = mix(col, col * vec3(0.8, 0.92, 1.05) + vec3(0.02, 0.05, 0.08), melt * 0.5);
   } else {
-    col = crystalLook(X, age, q, vec3(0.0));
+    col = crystalLook(X, q);
     float ct = 0.05 + 0.05 * X.z;
     float clear = smoothstep(ct, ct + 0.04, age);
     col = mix(col, texB(q), clear) + vec3(0.9, 0.97, 1.0) * exp(-abs(age - ct) * 60.0) * 0.55;
@@ -170,14 +170,14 @@ vec3 groundIris(vec2 q, vec2 px, float p) {
 
 // Photography → Chess. Ink fingers climb from the foot and fork; behind them the developer clears
 // into wash along a soft, granulating wet edge; the tray's red lingers in the dark side.
-vec3 withBranches(int sb, vec3 col, Reach Rq, float P, float u, vec2 q, vec2 px) {
-  Look L = branchLook(sb, Rq, P + BLEAD, px, vec2(uRegion.w - q.y, q.x));
+vec3 withBranches(vec3 col, Reach Rq, float P, float u, vec2 px) {
+  Look L = branchLook(Rq, P + BLEAD, px);
   float fade = 1.0 - smoothstep(0.55, 1.0, u);
   return mix(col, L.c, L.m * fade) + L.glow * fade;
 }
 vec3 groundInk(vec2 q, vec2 px, float P) {
   Reach Rq; float u;
-  bool live = seamReach(q, 1, P, Rq, u);
+  bool live = seamReach(q, P, Rq, u);
   vec3 col;
   if (u <= 0.0) col = sceneDarkroom(px);
   else if (u >= 1.0) col = sceneInk(px);
@@ -193,7 +193,7 @@ vec3 groundInk(vec2 q, vec2 px, float P) {
     }
     col = mix(dark, wash, w);
   }
-  return live ? withBranches(1, col, Rq, P, u, q, px) : col;
+  return live ? withBranches(col, Rq, P, u, px) : col;
 }
 
 vec3 transitGround(int a, vec2 q, vec2 px) {

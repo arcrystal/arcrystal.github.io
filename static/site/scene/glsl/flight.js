@@ -1,7 +1,7 @@
 // Flight: shared by the scene's fragment shader (transit.js and opens.js) and the unit shaders
 // (units.js, the pieces that fly), so a cell and the unit that leaves it always agree.
 //
-// Every transition grows a structure across the whole screen (the reach): from a point for a click,
+// Chess's transitions grow a structure across the whole screen (the reach): from a point for a click,
 // up from the foot of the strip for a seam. A few trunks fork as they go (four levels, each with
 // twice the branches of the last), reaching the far edge by about 0.55 of the way through; behind
 // them the gaps fill, nearest the branches first, by 1.0. Each style shapes its own branches. A
@@ -12,70 +12,61 @@
 // p = 1 are exactly at rest; each point flies (u 0 → 1) while P passes its arrival, ±0.15 with its
 // own jitter. lerp.js mirrors these numbers for the tests.
 export const FLIGHT = /* glsl */ `
-struct RP { float n0; float curl; float wob; float w0; float kink; };
-RP reachParams(int s) {
-  if (s == 0) return RP(16.0, 0.0, 0.03, 1.1, 0.0);  // house: silk, near-straight spokes
-  if (s == 1) return RP(5.0, 0.45, 0.6, 10.0, 0.0);  // ink: soft fingers that wander
-  if (s == 2) return RP(6.0, 0.0, 0.22, 2.4, 1.0);   // glacier: frost, straight runs and kinks
-  if (s == 3) return RP(4.0, 1.4, 0.12, 5.0, 0.0);   // cosmos: spiral arms
-  if (s == 4) return RP(5.0, 0.55, 0.7, 3.6, 0.0);   // folio: vines
-  return RP(3.0, 0.9, 0.2, 20.0, 0.0);               // darkroom: film strips
-}
-float reachWobble(float r, float id, RP P) {
-  if (P.kink > 0.5) { float x = r / 70.0, i = floor(x); return mix(hash(vec2(i, id)), hash(vec2(i + 1.0, id)), fract(x)) - 0.5; }
+// The ink's reach: five trunks that wander (curl, wobble) with soft fingers (w0, half-width in px).
+const float RN0 = 5.0, RCURL = 0.45, RWOB = 0.6, RW0 = 10.0;
+float reachWobble(float r, float id) {
   return noise(vec2(r * 0.0045, id)) - 0.5 + (noise(vec2(r * 0.013, id + 5.0)) - 0.5) * 0.4;
 }
 // Branch i of level k (N per turn), at distance r: its centre in units of that level's spacing.
-float branchC(float i, float k, float N, float r, RP P, float seed) {
+float branchC(float i, float k, float N, float r, float seed) {
   float im = mod(i, N);
-  return i + 0.5 + (hash(vec2(im, k + seed)) - 0.5) * 0.5 + reachWobble(r, im + k * 97.0 + seed * 13.0, P) * P.wob;
+  return i + 0.5 + (hash(vec2(im, k + seed)) - 0.5) * 0.5 + reachWobble(r, im + k * 97.0 + seed * 13.0) * RWOB;
 }
 // d: distance to the nearest branch (px); w: its half-width (px); tb: when it grew this far; A: when
 // this point is filled; sp: how far apart the branches are here (px).
 struct Reach { float d; float w; float tb; float A; float sp; };
-Reach reachAt(float r, float a, float circ, float far, int s, float seed) {
-  RP P = reachParams(s);
+Reach reachAt(float r, float a, float circ, float far, float seed) {
   float rn = r / far;
-  float aw = a + P.curl * rn * rn * 0.18;
-  Reach o = Reach(1e9, 1.0, 0.0, 0.0, circ / P.n0);
+  float aw = a + RCURL * rn * rn * 0.18;
+  Reach o = Reach(1e9, 1.0, 0.0, 0.0, circ / RN0);
   float forks = 0.0;   // how many levels have forked here, smoothly, so the spacing never jumps
   for (int k = 0; k < 4; k++) {
     float fk = float(k);
-    float N = P.n0 * exp2(fk);
+    float N = RN0 * exp2(fk);
     float rk = k == 0 ? 0.0 : far * 0.13 * pow(1.8, fk - 1.0);
     if (r < rk) break;
     float x = aw * N, i0 = floor(x);
     float born = smoothstep(rk, rk + far * 0.1, r);
     if (k > 0) forks += born;
-    float w = P.w0 * pow(0.62, fk) * (1.0 - 0.45 * min(rn, 1.0)) + 0.5;
+    float w = RW0 * pow(0.62, fk) * (1.0 - 0.45 * min(rn, 1.0)) + 0.5;
     for (int j = -1; j <= 1; j++) {
       float i = i0 + float(j);
-      float c = branchC(i, fk, N, r, P, seed);
+      float c = branchC(i, fk, N, r, seed);
       // A fork: near where its level begins, a branch bends in from its parent's centre.
-      if (k > 0 && born < 1.0) c = mix(2.0 * branchC(floor(i * 0.5), fk - 1.0, N * 0.5, r, P, seed), c, born);
+      if (k > 0 && born < 1.0) c = mix(2.0 * branchC(floor(i * 0.5), fk - 1.0, N * 0.5, r, seed), c, born);
       float d = abs(x - c) / N * circ;
       if (d - w < o.d - o.w) {
         // Every branch of a trunk grows at that trunk's pace, so a fork never jumps ahead.
-        float h = hash(vec2(mod(floor(i / exp2(fk)), P.n0), 31.0 + seed));
+        float h = hash(vec2(mod(floor(i / exp2(fk)), RN0), 31.0 + seed));
         o.d = d; o.w = w;
         o.tb = rn * 0.55 * (0.85 + 0.3 * h);
       }
     }
   }
-  o.sp = circ / (P.n0 * exp2(forks));
+  o.sp = circ / (RN0 * exp2(forks));
   float gap = clamp((o.d - o.w) / max(o.sp * 0.5 - o.w, 1.0), 0.0, 1.0);
   o.A = clamp(o.tb + 0.36 * gap + (noise(vec2(r, a * circ) * 0.02 + seed) - 0.5) * 0.04, 0.0, 1.0);
   return o;
 }
 // From a point O (a click), out to far.
-Reach reachPolar(vec2 px, vec2 O, float far, int s, float seed) {
+Reach reachPolar(vec2 px, vec2 O, float far, float seed) {
   vec2 v = px - O;
   float r = length(v);
-  return reachAt(r, atan(v.y, v.x) / TAU + 0.5, max(r, 1.0) * TAU, far, s, seed);
+  return reachAt(r, atan(v.y, v.x) / TAU + 0.5, max(r, 1.0) * TAU, far, seed);
 }
 // Up from the foot of a strip (size, CSS px; q y down).
-Reach reachFoot(vec2 q, vec2 size, int s, float seed) {
-  return reachAt(clamp(size.y - q.y, 0.0, size.y), q.x / size.x, size.x, size.y, s, seed);
+Reach reachFoot(vec2 q, vec2 size, float seed) {
+  return reachAt(clamp(size.y - q.y, 0.0, size.y), q.x / size.x, size.x, size.y, seed);
 }
 
 // A seam's progress p → P, which runs past both ends so the strip is at rest at p = 0 and p = 1.

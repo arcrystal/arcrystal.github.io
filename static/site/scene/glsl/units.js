@@ -438,7 +438,6 @@ precision highp float;
 #define TAU 6.28318531
 uniform vec2 uSize;   // the strip, CSS px
 uniform vec2 uTexel;  // the texture, texels
-uniform int uStyle;   // the style that reaches
 uniform int uPolar;   // 1: a click's, out from uO to uFar (CSS px); 0: a seam's, up from the foot
 uniform int uKind;    // 0: the branching reach; 1: ice crystals
 uniform vec2 uO;
@@ -449,7 +448,7 @@ void main() {
   vec2 q = vec2(gl_FragCoord.x / uTexel.x, 1.0 - gl_FragCoord.y / uTexel.y) * uSize;
   if (uKind == 1) { o = crystalAt(q, uSize, uPolar == 1, uO, uFar); return; }
   Reach r;
-  if (uPolar == 1) r = reachPolar(q, uO, uFar, uStyle, 0.0);
-  else r = reachFoot(q, uSize, uStyle, 0.0);
+  if (uPolar == 1) r = reachPolar(q, uO, uFar, 0.0);
+  else r = reachFoot(q, uSize, 0.0);
   o = vec4(min(r.d, 63.75) / 64.0, min(r.w, 23.9) / 24.0, r.tb, r.A);
 }`;

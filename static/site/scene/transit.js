@@ -176,7 +176,6 @@ export function createTransit(gl, { renderWorld, coarse }) {
     gl.viewport(0, 0, tw, th);
     gl.uniform2f(U.uSize, w, h);
     gl.uniform2f(U.uTexel, tw, th);
-    gl.uniform1i(U.uStyle, style);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   function snapFor(K, w, h) {

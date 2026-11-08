@@ -21,9 +21,9 @@ vec3 sunset(float x) {
 }
 
 // ---- Chess: ink --------------------------------------------------------------------------------------
-// Soft fingers that swell as they age and pool darker at their edges. R: the reach here; P: how far
-// the transition has gone on the reach's clock.
-Look branchLook(int s, Reach Rr, float P, vec2 px, vec2 ra) {
+// Soft fingers that swell as they age and pool darker at their edges. Rr: the reach here; P: how
+// far the transition has gone on the reach's clock.
+Look branchLook(Reach Rr, float P, vec2 px) {
   float grown = smoothstep(Rr.tb - 0.004, Rr.tb + 0.01, P);
   float age = max(P - Rr.tb, 0.0);
   float wk = Rr.d / (Rr.w * (1.0 + 2.5 * min(age * 3.0, 1.0)));

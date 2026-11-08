@@ -31,5 +31,3 @@ export const OPENINGS = [
   },
 ];
 
-export const byKey = (key) => OPENINGS.find((o) => o.key === key);
-export const byFamily = (family) => OPENINGS.find((o) => o.family === family);

@@ -3,11 +3,9 @@
 export const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const smooth = x => { x = clamp(x); return x * x * (3 - 2 * x); };
-export const easeOut = x => 1 - Math.pow(1 - clamp(x), 3);
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
-export const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 
 // One requestAnimationFrame loop for everything that animates per frame.
 const tickers = new Set();

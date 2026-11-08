@@ -85,10 +85,6 @@ export function resultText(playerCode, opponentCode) {
   return why ? `Lost by ${why}` : 'Lost';
 }
 
-export function scoreOf(result) {
-  return result === '1-0' ? 'White won' : result === '0-1' ? 'Black won' : result === '1/2-1/2' ? 'Drawn' : 'Unfinished';
-}
-
 // ---- positions ------------------------------------------------------------------------------------
 
 export function placement(chess) {

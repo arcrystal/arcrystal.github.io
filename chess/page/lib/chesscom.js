@@ -10,7 +10,6 @@
 import { readGame, openingFamily, openingName, outcome, resultText, stripComments, header } from './pgn.js';
 
 export const MODES = ['rapid', 'blitz', 'bullet'];
-export const FAVOURITES = ['Réti Opening', 'Scotch Game', 'Sicilian Defense: O’Kelly'];
 const API = 'https://api.chess.com/pub/player';
 const SAVED_GAMES = 40;
 

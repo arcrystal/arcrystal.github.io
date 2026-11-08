@@ -14,8 +14,8 @@ uniform float uBaked;
 vec2 cardCentre() { return uCard.z > 0.0 ? uCard.xy + uCard.zw * 0.5 : R * 0.5; }
 float cardSd(vec2 px) { return uCard.z > 0.0 ? sdBox(px - cardCentre(), uCard.zw * 0.5, uCardR) : length(px - R * 0.5) - 40.0; }
 vec4 bakedAt(vec2 px) { return textureLod(uReach, vec2(px.x / R.x, 1.0 - px.y / R.y), 0.0); }
-Reach clickReach(vec2 px, vec2 O, float far, int s) {
-  if (uBaked < 0.5) return reachPolar(px, O, far, s, 0.0);
+Reach clickReach(vec2 px, vec2 O, float far) {
+  if (uBaked < 0.5) return reachPolar(px, O, far, 0.0);
   vec4 t = bakedAt(px);
   return Reach(t.x * 64.0, t.y * 24.0, t.z, t.w, 1.0);
 }
@@ -159,11 +159,11 @@ vec4 cover(int s, vec2 px, float e) {
   float E = e * 1.04;
   if (s == 0) return mazeCover(px, E);
   if (s == 1) {
-    Reach Rr = clickReach(px, O, far, 1);
+    Reach Rr = clickReach(px, O, far);
     float fill = max(smoothstep(Rr.A - 0.035, Rr.A, E), smoothstep(0.0, 0.1, E) * step(cardSd(px), 0.0));
     vec3 f = mix(sceneOf(1, px), INK_BLACK, 0.18 + 0.1 * noise(px * 0.01));
     vec4 o = vec4(f * fill, fill);
-    Look L = branchLook(1, Rr, E, px, vec2(length(px - O), 0.0));
+    Look L = branchLook(Rr, E, px);
     return vec4(mix(o.rgb, L.c, L.m), mix(o.a, 1.0, L.m));
   }
   if (s == 2) {
@@ -220,10 +220,10 @@ vec3 reveal(int s, vec2 px, float e) {
   }
   if (s == 1) {
     float E = (1.0 - e) * 1.04;
-    Reach Rr = clickReach(px, O, far, 1);
+    Reach Rr = clickReach(px, O, far);
     float keep = smoothstep(Rr.A - 0.035, Rr.A, E);
     vec3 col = mix(scene, mix(scene, INK_BLACK, 0.18 + 0.1 * noise(px * 0.01)), keep);
-    Look L = branchLook(1, Rr, E, px, vec2(0.0));
+    Look L = branchLook(Rr, E, px);
     return mix(col, L.c, L.m);
   }
   if (s == 2) {
