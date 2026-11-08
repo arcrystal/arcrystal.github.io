@@ -111,21 +111,25 @@ export const filmNeg = (A, P) => smoothstep((P - A + 0.28) / 0.08);
 // (thrown out over the top, for the top rows; the bottom rows are filled from below the screen).
 // vortexSeamA: when a cube is at the core (home in CSS px, size the screen's); vortexU its flight at
 // P; coreEase eases through the core; vortexAt where it is (x across, y down, z toward the viewer).
-export const VORTEX = { spin: 2.5, sink: 6, d: 0.55, drop: 0.38, tilt: 0.42 };
+export const VORTEX = { spin: 2.5, sink: 6, d: 0.5, drop: 0.38, tilt: 0.42, climb: 0.5, lead: 0.3 };
+// The wind's clock by height (flight.js): when it starts to blow at up (0 the foot), and when it dies.
+export const vortexWindOn = up => -0.2 + VORTEX.climb * up;
+export const vortexWindOff = up => vortexWindOn(up - VORTEX.drop) + VORTEX.lead + VORTEX.d + 0.09;
 export const vortexDrop = rows => Math.floor(rows * VORTEX.drop + 0.5);
 export function vortexSeamA([hx, hy], [W, H], jit = 0.5) {
-  const up = 1 - hy / H;
-  if (up < 0) return 0.075 + 0.04 * clamp01(up / VORTEX.drop + 1);
-  const rn = Math.abs(hx / W - 0.5) * 2;
-  return Math.min(Math.max(0.1 + 0.56 * up + 0.12 * Math.min(rn, 1) + (jit - 0.5) * 0.2, 0.1), 0.925);
+  const up = 1 - hy / H, rn = Math.abs(hx / W - 0.5) * 2;
+  const A = vortexWindOn(up) + VORTEX.lead + 0.5 * VORTEX.d + 0.03 * Math.min(rn, 1) + (jit - 0.5) * 0.06;
+  return Math.min(Math.max(A, -0.2 + 0.5 * VORTEX.d), 1.2 - 0.5 * VORTEX.d);
 }
+// A cube's own pace through the vortex: a warp of u (a within ±0.7) that leaves both ends in place.
+export const vortexPace = (u, a) => u + a * u * (1 - u);
 export const vortexU = (A, P) => clamp01(0.5 + (P - A) / VORTEX.d);
 export const coreEase = (u, K) => (u * (1 + 0.5 * K) - K * Math.sin(2 * Math.PI * u) / (4 * Math.PI)) / (1 + 0.5 * K);
 export const vortexTurn = u => coreEase(u, VORTEX.spin);
-export function vortexAt([hx, hy], drop, ax, rc, turns, u) {
+export function vortexAt([hx, hy], drop, ax, rc, turns, u, phase = 0) {
   const r0 = hx - ax, k = smoothstep(Math.sin(Math.PI * u));
   const r = r0 + (Math.sign(r0) * Math.min(Math.abs(r0), rc) - r0) * k ** 1.7;
-  const th = turns * Math.PI * vortexTurn(u), tilt = VORTEX.tilt * smoothstep(k / 0.4);
+  const th = turns * Math.PI * vortexTurn(u) + phase * Math.sin(Math.PI * u) ** 2, tilt = VORTEX.tilt * smoothstep(k / 0.4);
   const X = r * Math.cos(th), Z = r * Math.sin(th) * 0.75;
   return [ax + X, hy + drop * coreEase(u, VORTEX.sink) + Z * Math.sin(tilt), Z * Math.cos(tilt)];
 }

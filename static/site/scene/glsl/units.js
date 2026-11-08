@@ -99,6 +99,7 @@ out vec3 vN;
 out vec2 vL;
 out float vMid;
 out vec3 vHue;
+out float vBack;
 const vec3 NRM[6] = vec3[6](vec3(0, 0, 1), vec3(0, 0, -1), vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0));
 const vec3 TU[6] = vec3[6](vec3(1, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 1, 0), vec3(1, 0, 0), vec3(1, 0, 0));
 const vec3 TV[6] = vec3[6](vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1));
@@ -118,9 +119,14 @@ void main() {
   vec2 home, dest; float drop, ax, u;
   if (!vortexUnit(c, home, dest, drop, ax, u)) { gl_Position = GONE; return; }
   vec2 cell = uGrid.zw;
-  float r1 = hash(vec2(c) + 1.7), r2 = hash(vec2(c) + 5.3), r3 = hash(vec2(c) + 9.1);
-  float turns = r2 < 0.5 ? 3.0 : 5.0;
-  vec3 pos = vortexAt(home, drop, ax, vortexRc(uRegion.zw) * (0.18 + 0.82 * r1), turns, u, gTh, gTilt);
+  float r1 = hash(vec2(c) + 1.7), r3 = hash(vec2(c) + 9.1);
+  // Its own pace and place round the axis, so the cubes swirl through the vortex, not as rows.
+  vec3 ch = vortexCharacter(vec2(c));
+  u = vortexPace(u, ch.x);
+  float rcI = vortexRc(uRegion.zw) * (0.35 + 0.65 * r1);
+  vec3 pos = vortexAt(home, drop, ax, rcI, ch.z, ch.y, u, gTh, gTilt);
+  // Round the back of the vortex it falls into shadow, so its orbit reads in depth.
+  vBack = vortexDepth(u) * (1.0 - smoothstep(-rcI * 0.7, rcI * 0.3, pos.z));
   float k = vortexDepth(u);
   pos.y += k * clamp(uVel, -3.0, 3.0) * 20.0;
   gWob = sin(PI * u) * (r3 - 0.5) * 2.2;
@@ -155,6 +161,7 @@ in vec3 vN;
 in vec2 vL;
 in float vMid;
 in vec3 vHue;
+in float vBack;
 vec3 chrome(vec3 n) {
   float up = -n.y;
   vec3 c = mix(vec3(0.02, 0.025, 0.06), vec3(0.36, 0.23, 1.0) * 0.85, smoothstep(-0.3, 0.9, up));
@@ -180,7 +187,7 @@ void main() {
   lit = mix(lit, hued, (vFace == 2 ? 0.75 : 0.35) * vMid);
   float edge = smoothstep(0.78, 1.0, max(abs(vL.x), abs(vL.y)));
   lit += vHue * edge * 0.3 * vMid;
-  o = vec4(mix(base, lit, smoothstep(0.0, 0.25, vMid)), 1.0);
+  o = vec4(mix(base, lit, smoothstep(0.0, 0.25, vMid)) * (1.0 - 0.55 * vBack), 1.0);
 }`;
 
 // Streamlines: thin ribbons along the same flow, each the last stretch of a path a cube would take,
@@ -193,9 +200,10 @@ out vec3 vCol;
 out float vAl;
 out float vSide;
 float gTh, gTilt;
+vec3 gCh;
 // A point of the path on screen (CSS px) and how far it stands from the camera (w).
 vec3 onScreen(vec2 home, float drop, float ax, float rc, float turns, float u) {
-  vec3 p = vortexAt(home, drop, ax, rc, turns, u, gTh, gTilt);
+  vec3 p = vortexAt(home, drop, ax, rc, turns, gCh.y, vortexPace(u, gCh.x), gTh, gTilt);
   vec2 v = uRegion.xy + p.xy, ctr = uView * 0.5;
   float w = (FOCAL - min(p.z, 700.0)) / FOCAL;
   return vec3(ctr + (v - ctr) / w, w);
@@ -204,9 +212,10 @@ void main() {
   ivec2 c = cellOf(gl_InstanceID + uFirst, int(uGrid.x));
   vec2 home, dest; float drop, ax, u;
   if (!vortexUnit(c, home, dest, drop, ax, u)) { gl_Position = GONE; return; }
-  float r1 = hash(vec2(c) + 1.7), r2 = hash(vec2(c) + 5.3);
-  float turns = r2 < 0.5 ? 3.0 : 5.0;
-  float rc = vortexRc(uRegion.zw) * (0.18 + 0.82 * r1);
+  float r1 = hash(vec2(c) + 1.7);
+  gCh = vortexCharacter(vec2(c));
+  float turns = gCh.z;
+  float rc = vortexRc(uRegion.zw) * (0.35 + 0.65 * r1);
   int seg = gl_VertexID / 6;
   vec2 k = QUAD[gl_VertexID % 6];
   float i = float(seg) + k.x;
@@ -219,7 +228,7 @@ void main() {
   vec3 b2 = onScreen(home, drop, ax, rc, turns, min(ui + du, u));
   vec2 dir = b2.xy - b.xy;
   dir = dot(dir, dir) > 1e-4 ? normalize(dir) : vec2(1.0, 0.0);
-  float spin = vortexSpin(ui);
+  float spin = vortexSpin(vortexPace(ui, gCh.x));
   float side = k.y * 2.0 - 1.0;
   float hw = mix(2.2, 0.8, spin) / a.z;
   vec2 px = a.xy + vec2(-dir.y, dir.x) * side * hw;
@@ -482,21 +491,30 @@ void main() {
 
 // The vortex's body (About Me → Science): flow lines on a perpetual loop, from wide at its base at
 // the foot of the screen, in and up the core, quickening and stretching, to its top (flight.js
-// vortexTop), where they spray out. They run on the clock, so the vortex keeps turning while the page
+// vortexBand), where they spray out. They run on the clock, so the vortex keeps turning while the page
 // is still, and reach as high as the seam has grown it: one vortex from base to top, never in pieces.
 // uGrid.x * uGrid.y lines.
 const FLOW_VS = VHEAD + /* glsl */ `
-const int NSEG = 20;
-const float TRAIL = 0.16;
+const int NSEG = 22;
+const float TRAIL = 0.2;
 out vec3 vCol;
 out float vAl;
 out float vSide;
+float gSpin, gBuf;
+// A line of wind at s along its loop: in from wide at the base, up the core, quickening, and out at
+// the top into the whirling rim the vortex climbs by. All of it turns with the vortex's spin (gSpin:
+// the clock and the scroll), and gusts shake it.
 vec3 flowAt(float s, float R0, float th0, float turns, float yb, float yt, float ax) {
   float k = smoothstep(0.0, 0.5, s);
-  float r = mix(R0, R0 * 0.1 + 5.0, k) + smoothstep(0.84, 1.0, s) * R0 * 0.8;
-  float y = mix(yb, yt, pow(s, 1.5));
-  float th = th0 + turns * TAU * (0.3 * s + 0.7 * smoothstep(0.05, 0.92, s));
-  float Z = r * sin(th) * 0.75;
+  float rim = smoothstep(0.78, 1.0, s);
+  float r = mix(R0, R0 * 0.1 + 6.0, k);
+  r = mix(r, R0 * (0.85 + 0.3 * gBuf), rim);
+  float y = mix(yb, yt, pow(min(s / 0.85, 1.0), 1.5));
+  float th = th0 + gSpin + turns * TAU * (0.3 * s + 0.7 * smoothstep(0.05, 0.92, s)) + rim * 2.5;
+  // Gusts.
+  r += sin(s * 31.0 + uTime * 9.0 + th0 * 7.0) * (4.0 + 0.04 * R0);
+  y += sin(s * 23.0 - uTime * 7.0 + th0 * 5.0) * 5.0;
+  float Z = r * sin(th) * 0.8;
   return vec3(ax + r * cos(th), y + Z * sin(VX_TILT), Z * cos(VX_TILT));
 }
 vec3 onScreen(vec3 p) {
@@ -509,30 +527,38 @@ void main() {
   float r1 = hash(vec2(id, 1.3)), r2 = hash(vec2(id, 2.9)), r3 = hash(vec2(id, 4.1)), r4 = hash(vec2(id, 6.7));
   vec2 S = uRegion.zw;
   float P = transitP(uH);
-  float life = smoothstep(-0.2, -0.04, P) * (1.0 - smoothstep(0.85, 1.02, P));
+  // The wind's band: its top climbing from the foot, its base subsiding up behind the built rows.
+  vec2 band = vortexBand(P, S);
+  float yb = band.y, yt = band.x, span = yb - yt;
+  float life = smoothstep(0.0, 24.0, span) * step(-0.2 * S.y, yb);
   if (life <= 0.0 || gl_InstanceID >= int(uGrid.x * uGrid.y)) { gl_Position = GONE; return; }
-  float yb = S.y + 20.0, yt = vortexTop(P, S), span = yb - yt;
-  // Its base widens as it grows; it starts as a small swirl at the foot.
-  float R0 = (0.15 + 0.85 * r1) * min(S.x * 0.48, 60.0 + span * 0.55);
-  float turns = 1.5 + 2.0 * r2, th0 = r4 * TAU;
-  float s = fract(uTime * (0.07 + 0.06 * r2) + r3);
+  // It is born a ring of wind spinning flat at the foot, and the funnel rises from that ring's edge.
+  float R0 = (0.25 + 0.75 * r1) * min(S.x * 0.48, 150.0 + span * 0.5);
+  float turns = 1.5 + 2.5 * r2, th0 = r4 * TAU;
+  // Its spin: on the clock and with the scroll, so scrolling winds it up.
+  gSpin = uTime * 1.4 + P * 16.0;
+  gBuf = r3;
+  float s = fract(uTime * (0.11 + 0.09 * r2) + P * 1.5 + r3);
   int seg = gl_VertexID / 6;
   vec2 k = QUAD[gl_VertexID % 6];
   float i = float(seg) + k.x, du = TRAIL / float(NSEG);
   float si = s - TRAIL + i * du;
   float sc = clamp(si, 0.0, 1.0);
-  vec3 a = onScreen(flowAt(sc, R0, th0, turns, yb, yt, S.x * 0.5));
+  vec3 p3 = flowAt(sc, R0, th0, turns, yb, yt, S.x * 0.5);
+  vec3 a = onScreen(p3);
   vec3 b = onScreen(flowAt(clamp(sc - du, 0.0, 1.0), R0, th0, turns, yb, yt, S.x * 0.5));
   vec3 b2 = onScreen(flowAt(clamp(sc + du, 0.0, 1.0), R0, th0, turns, yb, yt, S.x * 0.5));
   vec2 dir = b2.xy - b.xy;
   dir = dot(dir, dir) > 1e-4 ? normalize(dir) : vec2(1.0, 0.0);
-  float spin = smoothstep(0.08, 0.6, sc) * (1.0 - smoothstep(0.85, 1.0, sc) * 0.6);
+  float spin = smoothstep(0.08, 0.6, sc) * (1.0 - smoothstep(0.85, 1.0, sc) * 0.5);
   float side = k.y * 2.0 - 1.0;
-  float hw = mix(1.8, 0.7, spin) / a.z;
+  float hw = mix(2.2, 0.9, spin) / a.z;
   vec2 px = a.xy + vec2(-dir.y, dir.x) * side * hw;
   float t = i / float(NSEG);
-  vCol = vortexHue(spin) * (0.85 + 0.35 * t);
-  vAl = pow(t, 1.3) * life * 0.75 * step(0.0, si) * smoothstep(0.0, 0.05, sc) * (1.0 - smoothstep(0.92, 1.0, sc));
+  // Behind the axis it dims, so you see the wind go round the back.
+  float front = smoothstep(-R0 * 0.6, R0 * 0.4, p3.z);
+  vCol = vortexHue(spin) * (0.85 + 0.45 * t) * (0.45 + 0.55 * front);
+  vAl = pow(t, 1.2) * life * 0.85 * (0.5 + 0.5 * front) * step(0.0, si) * smoothstep(0.0, 0.04, sc) * (1.0 - smoothstep(0.95, 1.0, sc));
   vSide = side;
   gl_Position = vec4(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0, 0.0, 1.0);
 }`;
@@ -617,7 +643,7 @@ void main() {
 export const UNIT_PROGRAMS = {
   cubes: { vs: CUBES_VS, fs: CUBES_FS, verts: 36, blend: 'opaque' },
   streaks: { vs: STREAKS_VS, fs: STREAKS_FS, verts: 18 * 6, blend: 'over' },
-  flow: { vs: FLOW_VS, fs: STREAKS_FS, verts: 20 * 6, blend: 'over' },
+  flow: { vs: FLOW_VS, fs: STREAKS_FS, verts: 22 * 6, blend: 'over' },
   film: { vs: FILM_VS, fs: FILM_FS, verts: 120 * 6, blend: 'opaque' },   // instances: the rows of film
   sheets: { vs: SHEETS_VS, fs: SHEETS_FS, verts: 30 * 12 * 6, blend: 'opaque' },   // per layer, instances: rows × (cols + 1)
   glitter: { vs: GLITTER_VS, fs: GLITTER_FS, verts: 6, blend: 'add' },

@@ -37,8 +37,8 @@ vec3 vortexCore(vec2 q, float ax, float dir, float rc, float amt) {
   if (amt <= 0.001) return vec3(0.0);
   float dx = abs(q.x - ax);
   float streak = 0.55 + 0.45 * noise(vec2(dx * 0.06 + sign(q.x - ax) * 3.0, q.y * 0.012 - dir * T * 1.6));
-  vec3 heart = vortexHue(1.0) * exp(-pow(dx / (rc * 0.22), 2.0)) * 0.7;
-  vec3 sheath = mix(vortexHue(0.45), vortexHue(0.0), smoothstep(0.3, 1.2, dx / rc)) * exp(-pow(dx / rc, 2.0)) * 0.3;
+  vec3 heart = vortexHue(1.0) * exp(-pow(dx / (rc * 0.16), 2.0)) * 0.95;
+  vec3 sheath = mix(vortexHue(0.45), vortexHue(0.0), smoothstep(0.3, 1.2, dx / rc)) * exp(-pow(dx / (rc * 0.8), 2.0)) * 0.38;
   return (heart + sheath) * streak * amt;
 }
 

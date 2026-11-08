@@ -24,7 +24,7 @@ bool seamReach(vec2 q, float P, out Reach Rq, out float u) {
 }
 
 // About Me → Science. A vortex stands up the middle of the screen, its base at the foot (right
-// beneath About Me as the seam scrolls in), growing up the screen (flight.js vortexTop). Its base
+// beneath About Me as the seam scrolls in), growing up the screen (flight.js vortexBand). Its base
 // gathers the paper into cubes from the foot up; they swirl up the core and its top throws them out to
 // land, mirrored, kd rows higher, building Science. A cell is paper until its cube leaves, then a
 // shaded hollow in the paper, darkening only as the cube bound for it (from the mirror cell kd rows
@@ -48,8 +48,9 @@ vec3 groundCubes(vec2 q, vec2 px, float P) {
     vec3 paper = sceneHouse(px);
     col = mix(paper, paper * 0.9, smoothstep(0.0, 0.12, uX));
   }
-  float top = vortexTop(P, S);
-  float amt = smoothstep(top - 30.0, top + 160.0, q.y) * smoothstep(-0.2, -0.02, P) * (1.0 - smoothstep(0.85, 1.02, P));
+  vec2 band = vortexBand(P, S);
+  float amt = smoothstep(band.x - 30.0, band.x + 140.0, q.y) * smoothstep(band.y + 30.0, band.y - 140.0, q.y)
+            * smoothstep(0.0, 80.0, band.y - band.x);
   return col + vortexCore(q, S.x * 0.5, -1.0, vortexRc(S), amt);
 }
 

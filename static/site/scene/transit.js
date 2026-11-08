@@ -28,7 +28,7 @@ const KINDS = {
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
 };
 // Cell sizes in CSS px (fine pointer, touch).
-const CELL = { cubes: [10, 13], streaks: [26, 36], flow: [40, 56], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [14, 22] };
+const CELL = { cubes: [10, 13], streaks: [26, 36], flow: [30, 44], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [14, 22] };
 const FLY = 420;   // how far, CSS px, a unit can stray from its row
 // Science's cubes land this share of the rows above where they left (glsl/flight.js VX_DROP): the
 // seam draws that many extra rows of them, rising from below the screen.

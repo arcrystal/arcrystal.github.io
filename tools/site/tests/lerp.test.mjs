@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   parseHex, toOklab, oklabCss, mixOklab, approach, seamAt, smoothstep, easeInOutCubic,
   transitP, flightAt, arrivalRange, HOLD, holdAt, holdFor, holdEase,
-  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexDrop, vortexSeamA, vortexU, coreEase, vortexTurn, vortexAt,
+  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexDrop, vortexSeamA, vortexWindOn, vortexWindOff, vortexPace, vortexU, coreEase, vortexTurn, vortexAt,
 } from '../../../static/site/lerp.js';
 
 const { order, styles } = JSON.parse(readFileSync(new URL('../../../static/site/styles.json', import.meta.url), 'utf8'));
@@ -165,11 +165,20 @@ test('processes: film is exposed and pulled from the foot up, resting at the top
 
 test('processes: a vortex cube leaves its cell flat and lands flat, mirrored across the axis and lower', () => {
   const ax = 720;
-  for (const home of [[20, 30], [700, -120], [1430, 890], [300, 600], [1100, 120]]) for (const turns of [3, 5]) for (const drop of [0, 342, -200]) {
-    const a = vortexAt(home, drop, ax, 117, turns, 0), b = vortexAt(home, drop, ax, 117, turns, 1);
+  for (const home of [[20, 30], [700, -120], [1430, 890], [300, 600], [1100, 120]]) for (const turns of [3, 5, 7]) for (const drop of [0, 342, -200]) for (const phase of [0, -2.9, 3.1]) {
+    const a = vortexAt(home, drop, ax, 117, turns, 0, phase), b = vortexAt(home, drop, ax, 117, turns, 1, phase);
     for (const [got, want] of [[a, [home[0], home[1], 0]], [b, [2 * ax - home[0], home[1] + drop, 0]]]) {
       got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-6, `${home} turns=${turns}: ${got} vs ${want}`));
     }
+  }
+});
+
+test('processes: each cube keeps its own pace through the vortex, starting and ending with the rest', () => {
+  for (const a of [-0.7, -0.3, 0, 0.4, 0.7]) {
+    assert.equal(vortexPace(0, a), 0);
+    assert.equal(vortexPace(1, a), 1);
+    let prev = -1;
+    for (let u = 0; u <= 1.0001; u += 0.01) { assert.ok(vortexPace(u, a) > prev); prev = vortexPace(u, a); }
   }
 });
 
@@ -199,9 +208,19 @@ test('processes: the vortex turns and rises fastest at its core', () => {
 test('processes: the vortex gathers the page from the foot up, at rest at both ends and at the strip\'s edges', () => {
   const S = [1440, 900], rows = 90, ch = S[1] / rows, kd = vortexDrop(rows), drop = kd * ch;
   const home = (r, x = 500) => [x, (r + 0.5) * ch];
+  // The wind comes first at every height, for the same time, and dies there only after the cubes
+  // bound for that height have landed: the vortex grows from the foot and subsides from the foot.
+  for (let r = 0; r < rows; r++) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
+    const up = 1 - (r + 0.5) / rows;
+    const leave = vortexSeamA(home(r, x), S, j) - VORTEX.d / 2;
+    const lead = leave - vortexWindOn(up);
+    assert.ok(lead > 0.26 && lead < 0.36, `r=${r} lead=${lead}`);
+    const land = vortexSeamA(home(r + kd, S[0] - x), S, j) + VORTEX.d / 2;
+    assert.ok(land < vortexWindOff(up), `r=${r}`);
+  }
   // Higher cells go later (away from the noise of the schedule); each cell's own cube leaves before
   // the one bound for it, from kd rows below, lands.
-  for (let r = 0; r < rows - 1; r++) assert.ok(vortexSeamA(home(r), S) > vortexSeamA(home(r + 1), S), `r=${r}`);
+  for (let r = 4; r < rows - 1; r++) assert.ok(vortexSeamA(home(r), S) > vortexSeamA(home(r + 1), S), `r=${r}`);
   for (let r = 0; r < rows; r++) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
     const own = vortexSeamA(home(r, x), S, j), inc = vortexSeamA(home(r + kd, S[0] - x), S, 1 - j);
     assert.ok(own - VORTEX.d / 2 < inc + VORTEX.d / 2, `r=${r}`);

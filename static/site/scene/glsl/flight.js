@@ -129,28 +129,43 @@ vec4 crystalAt(vec2 q, vec2 size, bool polar, vec2 O, float far) {
 // page as it grows. lerp.js mirrors these numbers.
 const float VX_SPIN = 2.5;      // how much faster the core turns than the rim (1 + VX_SPIN times)
 const float VX_SINK = 6.0;      // how much faster it travels along the axis at the core than at the rim
-const float VX_D = 0.55;        // a seam cube's flight, in P
+const float VX_D = 0.5;         // a seam cube's flight, in P
 const float VX_DROP = 0.38;     // how far up a seam cube lands, as a share of the rows
 const float VX_TILT = 0.42;     // the orbits lean back so they read as ellipses
 int vortexDrop(int rows) { return int(floor(float(rows) * VX_DROP + 0.5)); }
 // A cell's lean on the schedule: mostly a smooth field, so the page breaks along soft, wandering
 // edges rather than cell by cell. p: the cell's centre (CSS px); c: the cell.
 float vortexJit(vec2 p, vec2 c) { return clamp(0.5 + (noise(p * 0.009) - 0.5) * 1.8 + (hash(c + 0.37) - 0.5) * 0.06, 0.0, 1.0); }
-// When a seam cube is at the core: by how high it starts on the screen (the foot first, the top
-// last), and a little sooner near the axis, so the paper is gathered along a funnel. The cubes from
-// below the screen go at once, at the start, and fill the base. Every flight lies in P's [-0.2, 1.2].
+// The wind and the cubes keep one clock, by height (up: 0 at the foot of the screen, 1 at the top).
+// The wind's top climbs from nothing at the foot at VX_CLIMB of P per screen: the vortex grows. At
+// every height it blows for VX_LEAD before the cubes there leave (and the cubes rising from below
+// the screen leave on the same clock, a little ahead of the foot's); once the cubes bound for a
+// height have landed there, the wind there dies: the vortex subsides from the foot up behind the
+// rows it has built. A seam cube is at the core at vortexSeamA, a little sooner near the axis, so the
+// paper is gathered along a funnel.
+const float VX_CLIMB = 0.5, VX_LEAD = 0.3;
+float vortexWindOn(float up) { return -0.2 + VX_CLIMB * up; }
 float vortexSeamA(vec2 home, vec2 size, float jit) {
   float up = 1.0 - home.y / size.y;
-  if (up < 0.0) return 0.075 + 0.04 * clamp(up / VX_DROP + 1.0, 0.0, 1.0);
   float rn = abs(home.x / size.x - 0.5) * 2.0;
-  return clamp(0.1 + 0.56 * up + 0.12 * min(rn, 1.0) + (jit - 0.5) * 0.2, 0.1, 0.925);
+  return clamp(vortexWindOn(up) + VX_LEAD + 0.5 * VX_D + 0.03 * min(rn, 1.0) + (jit - 0.5) * 0.06, -0.2 + 0.5 * VX_D, 1.2 - 0.5 * VX_D);
 }
-// The vortex's top at P (CSS px, y down): where the cubes rounding its core now are thrown out to
-// land. A third of the way up the screen to begin with, above the top at the end.
-float vortexTop(float P, vec2 size) {
-  float land = size.y * (1.0 - (P - 0.12) / 0.62 - VX_DROP);
-  return clamp(land, -0.2 * size.y, 0.68 * size.y);
+// When the wind at a height dies: a little after the last cube bound there (from VX_DROP below) lands.
+float vortexWindOff(float up) { return vortexWindOn(up - VX_DROP) + VX_LEAD + VX_D + 0.09; }
+// The wind's band at P (CSS px, y down): x its top, y its base.
+vec2 vortexBand(float P, vec2 size) {
+  float top = (P + 0.2) / VX_CLIMB;
+  float base = (P - vortexWindOff(0.0)) / VX_CLIMB;
+  return vec2(size.y * (1.0 - min(top, 1.3)), base <= 0.0 ? size.y + 20.0 : size.y * (1.0 - base));
 }
+// A cube's own way through the vortex, so no two in a row move as one: its pace (a warp of u that
+// leaves both ends where they are), how far ahead of or behind the flow it rides round the axis
+// mid-flight, and its number of half turns. c: its cell.
+vec3 vortexCharacter(vec2 c) {
+  float h1 = hash(c + 11.3), h2 = hash(c + 13.7), h3 = hash(c + 5.3);
+  return vec3((h1 - 0.5) * 1.4, (h2 - 0.5) * TAU, h3 < 0.35 ? 5.0 : h3 < 0.75 ? 7.0 : 9.0);
+}
+float vortexPace(float u, float a) { return u + a * u * (1.0 - u); }
 float vortexU(float A, float P) { return clamp(0.5 + (P - A) / VX_D, 0.0, 1.0); }
 // Eased through the core: 0 at u = 0, 1 at u = 1, moving 1 + K times faster at u = 0.5.
 float coreEase(float u, float K) { return (u * (1.0 + 0.5 * K) - K * sin(TAU * u) / (4.0 * PI)) / (1.0 + 0.5 * K); }
@@ -161,21 +176,22 @@ float vortexSpin(float u) { float s = sin(PI * u); return s * s; }
 float vortexDepth(float u) { return smoothstep(0.0, 1.0, sin(PI * u)); }
 // Where it is at u: x across, y down, z toward the viewer (CSS px). home: where it left; drop: how
 // far along the axis it is carried (down, or up if negative); ax: the axis (x); rc: the radius it
-// closes in to; turns: an odd number of half turns. th: its angle about the axis; tilt: how far its
-// orbit leans.
-vec3 vortexAt(vec2 home, float drop, float ax, float rc, float turns, float u, out float th, out float tilt) {
+// closes in to; turns: an odd number of half turns; phase: how far ahead of the flow it rides round
+// the axis mid-flight (none at either end). th: its angle about the axis; tilt: how far its orbit
+// leans.
+vec3 vortexAt(vec2 home, float drop, float ax, float rc, float turns, float phase, float u, out float th, out float tilt) {
   float r0 = home.x - ax;
   float k = vortexDepth(u);
   // It turns from the moment it leaves but closes in later, so the outer flow sweeps wide arcs.
   float r = mix(r0, sign(r0) * min(abs(r0), rc), pow(k, 1.7));
-  th = turns * PI * vortexTurn(u);
+  th = turns * PI * vortexTurn(u) + phase * vortexSpin(u);
   tilt = VX_TILT * smoothstep(0.0, 0.4, k);
   float X = r * cos(th), Z = r * sin(th) * 0.75;
   float y = home.y + drop * coreEase(u, VX_SINK);
   return vec3(ax + X, y + Z * sin(tilt), Z * cos(tilt));
 }
 // The radius cubes close in to (each its own share of it).
-float vortexRc(vec2 size) { return min(size.x, size.y) * 0.13; }
+float vortexRc(vec2 size) { return min(size.x, size.y) * 0.2; }
 // A click's cubes come out of the axis between the click and the cell they build, and spiral on away
 // from the click to land: the cells nearest the click along the axis first, so the page fills from
 // the link's side across. along, across: how far the cell is from the click along the axis and from
