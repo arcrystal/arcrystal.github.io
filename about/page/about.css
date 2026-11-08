@@ -96,6 +96,16 @@ body[data-style="chrome"] {
 [data-destination="about"] .ab-quote figcaption { font-size: var(--ab-small); font-weight: 600; color: var(--ab-cobalt); }
 [data-destination="about"] .ab-quote figcaption span { display: block; margin-top: 2px; font-weight: 400; color: var(--ab-mute); }
 
+/* Hills I will die on */
+[data-destination="about"] .ab-hill-list { grid-column: 1 / -1; list-style: none; padding: 0; margin-top: clamp(12px, 3vw, 40px); display: grid; gap: var(--ab-gutter); }
+[data-destination="about"] .ab-hill {
+  display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); column-gap: var(--ab-gutter); row-gap: 8px;
+  padding: clamp(20px, 2.4vw, 32px) 0; border-top: 1px solid var(--ab-char);
+}
+[data-destination="about"] .ab-hill-n { grid-row: span 2; font-size: var(--ab-label); font-weight: 600; letter-spacing: 0.08em; color: var(--ab-cobalt); font-variant-numeric: tabular-nums; padding-top: 0.5em; }
+[data-destination="about"] .ab-hill-title { font-size: var(--ab-h3); line-height: 1.2; }
+[data-destination="about"] .ab-hill p:not(.ab-hill-n) { max-width: var(--ab-measure); font-size: var(--ab-body); line-height: 1.6; color: var(--ab-mute); }
+
 /* What I'm drawn to */
 [data-destination="about"] .ab-bio-text {
   grid-column: 4 / span 7; display: grid; gap: 1.1em; font-size: var(--ab-body); line-height: 1.6;
