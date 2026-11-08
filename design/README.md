@@ -28,19 +28,61 @@ there are no renders, no video and no 3D models. Photographs are real photograph
   - the first tap shows the world, and the second opens the page;
   - until someone taps, the crystal tours the worlds every 5 s.
 
+## Transitions: one process per destination
+
+Every transition plays across the whole screen, the old page showing through until the new world
+covers it, and each destination is told apart by its **process**, not its colours: in grayscale at
+half speed no two look alike. The same process carries you in whether you scroll into the band or
+click through to the page (`flight.js` holds the maths, `reach.js` and `opens.js` the drawing):
+
+| Destination | Process |
+| --- | --- |
+| About Me, Résumé, Contact | **A maze carved by depth-first backtracking** from the click (a random spanning tree, carved on the CPU by `carveMaze` in `lerp.js`): corridors open down long winding passages and back out of dead ends, inked at their walls, and last the walls fill with paper; the ink fades in reverse order. |
+| Science | **A Hilbert space-filling curve**: one liquid-chrome line snakes through every block of the screen, and cubes break away (or flip up, on a click) in the order it passes. |
+| Racing | **Crystal growth**: nuclei appear across the screen and grow as six-armed stars, fastest along their arms (after Reiter's snowflakes), until they meet along bright grain boundaries (a Johnson–Mehl tessellation); each crystal flashes and clears. |
+| Outdoors | **Peeling sheets**: brick-laid panes peel back in a diagonal sweep, each a page curl from one corner (half a turn round a cylinder, then laid flat over itself), gilt underneath with the engraving pressed in; ice glitters, dust breaks loose, a caustic net pools beside each fold. On a click, gilt rolls unroll the plate across the panes. |
+| Photography | **A camera iris**: nine blades close as the light inside warms and overexposes, a diffraction star flares as they meet, and they open onto the darkroom, which develops from a **halftone** screen through **Bayer dithering** to full tone, with nine-sided bokeh. |
+| Chess | **Branching ink**: a few trunks fork three times as they go (each level twice the branches), soft fingers that swell and pool, then the wash; strokes trace the vortex flow. |
+
+**Clicks** (a menu item, a band, a phrase, a next-page card) cover in 1.3 s and reveal in 1.2 s.
+Escape or a click skips to the end. **History steps** roll fog in and out in the destination's
+colours (0.9 s each); **back to the homepage** still folds the page into its band.
+
+**What it's made of.** Each band on the homepage has an information button in its corner (a native
+popover) listing the algorithms behind its world, its live piece and the transition into it.
+Science lists every algorithm on the site, by field (`#algorithms`). Both come from one file,
+`science/page/algorithms.json`.
+
 ## Seams
 
-Nothing is pinned: the page scrolls normally. Where two styles meet, the scene draws a strip of
-the screen across the boundary, with the upper world above an edge and the lower one below it. The
-edge leans with the boundary's place on screen (`seamAt` in `lerp.js`), so it sweeps as you scroll.
+With motion on, each seam has a stretch of page of its own, its **hold** (`home.js`, `HOLD` in
+`lerp.js`): the seam scrolls in with the page, fills the screen and stays put for 1.75 screens of
+scroll while its transit plays, then scrolls away as the next band arrives. The transit runs over
+the hold plus 0.35 of a screen either side, about 2.5 screens in all.
 
-| From → to | Seam |
-| --- | --- |
-| About Me → Science | The paper ends in a meniscus of liquid chrome; drops fall from it into space |
-| Science → Racing | The liquid freezes: a lattice front with a bright, chromatic rim |
-| Racing → Outdoors | The ice melts off in drips, uncovering the engraving; each drip catches the lantern |
-| Outdoors → Photography | The lantern gutters to a red safelight |
-| Photography → Chess | The developer clears into ink wash, dark at its wet edge |
+- **One process each.** Each seam runs its destination's process (above); the upper world comes
+  apart into its own units, which fly, flow and settle into the lower world.
+- **Pure function of scroll.** Progress `p` (0..1 through the hold) maps to `P = transitP(p)`, and
+  each point flies while `P` passes its arrival (`flightAt`, `hilbertU`, `paneA`; the iris reads
+  `p` itself). Everything is computed from that and
+  the seed alone, so scrolling back un-builds the world exactly; stopping mid-seam leaves the units
+  hanging, still gently moving.
+- **Clean edges.** `P` runs past both ends, so the strip is entirely the upper world while its top is
+  on screen above the hold, and entirely the lower one while its foot is on screen below.
+- **Chameleon units.** A unit carries the upper world's colour where it leaves and the lower
+  world's where it lands.
+- **Fallbacks.** With motion off there are no holds: a still, plain seam straddles each boundary as
+  before. Before the transit shaders are ready, the hold shows the plain seam.
+
+| From → to | Process | Units | Transit |
+| --- | --- | --- | --- |
+| About Me → Science | Hilbert curve | ~10,000 tiny cubes | A liquid-chrome line snakes through every block; the paper breaks into cubes in its order. They lift toward you, tumble and turn half over (paper face under, sky face up), chrome-sided, and each lands in another cell of its row. |
+| Science → Racing | crystal growth | the liquid itself | Space liquefies and swirls in vortices, stirred by a real fluid sim (scroll and pointer push it), while six-armed crystals nucleate across it, grow and meet; each holds the swirl at its own tilt, then flashes and clears to the glacier. |
+| Racing → Outdoors | page curl | 4–5 rows of panes, ice dust | The ice cracks along the panes' edges; each pane peels back from a corner in a diagonal sweep, its gilt engraved underside laid over itself, glitters, sheds dust and tumbles away. |
+| Outdoors → Photography | iris, halftone, dither | none | Nine blades close over the plate as it warms and overexposes; a diffraction star; they open on the darkroom developing from halftone to dither to tone, safelight blooming, bokeh drifting. |
+| Photography → Chess | branching ink | ~3,000 ink filaments | Ink fingers climb and fork; the darkroom lets go of its black like ink dropped in water, tapering strokes sinking along the flow, then bleeding into the wash along a granulating wet edge. |
+
+Each band's world also sweeps a prismatic sheen across itself once, the first time it scrolls in.
 
 ## How it works
 
@@ -48,7 +90,7 @@ edge leans with the boundary's place on screen (`seamAt` in `lerp.js`), so it sw
   - `static/site/home.js` registers scene hosts:
     - the hero, with the crystal (mode 7);
     - one per band (its world, mode 0);
-    - one per seam (mode 6).
+    - one per seam (mode 6), full screen and held while in its hold.
   - It also runs:
     - the sentence;
     - the bands' arrivals;
@@ -61,12 +103,43 @@ edge leans with the boundary's place on screen (`seamAt` in `lerp.js`), so it sw
   | --- | --- |
   | `house.js` | The crystal and the paper |
   | `ink.js`, `glacier.js`, `cosmos.js`, `folio.js`, `darkroom.js` | The worlds |
-  | `seams.js` | The seams |
-  | `opens.js` | The expand effects |
+  | `seams.js` | The plain seams (reduced motion, and while the transits compile) |
+  | `flight.js` | The processes' maths, shared by every transition: the ink's branching reach, crystal growth, the Hilbert curve, the panes' sweep and curl, each point's flight, the row shuffle, the swirl, and reading a baked field |
+  | `reach.js` | Drawing shared by seams and clicks: the ink, the Hilbert snake, the iris, bokeh, halftone and Bayer development |
+  | `transit.js` | The seams' ground (mode 8): live worlds at rest, snapshots where things move, each seam's process over both |
+  | `units.js` | The instanced units (cubes, sheets, ice dust, ink filaments), the fluid sim's passes and the bake (ink or crystals) |
+  | `opens.js` | The click transitions (cover, reveal, fog): the maze, Hilbert cubes, crystals, unrolling sheets, the iris, ink |
 
   The canvas buffer drops its resolution when frames run long, and the pages fall back to their CSS art when even that is not enough.
+- **Transits.** `static/site/scene/transit.js` takes over each seam whose pair it knows. Each frame:
+  - It renders the two worlds over the strip into half-resolution snapshots, refreshing one of the
+    two per frame, with the scene's own shader (offset by `uOrigin`).
+  - For Science → Racing it steps the fluid: a 128-cell RG16F grid that advects, adds forces and
+    projects with 12 Jacobi iterations. It needs `EXT_color_buffer_float`; without it, the swirl
+    alone drives the flow.
+  - Fields that depend only on the strip's size (the ink's reach, the crystals) are baked once into a
+    texture and read by the ground and the units; a click's reach, crystals or maze are made once per
+    click the same way.
+  - It draws the ground, then the units, with one or two instanced draw calls per seam.
+  - Only seams on screen do any work, and only rows of units that can be in flight are drawn.
+  - The grids coarsen on touch screens and when the resolution governor has stepped down.
+  - The programs compile in parallel (`KHR_parallel_shader_compile`) or one per idle moment. Each
+    draws a single pixel once it is ready, so the GPU builds its pipeline before the seam appears.
+  - The pure maths (`transitP`, `flightAt`, `arrivalRange`, `activeRows`, `shiftCol`, `holdAt`,
+    `paneArrival`, `irisOpen`, `hilbertIndex`, `carveMaze` in `lerp.js`) is tested in
+    `tools/site/tests/lerp.test.mjs`.
+  - **Performance.** Measured in headless Chrome on an M1 Max at DPR 2.
+    - Scrolling the whole page both ways (about 30 s each way at 1440×900): 4,048 frames, none over
+      20 ms, no long tasks, full resolution. At 2880×1800, 3 of 8,051 frames over 20 ms.
+    - Each of the six click transitions at 1440×900 and 2560×1440: at most one frame over 20 ms (the
+      page swap). During a click the buffer is capped at about 6 megapixels.
+    - Computing the reach live in every vertex and pixel cost 30–50% of frames on a 2880×1800
+      window; baking it removed that.
+    - With one process per destination: every seam held mid-transition runs at 60 fps at full
+      resolution on a 2880×1800 window; scrolling the whole page at 1440×900, 4,048 of 4,048 frames
+      at 16.7 ms; at 2880×1800, 22 of 8,031 over 20 ms and no long tasks.
 - **Expand.** `static/site/expand.js` plugs into the router.
-  - The scene draws the cover in front of the page from the clicked element's rectangle.
+  - The scene draws the cover (the destination's process) in front of the page from the clicked element's rectangle.
   - The router swaps the page underneath.
   - The reveal plays behind the new page's hero, whose letters arrive at the same time.
   - Back to the homepage, the page's world fills the screen and folds back into its band.
@@ -78,6 +151,7 @@ edge leans with the boundary's place on screen (`seamAt` in `lerp.js`), so it sw
     | --- | --- |
     | `<!--gen:races-->` | `athletics/page/races.json` |
     | `<!--gen:skyline-->` and `<!--gen:hikes-->` | `outdoors/page/peaks.json` |
+    | `<!--gen:extremes-->` (Earth's Extremes, with an engraving per card drawn by `extreme_art`) | `outdoors/page/extremes.json` |
     | `<!--gen:powermap-->` | `ai-timeline/timeline-data.json` |
     | `<!--gen:timeline-->` | `about/page/timeline.html` |
 
@@ -87,7 +161,8 @@ edge leans with the boundary's place on screen (`seamAt` in `lerp.js`), so it sw
   - Its pure maths are exported and tested in `tools/site/tests/science.test.mjs`.
   - Every number comes from a source listed on the page.
 - **Fallbacks.**
-  - With reduced motion (or Motion off):
+  - Motion is on by default, whatever the system's reduced-motion setting; the header's Motion
+    button pauses it (`ac-motion` in localStorage). With Motion off:
     - the scene holds still;
     - experiments draw one frame;
     - prints are developed;

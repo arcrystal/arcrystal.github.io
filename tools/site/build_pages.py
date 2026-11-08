@@ -134,12 +134,12 @@ def import_map():
 
 
 def boot_script():
-    """Runs before first paint: html.js and the motion choice (html.motion-paused). If the shell
+    """Runs before first paint: html.js and the motion choice (html.motion-paused, only when the
+    visitor paused it: motion is on by default, whatever the system setting). If the shell
     never reports html.app-ready, html.js is dropped after 6 s so JavaScript-only states cannot
     hide content."""
     return ("(function(){var d=document.documentElement;d.classList.add('js');try{"
-            "var m=localStorage.getItem('ac-motion'),r=matchMedia('(prefers-reduced-motion: reduce)').matches;"
-            "if(m==='paused'||(m!=='playing'&&r))d.classList.add('motion-paused');"
+            "if(localStorage.getItem('ac-motion')==='paused')d.classList.add('motion-paused');"
             "}catch(e){}"
             "setTimeout(function(){if(!d.classList.contains('app-ready'))d.classList.remove('js')},6000)})()")
 
@@ -533,6 +533,127 @@ def hikes_list():
     return f'<ol class="o-hikes" role="list" reversed>{"".join(rows)}</ol>'
 
 
+def extreme_art(kind, uid):
+    """A small engraving for one of Earth's Extremes (240 × 140): a hatched silhouette and a few
+    lines, in the folio's manner. uid keeps each card's clip path its own."""
+    H = 'url(#x-hatch)'
+    H2 = 'url(#x-hatch-dense)'
+    def sil(d, fill=H, rule='nonzero'):
+        return f'<path d="{d}" fill="{fill}" fill-rule="{rule}" class="x-sil"/>'
+    def ln(d, cls='x-ln'):
+        return f'<path d="{d}" class="{cls}"/>'
+    parts = []
+    if kind in ('k2', 'alpamayo', 'chopicalqui'):
+        tops = {
+            'k2': [(8, 128), (70, 84), (96, 70), (112, 36), (121, 14), (131, 34), (146, 62), (178, 82), (232, 128)],
+            'alpamayo': [(20, 128), (84, 62), (110, 30), (120, 18), (131, 31), (156, 62), (220, 128)],
+            'chopicalqui': [(6, 128), (48, 96), (82, 66), (104, 44), (116, 36), (128, 48), (146, 30), (160, 40), (188, 74), (234, 128)],
+        }[kind]
+        d = 'M' + ' L'.join(f'{x} {y}' for x, y in tops) + ' Z'
+        parts.append(f'<clipPath id="x-c-{uid}"><path d="{d}"/></clipPath>')
+        parts.append(sil(d))
+        def top(x):
+            for (x0, y0), (x1, y1) in zip(tops, tops[1:]):
+                if x0 <= x <= x1:
+                    return y0 + (y1 - y0) * (x - x0) / max(x1 - x0, 1)
+            return 128
+        if kind == 'k2':
+            parts += [ln('M121 14 L116 52 L104 90 L92 128'), ln('M121 14 L138 60 L150 98'), ln('M100 70 Q121 80 146 64', 'x-ln x-snow')]
+        elif kind == 'alpamayo':
+            # The fluted face: ribs from the ridge down into the snowfield.
+            ribs = ''.join(f'M{x} {top(x) + 1.5:.1f} L{x + (x - 120) * 0.12:.1f} {108 - abs(x - 120) * 0.5:.1f} ' for x in range(88, 154, 5))
+            parts.append(f'<path d="{ribs}" class="x-ln x-fine" clip-path="url(#x-c-{uid})"/>')
+        else:
+            parts += [ln('M70 94 Q100 86 130 92'), ln('M92 74 Q120 66 152 72'), ln('M150 102 Q178 96 206 106'), ln('M116 36 L128 48 L146 30', 'x-ln x-snow')]
+        parts.append(f'<path d="{d}" class="x-edge" fill="none"/>')
+    elif kind == 'canopy':
+        crowns = [(18, 84, 15), (44, 80, 17), (72, 86, 14), (96, 76, 16), (146, 80, 16), (172, 86, 14), (198, 78, 17), (226, 84, 15)]
+        parts += [ln(f'M{x} {y + r - 2} L{x} 120', 'x-ln x-fine') for x, y, r in crowns]
+        parts.append(ln('M120 70 L120 120 M120 92 L108 84 M120 98 L134 88', 'x-ln'))
+        for x, y, r in crowns + [(120, 50, 23)]:
+            parts.append(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{H}" class="x-edge"/>')
+        parts.append(ln('M0 124 Q60 114 120 126 T240 120', 'x-ln x-water'))
+    elif kind == 'dunes':
+        parts.append('<circle cx="188" cy="36" r="13" class="x-edge" fill="none"/>')
+        parts.append(sil('M0 128 L0 100 Q40 82 80 96 Q120 112 160 90 Q200 70 240 88 L240 128 Z'))
+        parts.append(sil('M0 128 L0 116 Q60 102 120 118 Q170 130 240 110 L240 128 Z', H2))
+        parts += [ln('M0 100 Q40 82 80 96 Q120 112 160 90 Q200 70 240 88'), ln('M0 116 Q60 102 120 118 Q170 130 240 110')]
+    elif kind == 'hoodoos':
+        for x, w, h in [(22, 16, 70), (48, 20, 96), (76, 14, 58), (100, 22, 104), (130, 16, 78), (156, 20, 90), (184, 14, 62), (210, 20, 84)]:
+            t = 128 - h
+            l, r = x - w / 2, x + w / 2
+            d = (f'M{l} 128 C{l - 4} {t + h * 0.7:.0f} {l + 5} {t + h * 0.45:.0f} {l + 1} {t + h * 0.25:.0f} '
+                 f'C{l - 2} {t + 14} {l + 2} {t + 9} {l} {t + 7} L{r} {t + 7} C{r - 2} {t + 9} {r + 2} {t + 14} {r - 1} {t + h * 0.25:.0f} '
+                 f'C{r - 5} {t + h * 0.45:.0f} {r + 4} {t + h * 0.7:.0f} {r} 128 Z')
+            parts.append(sil(d))
+            parts.append(f'<path d="{d}" class="x-edge" fill="none"/>')
+            parts.append(f'<rect x="{l - 3}" y="{t}" width="{w + 6}" height="7" class="x-edge x-cap"/>')
+    elif kind == 'falls':
+        parts.append(sil('M190 128 L196 72 L240 68 L240 128 Z', H2))
+        parts.append(sil('M0 128 L0 30 L148 26 L156 34 L152 128 Z'))
+        parts.append('<path d="M0 30 L148 26 L156 34 L152 128" class="x-edge" fill="none"/>')
+        parts.append(''.join(ln(f'M{x} 33 Q{x + 2} 80 {x + 1} 120', 'x-ln x-water') for x in (156, 159, 162)))
+        parts.append(''.join(f'<circle cx="{cx}" cy="{cy}" r="{r}" class="x-ln x-mist"/>' for cx, cy, r in [(160, 124, 9), (170, 118, 6), (150, 120, 5)]))
+    elif kind == 'shield':
+        parts.append(ln('M0 64 L240 64', 'x-ln x-water'))
+        parts.append(sil('M0 128 Q60 112 90 82 Q110 58 120 48 Q130 58 150 82 Q180 112 240 128 Z'))
+        parts.append('<path d="M0 128 Q60 112 90 82 Q110 58 120 48 Q130 58 150 82 Q180 112 240 128" class="x-edge" fill="none"/>')
+        parts.append('<rect x="0" y="64" width="240" height="64" class="x-sea"/>')
+        parts.append(ln('M224 48 L224 128 M219 48 L229 48 M219 128 L229 128', 'x-ln x-fine'))
+        parts.append(ln('M116 46 Q121 30 112 18 Q108 10 114 4', 'x-ln x-fine'))
+    elif kind == 'kelp':
+        parts.append(''.join(ln(f'M{x} 0 L{x + 30} 128', 'x-ln x-ray') for x in (30, 90, 150, 200)))
+        for i, x in enumerate((36, 78, 122, 166, 206)):
+            top = 14 + (i * 13) % 26
+            wave = f'M{x} 128 ' + ' '.join(f'Q{x + (8 if k % 2 else -8)} {128 - (k + 0.5) * (128 - top) / 6:.0f} {x} {128 - (k + 1) * (128 - top) / 6:.0f}' for k in range(6))
+            parts.append(ln(wave))
+            for k in range(1, 6):
+                y = 128 - k * (128 - top) / 6
+                side = 1 if k % 2 else -1
+                parts.append(f'<ellipse cx="{x + side * 7}" cy="{y:.0f}" rx="7" ry="2.6" transform="rotate({side * -30} {x + side * 7} {y:.0f})" fill="{H}" class="x-edge"/>')
+        parts.append(sil('M0 140 L0 128 Q30 120 60 126 T120 124 T180 127 T240 122 L240 140 Z', H2))
+    elif kind == 'cave':
+        parts.append(sil('M0 0 L240 0 L240 128 L0 128 Z M40 128 L44 70 Q60 22 120 18 Q180 22 196 70 L200 128 Z', H, 'evenodd'))
+        parts.append('<path d="M40 128 L44 70 Q60 22 120 18 Q180 22 196 70 L200 128" class="x-edge" fill="none"/>')
+        parts.append('<path d="M112 0 L130 0 L156 128 L92 128 Z" class="x-light"/>')
+        parts.append(''.join(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{H2}" class="x-edge"/>' for x, y, r in [(100, 118, 7), (114, 114, 9), (130, 117, 7), (144, 119, 6)]))
+        parts.append(ln('M170 128 L170 120 M170 122 L167 126 M170 122 L173 126 M170 120 m0 -2.2 a1.6 1.6 0 1 0 0.01 0', 'x-ln x-fine'))
+    elif kind == 'trench':
+        parts.append(ln('M0 14 Q20 11 40 14 T80 14 T120 14 T160 14 T200 14 T240 14', 'x-ln x-water'))
+        parts.append(sil('M0 140 L0 60 L70 64 L96 72 L112 118 L118 132 L126 120 L140 74 L170 66 L240 62 L240 140 Z'))
+        parts.append('<path d="M0 60 L70 64 L96 72 L112 118 L118 132 L126 120 L140 74 L170 66 L240 62" class="x-edge" fill="none"/>')
+        parts.append(ln('M108 128 L118 96 L128 128', 'x-ln x-dash'))
+        parts.append('<ellipse cx="118" cy="104" rx="5" ry="2.5" class="x-edge" fill="none"/>')
+    elif kind == 'ice':
+        parts.append(''.join(f'<circle cx="{x}" cy="{y}" r="0.9" class="x-star"/>' for x, y in [(30, 18), (64, 34), (98, 12), (150, 26), (182, 10), (210, 36), (226, 16), (128, 40)]))
+        parts.append(sil('M0 128 L0 68 Q120 58 240 68 L240 128 Z'))
+        parts.append('<path d="M0 68 Q120 58 240 68" class="x-edge" fill="none"/>')
+        parts.append(''.join(ln(f'M0 {y} Q120 {y - 6} 240 {y}', 'x-ln x-fine') for y in (84, 98, 112)))
+        parts.append('<rect x="130" y="50" width="16" height="9" class="x-edge" fill="none"/>')
+        parts.append(ln('M150 59 L150 38 M150 40 L158 44 L150 48', 'x-ln x-fine'))
+        parts.append('<rect x="24" y="26" width="6" height="30" rx="3" class="x-edge" fill="none"/><circle cx="27" cy="60" r="5" class="x-edge" fill="none"/>')
+        parts.append(ln('M27 34 L27 56', 'x-ln'))
+    return f'<svg class="x-art" viewBox="0 0 240 140" aria-hidden="true" focusable="false">{"".join(parts)}</svg>'
+
+
+def extremes_list():
+    """Earth's Extremes on Outdoors: a card each, an engraving, a figure and a line or two."""
+    data = load_json('outdoors/page/extremes.json')
+    defs = ('<svg width="0" height="0" class="x-defs" aria-hidden="true" focusable="false"><defs>'
+            '<pattern id="x-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><line x1="0" y1="0" x2="0" y2="4" class="x-hatch-line"/></pattern>'
+            '<pattern id="x-hatch-dense" width="2.5" height="2.5" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="2.5" class="x-hatch-line"/></pattern>'
+            '</defs></svg>')
+    cards = []
+    for e in data['extremes']:
+        cards.append(f'<li class="x-card" id="x-{e["id"]}">{extreme_art(e["art"], e["id"])}'
+                     f'<p class="x-kind">{esc(e["kind"])} <span>{esc(e["where"])}</span></p>'
+                     f'<h3>{esc(e["name"])}</h3>'
+                     f'<p class="x-stat">{esc(e["stat"])} <span>{esc(e["sub"])}</span></p>'
+                     f'<p class="x-text">{esc(e["text"])}</p></li>')
+    sources = ' · '.join(f'<a href="{esc(e["source"])}" target="_blank" rel="noreferrer">{esc(e["name"])}</a>' for e in data['extremes'])
+    return f'{defs}<ol class="x-cards" role="list">{"".join(cards)}</ol><p class="o-note">Sources: {sources}.</p>'
+
+
 SPORTS = {'ski': 'Nordic ski', 'run': 'Running', 'tri': 'Triathlon', 'endurance': 'Endurance'}
 
 
@@ -584,10 +705,44 @@ PHRASES = {
 HOME_FACT = ('Lately', 'Finished all 48 of New Hampshire’s 4,000-footers on Aug 1, 2026')
 
 
+ALGO_ROLES = (('world', 'Its world'), ('piece', 'Its live piece'), ('arrival', 'Arriving here'))
+
+
+def band_algorithms(pkg):
+    """The band's information button and panel: the algorithms behind its world, its live piece and
+    the transition into it (science/page/algorithms.json), as a native popover (home.js stands in
+    where popovers are not supported)."""
+    data = load_json('science/page/algorithms.json')
+    title = pkg.reg['title']
+    groups = []
+    for role, label in ALGO_ROLES:
+        items = [a for a in data['algorithms'] if a['bands'].get(pkg.id) == role]
+        if items:
+            lis = ''.join(f'<li><b>{esc(a["name"])}</b> {esc(a["what"])}</li>' for a in items)
+            groups.append(f'<h4>{label}</h4><ul role="list">{lis}</ul>')
+    pid = f'algo-{pkg.id}'
+    return (f'<button type="button" class="band-info" popovertarget="{pid}" aria-label="The algorithms behind {esc(title)}" data-band-info>'
+            f'<span aria-hidden="true">i</span></button>'
+            f'<div class="band-algo" id="{pid}" popover aria-labelledby="{pid}-h"><p class="band-algo-k" id="{pid}-h">The algorithms behind {esc(title)}</p>'
+            f'{"".join(groups)}<p class="band-algo-more"><a href="/science/#algorithms">Every algorithm on the site <span aria-hidden="true">→</span></a></p></div>')
+
+
+def algorithms_list():
+    """Science's catalogue of every algorithm the site runs, by field."""
+    data = load_json('science/page/algorithms.json')
+    out = []
+    for field in data['fields']:
+        items = [a for a in data['algorithms'] if a['field'] == field]
+        lis = ''.join(f'<li id="algo-{a["id"]}"><h4>{esc(a["name"])}</h4><p>{esc(a["what"])}</p><p class="sx-algo-where">{esc(a["where"])}</p></li>' for a in items)
+        out.append(f'<div class="sx-algo-field"><h3>{esc(field)} <span>{len(items)}</span></h3><ul class="sx-algo-list" role="list">{lis}</ul></div>')
+    return f'<div class="sx-algos">{"".join(out)}</div>'
+
+
 def band(pkg, body, cls=''):
     reg = pkg.reg
     return f'''<section class="band band--{pkg.id}{cls}" id="band-{pkg.id}" data-band="{pkg.id}" data-style="{pkg.style}" aria-labelledby="band-{pkg.id}-title">
   <div class="art art--{pkg.style} band-art" aria-hidden="true">{ART[pkg.style]() if pkg.style in ART else ''}</div>
+  {band_algorithms(pkg)}
   <div class="wrap band-inner">
     <header class="band-head">
       <p class="band-n">{reg['number']}</p>
@@ -733,13 +888,15 @@ def sims_ready(content):
 
 def generated(content, pkg):
     """Fills the markers in a page's content: the Birkie route (Racing), every race, the 48 skyline
-    and its hikes (Outdoors), the Power Map strip and the path (About), and the experiments that
+    and its hikes and Earth's Extremes (Outdoors), the Power Map strip and the path (About), and the experiments that
     exist (Science and the homepage)."""
     fills = {
         '<!--gen:route-->': lambda: route_svg(pkg.meta['preview']['route'], 'r-route-svg'),
         '<!--gen:races-->': races_list,
         '<!--gen:skyline-->': skyline_svg,
         '<!--gen:hikes-->': hikes_list,
+        '<!--gen:extremes-->': extremes_list,
+        '<!--gen:algorithms-->': algorithms_list,
         '<!--gen:powermap-->': powermap_strip,
         '<!--gen:timeline-->': lambda: f'''<section class="ab-section ab-timeline" id="timeline" aria-labelledby="timeline-title">
   <div class="wrap ab-grid">

@@ -32,7 +32,7 @@ vec3 sceneFolio(vec2 px) {
   vec3 col = mix(FOL_BG, FOL_DEEP, smoothstep(0.15, 1.05, length((uv - vec2(0.5, 0.3)) * vec2(1.0, 1.25))));
   vec2 idle = R * vec2(0.7, 0.34) + vec2(sin(T * 0.21), cos(T * 0.17)) * 34.0;
   vec2 lamp = mix(idle, PTR, uPtrOn);
-  float light = exp(-pow(length(px - lamp) / 320.0, 2.0));
+  float light = exp(-pow(length(px - lamp) / 400.0, 2.0));
   float terr = fbm(px * 0.003 + vec2(3.0, 9.0));
   float shade = clamp(terr * 1.3 - 0.22 + light * 0.5, 0.0, 1.0);
   // Hatching: light lines on the dark plate, thicker where the light is.
@@ -44,7 +44,9 @@ vec3 sceneFolio(vec2 px) {
   float w2 = max(shade - 0.55, 0.0) * 0.5;
   float a2 = fwidth(u2) * 0.8;
   float line2 = smoothstep(w2 + a2, w2 - a2, abs(fract(u2) - 0.5)) * step(0.001, w2);
-  vec3 lineCol = mix(FOL_LINE, BRASS * 0.85, light * 0.75);
+  vec3 lineCol = mix(FOL_LINE, BRASS * 0.9, light * 0.85);
+  // Brass glints: where a line crosses the lantern's bright core it flashes, slowly travelling.
+  lineCol += BRASS * pow(light, 3.0) * 0.5 * smoothstep(0.7, 1.0, sin(u1 * 0.7 - T * 1.3) * 0.5 + 0.5);
   col = mix(col, lineCol, max(line1, line2) * (0.55 + 0.35 * shade));
   // Ferns from both edges, swaying.
   float sway = sin(T * 0.4) * 0.025;
@@ -60,9 +62,9 @@ vec3 sceneFolio(vec2 px) {
   vec2 g = px / 120.0 + vec2(sin(T * 0.1) * 0.3, T * 0.12);
   vec2 id = floor(g);
   float d = length(fract(g) - hash2(id)) * 120.0;
-  float mote = smoothstep(2.6, 0.4, d) * step(0.82, hash(id + 4.2)) * (0.5 + 0.5 * sin(T * 2.3 + hash(id) * 6.0));
+  float mote = smoothstep(2.6, 0.4, d) * step(0.74, hash(id + 4.2)) * (0.5 + 0.5 * sin(T * 2.3 + hash(id) * 6.0));
   col += EMBER * mote * (0.35 + 0.65 * light);
-  col += EMBER * light * 0.05;
+  col += EMBER * light * 0.085;
   col *= 1.0 - 0.45 * pow(length((uv - vec2(0.5, 0.45)) * vec2(1.0, 1.1)), 2.2);
   return col;
 }

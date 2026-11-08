@@ -144,6 +144,34 @@ html.gl .band-art { opacity: 0; }
 .band-cta a span { transition: transform var(--d-short) var(--ease-out); }
 .band-cta a:hover span { transform: translateX(6px); }
 .band-body { min-width: 0; }
+/* Each band's information button (top right) and its panel: the algorithms behind the band
+   (build_pages.py band_algorithms). A native popover, anchored under the button where anchor
+   positioning is supported and centred otherwise; home.js stands in where popovers are not. */
+.band-info { position: absolute; z-index: 2; top: clamp(16px, 2.4vw, 28px); right: clamp(16px, 2.4vw, 28px); inline-size: 34px; block-size: 34px;
+  display: grid; place-items: center; padding: 0; border: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 50%;
+  background: color-mix(in srgb, var(--c-bg) 55%, transparent); color: var(--c-fg); cursor: pointer;
+  font: italic 600 15px/1 Georgia, 'Times New Roman', serif; transition: border-color var(--d-short), background var(--d-short), transform var(--d-short) var(--ease-out); }
+.band-info::before { content: ""; position: absolute; inset: -6px; }   /* a 46px target */
+.band-info:hover, .band-info[aria-expanded="true"] { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-bg) 85%, transparent); transform: scale(1.06); }
+.band-info:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
+.band-algo { display: none; inline-size: min(30rem, calc(100vw - 32px)); max-block-size: min(72vh, 40rem); overflow: auto; margin: auto; padding: 22px 24px 18px;
+  border: 1px solid color-mix(in srgb, var(--c-fg) 18%, transparent); border-radius: 14px; background: var(--c-bg); color: var(--c-fg);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.55); font-size: var(--t-small); line-height: 1.5; }
+.band-algo:is(:popover-open, .is-open) { display: block; }
+.band-algo.is-open { position: fixed; inset: 0; z-index: 50; block-size: fit-content; }
+.band-algo::backdrop { background: rgb(0 0 0 / 0.18); }
+@supports (position-area: block-end) {
+  .band-algo { position-area: block-end span-inline-start; inset: auto; margin: 10px 0 0; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
+  .band-algo::backdrop { background: transparent; }
+}
+.band-algo-k { margin: 0 0 4px; font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-accent); }
+.band-algo h4 { margin: 14px 0 6px; font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); font-weight: var(--w-medium); }
+.band-algo ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.band-algo li b { display: block; font-weight: var(--w-medium); color: var(--c-fg); }
+.band-algo li { color: var(--c-fg-mute); }
+.band-algo-more { margin: 16px 0 0; }
+.band-algo-more a { color: var(--c-accent); text-decoration: none; font-weight: var(--w-medium); }
+.band-algo-more a:hover { text-decoration: underline; }
 /* A band arrives as it scrolls in: the header first, then its piece. */
 .js:not(.motion-paused) .band > .band-inner > * { transition: opacity 700ms var(--ease-out), translate 900ms var(--ease-out); }
 .js:not(.motion-paused) .band > .band-inner > .band-body { transition-delay: 140ms; }

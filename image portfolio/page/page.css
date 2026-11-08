@@ -194,6 +194,4 @@ html:has([data-destination="photography"] .mt-lightbox[open]) { overflow: hidden
   [data-destination="photography"] .mt-lb-stage { grid-template-columns: 40px minmax(0, 1fr) 40px; gap: var(--s-2); padding-inline: var(--s-2); }
   [data-destination="photography"] .mt-lb-nav { width: 40px; height: 40px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  [data-destination="photography"] * { transition: none !important; }
-}
+html.motion-paused [data-destination="photography"] * { transition: none !important; }

@@ -16,7 +16,7 @@ vec3 sceneInk(vec2 px) {
   vec3 col = inkPaper(px);
   // A faint wash high up, like a damp sky.
   col = mix(col, INK_PAPER * 0.94, 0.3 * smoothstep(0.5, 0.0, uv.y) * smoothstep(0.35, 0.8, fbm3(vec2(X * 0.7 + T * 0.004, uv.y * 2.2))));
-  float part = uPtrOn * exp(-pow(length(px - PTR) / 240.0, 2.0));
+  float part = uPtrOn * exp(-pow(length(px - PTR) / 300.0, 2.0));
   for (int i = 0; i < 3; i++) {
     float fi = float(i);
     float drift = T * (0.005 + fi * 0.004);
@@ -30,10 +30,12 @@ vec3 sceneInk(vec2 px) {
     float wet = smoothstep(-0.0015, 0.0015, depth) * exp(-depth * 160.0) * 0.4;
     float gran = 0.78 + 0.44 * noise(px * (0.32 + fi * 0.1) + fi * 5.0);
     float mist = smoothstep(0.38, 0.78, fbm3(vec2(X * 1.25 - T * 0.012 * (fi + 1.0), uv.y * 4.2 + fi * 2.0)));
-    float dens = (body * gran + wet) * (0.3 + fi * 0.22) * (1.0 - 0.55 * mist) * (1.0 - 0.4 * part);
+    float dens = (body * gran + wet * 1.3) * (0.34 + fi * 0.2) * (1.0 - 0.55 * mist) * (1.0 - 0.6 * part);
     // Where the wash pools at the foot of the nearest ridge it blooms a little darker.
     float pool = fi > 1.5 ? smoothstep(0.62, 0.8, fbm3(vec2(x * 1.7, uv.y * 6.0 - T * 0.01))) * exp(-depth * 4.0) * 0.18 : 0.0;
     vec3 tone = mix(INK_BLACK, INK_INDIGO, 0.38 - fi * 0.16);
+    // The middle ridge carries an indigo wash that bleeds up from its foot.
+    if (fi > 0.5 && fi < 1.5) tone = mix(tone, INK_INDIGO * 1.15, smoothstep(0.02, 0.2, depth) * 0.55 * smoothstep(0.35, 0.7, fbm3(vec2(x * 1.3, 4.0))));
     col = mix(col, tone, clamp(dens + pool, 0.0, 0.9));
   }
   return col;

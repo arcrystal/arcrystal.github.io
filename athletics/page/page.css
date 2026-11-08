@@ -298,10 +298,8 @@ main[data-destination="racing"] a.palace-card:hover { border-color: var(--c-fg);
   main[data-destination="racing"] .r-form-head { flex-wrap: wrap; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  main[data-destination="racing"] .r-bar, main[data-destination="racing"] a.r-button, main[data-destination="racing"] .r-disclosure > summary::after { transition: none; }
-  main[data-destination="racing"].r-motion .r-bar:not(.is-in) { transform: none; }
-}
+html.motion-paused main[data-destination="racing"] .r-bar, html.motion-paused main[data-destination="racing"] a.r-button, html.motion-paused main[data-destination="racing"] .r-disclosure > summary::after { transition: none; }
+html.motion-paused main[data-destination="racing"].r-motion .r-bar:not(.is-in) { transform: none; }
 html.motion-paused main[data-destination="racing"] .r-bar, html.motion-paused main[data-destination="racing"] a.r-button { transition: none; }
 html.motion-paused main[data-destination="racing"].r-motion .r-bar:not(.is-in) { transform: none; }
 

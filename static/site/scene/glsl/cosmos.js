@@ -15,7 +15,9 @@ vec3 cosmosSky(vec2 px) {
   float n1 = fbm(q * 1.6 + vec2(T * 0.006, 0.0));
   float n2 = fbm(q * 3.1 - vec2(0.0, T * 0.004) + n1);
   float cloud = smoothstep(0.42, 0.9, n2) * smoothstep(1.15, 0.1, length((uv - vec2(0.72, 0.3)) * vec2(1.0, 1.4)));
-  vec3 col = COS_BG + COS_VIOLET * cloud * 0.42 + vec3(0.9, 0.3, 0.7) * cloud * cloud * 0.2;
+  vec3 col = COS_BG + COS_VIOLET * cloud * 0.48 + vec3(0.9, 0.3, 0.7) * cloud * cloud * 0.3;
+  // The nebula's core: a warm, bright heart where the cloud is thickest.
+  col += vec3(1.0, 0.62, 0.86) * pow(cloud, 3.0) * 0.22;
   float teal = smoothstep(0.5, 0.95, fbm3(q * 2.2 + 7.0)) * smoothstep(0.9, 0.0, length(uv - vec2(0.15, 0.85)));
   col += COS_CYAN * teal * 0.12;
   col *= 1.0 - 0.5 * smoothstep(0.55, 0.8, fbm3(q * 5.0 + 3.0)) * cloud;
@@ -76,7 +78,7 @@ float cosmosField(vec2 px, out vec2 grad) {
 vec3 cosmosMetal(vec3 n) {
   vec3 r = reflect(vec3(0.0, 0.0, -1.0), n);
   float fres = pow(1.0 - n.z, 1.6);
-  return spaceEnv(r) * 1.1 + spectrum(fres * 1.2 + n.x * 0.4 + T * 0.02) * fres * 0.35
+  return spaceEnv(r) * 1.1 + spectrum(fres * 1.2 + n.x * 0.4 + T * 0.02) * fres * 0.5
     + pow(max(dot(r, normalize(vec3(-0.4, -0.7, 0.6))), 0.0), 40.0) * 0.9;
 }
 
@@ -101,6 +103,17 @@ vec3 sceneCosmos(vec2 px) {
   }
   vec2 g = abs(fract(px / 96.0) - 0.5) * 96.0;
   col += COS_CYAN * smoothstep(0.9, 0.0, min(g.x, g.y)) * 0.035 * smoothstep(0.0, 0.5, px.x / R.x);
+  // Now and then a meteor: a thin streak with a cyan head, every 11 s, somewhere new each time.
+  float mk = floor(T / 11.0), mt = fract(T / 11.0) * 11.0;
+  if (mt < 0.9) {
+    vec2 m0 = R * vec2(0.2 + 0.7 * hash(vec2(mk, 1.0)), 0.05 + 0.35 * hash(vec2(mk, 2.0)));
+    vec2 md = normalize(vec2(-0.85, 0.5));
+    vec2 head = m0 + md * mt * 900.0;
+    vec2 rel = px - head;
+    float along = dot(rel, -md), across = abs(dot(rel, vec2(-md.y, md.x)));
+    float trail = smoothstep(260.0, 0.0, along) * step(0.0, along) * exp(-across * across / 1.6);
+    col += (COS_CYAN * 0.6 + vec3(0.8)) * (trail * 0.7 + exp(-dot(rel, rel) / 10.0)) * sin(PI * mt / 0.9);
+  }
   float sy = mod(T * 60.0, R.y * 1.6) - R.y * 0.3;
   col += COS_CYAN * exp(-pow((px.y - sy) / 30.0, 2.0)) * 0.03;
   vec2 uv = px / R;

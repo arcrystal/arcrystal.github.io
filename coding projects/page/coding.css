@@ -247,6 +247,4 @@ main[data-destination="coding"] { background: var(--c-bg); }
 [data-destination="coding"] .older-list p { margin: 0 0 var(--s-3); font-size: var(--t-small); color: var(--c-fg-mute); max-width: 48ch; }
 [data-destination="coding"] .older-list a { font-size: var(--t-small); }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-destination="coding"] .code-section a.btn, [data-destination="coding"] .case-index a::after { transition: none; }
-}
+html.motion-paused [data-destination="coding"] .code-section a.btn, html.motion-paused [data-destination="coding"] .case-index a::after { transition: none; }

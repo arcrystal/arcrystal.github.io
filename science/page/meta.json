@@ -1,11 +1,11 @@
 {
   "docTitle": "Science — Alex Crystal",
-  "description": "Things in science Alex Crystal can’t stop thinking about: exoplanets around TRAPPIST-1, the golden angle in sunflowers, structural colour and starling murmurations, Voyager, the Wow! signal and the Drake equation, each as a live experiment.",
-  "line": "Exoplanets, the geometry of plants, the beauty of animals, and the mysteries we keep chasing.",
-  "lede": "Deep space, the geometry of plants, the extreme beauty of animals, and human discovery and mystery. Each one is a live experiment you can play with.",
-  "index": [["#deep-space", "Deep space"], ["#plantae", "Plantae"], ["#animalia", "Animalia"], ["#discovery", "Discovery and mystery"]],
+  "description": "Things in science Alex Crystal can’t stop thinking about: exoplanets around TRAPPIST-1, the golden angle in sunflowers, structural colour and starling murmurations, Voyager, the Wow! signal and the Drake equation, each as a live experiment, and the computer science and physics behind the site.",
+  "line": "Exoplanets, the geometry of plants, the beauty of animals, computer science and physics, and the mysteries we keep chasing.",
+  "lede": "Deep space, the geometry of plants, the extreme beauty of animals, human discovery and mystery, and the computer science and physics behind this site. Each one is a live experiment you can play with.",
+  "index": [["#deep-space", "Deep space"], ["#plantae", "Plantae"], ["#animalia", "Animalia"], ["#discovery", "Discovery and mystery"], ["#algorithms", "Algorithms"]],
   "module": "page.js",
   "styles": ["page.css"],
   "fragments": {},
-  "preview": {"chapters": [["Deep space", "#deep-space"], ["Plantae", "#plantae"], ["Animalia", "#animalia"], ["Discovery", "#discovery"]]}
+  "preview": {"chapters": [["Deep space", "#deep-space"], ["Plantae", "#plantae"], ["Animalia", "#animalia"], ["Discovery", "#discovery"], ["Algorithms", "#algorithms"]]}
 }

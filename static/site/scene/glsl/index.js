@@ -1,5 +1,6 @@
 // The scene's one fragment shader, assembled in dependency order. quality sets the fbm octaves.
-import { HEADER, COMMON } from './common.js';
+import { HEADER, NOISE, COMMON } from './common.js';
+import { FLIGHT, SEAM_TEX } from './flight.js';
 import { INK } from './ink.js';
 import { GLACIER } from './glacier.js';
 import { COSMOS } from './cosmos.js';
@@ -7,6 +8,8 @@ import { FOLIO } from './folio.js';
 import { DARKROOM } from './darkroom.js';
 import { HOUSE } from './house.js';
 import { SEAMS } from './seams.js';
+import { REACH_LOOK } from './reach.js';
+import { TRANSIT } from './transit.js';
 import { OPENS, MAIN } from './opens.js';
 
 export const VERTEX = `#version 300 es
@@ -16,5 +19,5 @@ void main() {
 }`;
 
 export function fragment(quality = 5) {
-  return [HEADER, `#define Q ${quality | 0}`, COMMON, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, OPENS, MAIN].join('\n');
+  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, TRANSIT, OPENS, MAIN].join('\n');
 }

@@ -1,6 +1,7 @@
-/* Outdoors page, in the Naturalist's Folio style: the 48 as an engraved skyline that lights up in
-   the order they were climbed (page.js), the hikes behind it, the Ultra 8, and plates of mountains
-   further away. Everything is scoped under [data-destination="outdoors"]. */
+/* Outdoors page, in the Naturalist's Folio style, in two tabs (page.js; without JavaScript both show).
+   Hiking: the 48 as an engraved skyline that lights up in the order they were climbed, the hikes
+   behind it, the Ultra 8, and plates of mountains further away. Earth's Extremes: engraved specimen
+   cards (tools/site/build_pages.py). Everything is scoped under [data-destination="outdoors"]. */
 [data-destination="outdoors"] .o-section { padding-block: var(--section-gap); scroll-margin-top: calc(var(--header-h) + 16px); }
 [data-destination="outdoors"] .o-section + .o-section { border-top: 1px solid var(--c-rule); }
 [data-destination="outdoors"] .o-head { margin-bottom: clamp(32px, 4.5vw, 72px); }
@@ -38,3 +39,43 @@
 [data-destination="outdoors"] .o-plates figcaption b { font-style: normal; font-variant: small-caps; letter-spacing: 0.06em; margin-right: 6px; }
 .js:not(.motion-paused) [data-destination="outdoors"] .o-plates img { filter: sepia(1) saturate(0.6) brightness(0.92); transition: filter 1400ms var(--ease-out); }
 .js:not(.motion-paused) [data-destination="outdoors"] .o-plates li.is-in img { filter: none; }
+
+/* The tabs: two italic titles under the header, the open one underlined in brass. */
+[data-destination="outdoors"] .o-tablist-wrap { position: sticky; top: var(--header-h); z-index: 3; }
+[data-destination="outdoors"] .o-tablist { display: flex; gap: clamp(20px, 4vw, 56px); padding-block: 14px 0; border-bottom: 1px solid var(--c-rule); background: linear-gradient(rgb(18 29 22 / 0.94), rgb(18 29 22 / 0.86)); backdrop-filter: blur(6px); }
+[data-destination="outdoors"] .o-tablist[hidden] { display: none; }
+[data-destination="outdoors"] .o-tablist [role="tab"] { appearance: none; border: 0; background: none; padding: 6px 0 12px; min-height: 44px; cursor: pointer; color: var(--c-fg-mute); font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: clamp(1.25rem, 1rem + 0.9vw, 1.75rem); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--d-short), border-color var(--d-short); }
+[data-destination="outdoors"] .o-tablist [role="tab"]:hover { color: var(--c-fg); }
+[data-destination="outdoors"] .o-tablist [role="tab"][aria-selected="true"] { color: var(--c-fg); border-bottom-color: var(--c-accent); }
+[data-destination="outdoors"] .o-tablist [role="tab"]:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 4px; }
+[data-destination="outdoors"] .o-panel { scroll-margin-top: calc(var(--header-h) + 72px); }
+[data-destination="outdoors"] .o-panel > .o-section:first-child { border-top: 0; }
+.js:not(.motion-paused) [data-destination="outdoors"] .o-panel.is-shown { animation: o-panel-in 520ms var(--ease-out); }
+@keyframes o-panel-in { from { opacity: 0; translate: 0 14px; } to { opacity: 1; translate: none; } }
+[data-destination="outdoors"] .o-panel + .o-panel > .o-section { border-top: 1px solid var(--c-rule); }
+
+/* Earth's Extremes: specimen cards, each with an engraving. */
+[data-destination="outdoors"] .x-defs { position: absolute; }
+[data-destination="outdoors"] .x-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: var(--s-4); margin: 0; padding: 0; list-style: none; }
+[data-destination="outdoors"] .x-card { display: grid; align-content: start; gap: 8px; padding: var(--s-5); border: 1px solid var(--c-rule); background: rgb(23 37 28 / 0.6); scroll-margin-top: calc(var(--header-h) + 80px); }
+[data-destination="outdoors"] .x-art { display: block; width: 100%; height: auto; margin-bottom: 8px; color: var(--c-accent); border-bottom: 1px solid rgb(205 165 98 / 0.35); }
+[data-destination="outdoors"] .x-art .x-sil { stroke: none; }
+[data-destination="outdoors"] .x-art .x-edge { stroke: currentColor; stroke-width: 1.1; stroke-linejoin: round; }
+[data-destination="outdoors"] .x-art .x-ln { fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; }
+[data-destination="outdoors"] .x-art .x-fine { stroke-width: 0.7; }
+[data-destination="outdoors"] .x-art .x-snow { stroke: var(--c-fg); stroke-width: 1.3; }
+[data-destination="outdoors"] .x-art .x-water { stroke-dasharray: 5 3; }
+[data-destination="outdoors"] .x-art .x-dash { stroke-dasharray: 2 2; }
+[data-destination="outdoors"] .x-art .x-mist { stroke-dasharray: 2 3; opacity: 0.7; }
+[data-destination="outdoors"] .x-art .x-ray { stroke-width: 6; opacity: 0.08; }
+[data-destination="outdoors"] .x-art .x-light { fill: rgb(238 228 206 / 0.12); }
+[data-destination="outdoors"] .x-art .x-sea { fill: rgb(80 140 150 / 0.12); }
+[data-destination="outdoors"] .x-art .x-cap { fill: rgb(18 29 22 / 0.9); }
+[data-destination="outdoors"] .x-art .x-star { fill: var(--c-fg); }
+[data-destination="outdoors"] .x-defs .x-hatch-line { stroke: var(--c-accent); stroke-width: 0.8; opacity: 0.75; }
+[data-destination="outdoors"] .x-kind { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-accent); }
+[data-destination="outdoors"] .x-kind span { margin-left: 6px; color: var(--c-fg-mute); }
+[data-destination="outdoors"] .x-card h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
+[data-destination="outdoors"] .x-stat { font-family: var(--font-display); font-style: italic; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+[data-destination="outdoors"] .x-stat span { margin-left: 4px; font-family: var(--font-body, inherit); font-style: normal; font-size: var(--t-small); color: var(--c-fg-mute); }
+[data-destination="outdoors"] .x-text { font-size: var(--t-small); line-height: 1.55; color: var(--c-fg-mute); }

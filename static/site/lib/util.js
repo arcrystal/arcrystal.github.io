@@ -27,15 +27,11 @@ export function onTick(fn) {
   return () => tickers.delete(fn);
 }
 
-// Motion: the operating-system preference, overridden by the visitor's explicit choice.
+// Motion: on by default; paused only by the visitor's own choice (the header's Motion button).
 const listeners = new Set();
-const query = matchMedia('(prefers-reduced-motion: reduce)');
 function stored() { try { return localStorage.getItem('ac-motion'); } catch (_) { return null; } }
 export const motion = {
-  get paused() {
-    const s = stored();
-    return s === 'paused' || (s !== 'playing' && query.matches);
-  },
+  get paused() { return stored() === 'paused'; },
   set(paused) {
     try { localStorage.setItem('ac-motion', paused ? 'paused' : 'playing'); } catch (_) {}
     notify();
@@ -46,7 +42,6 @@ function notify() {
   document.documentElement.classList.toggle('motion-paused', motion.paused);
   listeners.forEach(fn => fn(motion.paused));
 }
-query.addEventListener('change', notify);
 document.documentElement.classList.toggle('motion-paused', motion.paused);
 
 // Live counts for leak checks.

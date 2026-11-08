@@ -131,12 +131,21 @@
 @media (min-width: 720px) { [data-destination="chess"] .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 [data-destination="chess"] .rating { padding: clamp(20px, 2.4vw, 32px); border: 1px solid var(--chess-line); border-radius: var(--chess-radius); background: var(--chess-card); display: grid; gap: var(--s-4, 16px); }
 [data-destination="chess"] .rating[data-state="none"] .rating-value { color: var(--c-fg-mute); }
-[data-destination="chess"] .rating h3 { font-size: var(--t-label); font-weight: var(--w-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
+[data-destination="chess"] .rating :is(h3, h4) { font-size: var(--t-label); font-weight: var(--w-medium); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
 [data-destination="chess"] .rating-value { margin: 0; font-size: clamp(3.25rem, 2rem + 4vw, 6.5rem); font-weight: var(--w-medium); line-height: 1; letter-spacing: var(--tracking-display); font-variant-numeric: tabular-nums; }
 [data-destination="chess"] .rating-facts { margin: 0; display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: var(--gap); font-size: var(--t-small); }
 [data-destination="chess"] .rating-facts dt { color: var(--c-fg-mute); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; }
 [data-destination="chess"] .rating-facts dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 @media (max-width: 480px) { [data-destination="chess"] .rating-facts { grid-template-columns: 1fr 1fr; } }
+/* Over the board: US Chess, updated by hand. */
+[data-destination="chess"] .otb { margin-top: clamp(48px, 6vw, 88px); }
+[data-destination="chess"] .otb-head { margin: 0 0 clamp(20px, 2.4vw, 32px); font-size: clamp(1.4rem, 1rem + 1.2vw, 2rem); font-weight: var(--w-medium); letter-spacing: var(--tracking-display); }
+[data-destination="chess"] .otb-head span { margin-left: 0.5em; font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); vertical-align: 0.35em; }
+[data-destination="chess"] .otb .rating-facts { grid-template-columns: repeat(auto-fit, minmax(6.5em, 1fr)); justify-content: stretch; }
+[data-destination="chess"] .rating-n { margin-left: 0.08em; font-size: 0.32em; color: var(--c-fg-mute); letter-spacing: 0; }
+[data-destination="chess"] .otb-events { margin: clamp(20px, 2.4vw, 32px) 0 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: var(--t-small); }
+[data-destination="chess"] .otb-events li { display: grid; grid-template-columns: 7.5em 1fr; gap: var(--gap); padding-bottom: 10px; border-bottom: 1px solid var(--chess-line); }
+[data-destination="chess"] .otb-events time { color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
 
 /* ---- repertoire ---- */
 [data-destination="chess"] .openings { display: grid; gap: var(--s-8, 56px) var(--gap); grid-template-columns: 1fr; }
@@ -204,6 +213,4 @@
 }
 [data-destination="chess"] .explorer-board { min-width: 0; }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-destination="chess"] * { transition: none !important; scroll-behavior: auto !important; }
-}
+html.motion-paused [data-destination="chess"] * { transition: none !important; scroll-behavior: auto !important; }

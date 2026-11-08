@@ -51,3 +51,15 @@
 .sx-drake-rows input { accent-color: #FF3DCB; width: 100%; }
 .sx-drake-rows output { text-align: right; color: #ECE9FF; font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) { .sx-drake-rows label { grid-template-columns: minmax(0, 1fr) 9ch; } .sx-drake-rows input { grid-column: 1 / -1; grid-row: 2; } }
+
+/* The algorithms behind the site: by field, a card each (build_pages.py algorithms_list). */
+[data-destination="science"] .sx-algorithms .sx-head { max-width: 46rem; }
+[data-destination="science"] .sx-i { display: inline-grid; place-items: center; inline-size: 1.4em; block-size: 1.4em; border: 1px solid currentColor; border-radius: 50%; font: italic 600 0.8em/1 Georgia, serif; vertical-align: 0.1em; }
+[data-destination="science"] .sx-algos { display: grid; gap: clamp(40px, 5vw, 72px); margin-top: clamp(32px, 4vw, 56px); }
+[data-destination="science"] .sx-algo-field h3 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 var(--s-4); padding-bottom: 10px; border-bottom: 1px solid var(--c-rule); font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-accent); }
+[data-destination="science"] .sx-algo-field h3 span { color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+[data-destination="science"] .sx-algo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: var(--s-4); margin: 0; padding: 0; list-style: none; }
+[data-destination="science"] .sx-algo-list li { padding: var(--s-4) var(--s-5) var(--s-5); border: 1px solid var(--c-rule); background: rgb(10 12 30 / 0.55); scroll-margin-top: calc(var(--header-h) + 24px); }
+[data-destination="science"] .sx-algo-list h4 { margin: 0 0 6px; font-size: 1.05rem; font-weight: var(--w-medium); line-height: 1.3; }
+[data-destination="science"] .sx-algo-list p { margin: 0; font-size: var(--t-small); line-height: 1.55; color: var(--c-fg-mute); }
+[data-destination="science"] .sx-algo-list .sx-algo-where { margin-top: 8px; font-family: var(--font-label); font-size: var(--t-label); letter-spacing: 0.06em; color: var(--c-accent); }

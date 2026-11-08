@@ -1,8 +1,8 @@
 {
   "docTitle": "Chess — Alex Crystal",
-  "description": "Chess by Alex Crystal: live Chess.com ratings, the openings I play and recent games on a replay board.",
+  "description": "Chess by Alex Crystal: live Chess.com ratings, US Chess over-the-board ratings, the openings I play and recent games on a replay board.",
   "line": "Live ratings, the openings I play, and recent games on an ink-wash board.",
-  "lede": "Rapid, blitz and bullet ratings live from Chess.com, the three openings I build around, and recent games to replay.",
+  "lede": "Rapid, blitz and bullet ratings live from Chess.com, my US Chess ratings over the board, the three openings I build around, and recent games to replay.",
   "index": [
     [
       "#playing-style",

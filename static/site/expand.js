@@ -5,8 +5,9 @@
 //      destination style's effect from the element's rectangle.
 //   2. The router swaps the page in once the effect covers the viewport (beforeSwap).
 //   3. afterSwap: the effect reveals the new page; its hero plays its arrival (hero.js).
-// Back to the homepage folds the page back into its band; other history steps, links to the house
-// pages and reduced motion use a plain fade in the destination's colour.
+// Back to the homepage folds the page back into its band; other history steps roll fog in, in the
+// destination's colours. With motion paused (or no WebGL for the house pages and fog) a plain fade.
+// While an effect plays, Escape or a click skips to its end.
 import { open } from './effects.js';
 import { getScene } from './scene/scene.js';
 
@@ -26,6 +27,8 @@ export function createExpand({ motion }) {
       point = e.detail === 0 ? null : { x: e.clientX, y: e.clientY };
       setTimeout(() => { if (pending === a) pending = null; }, 0);
     }, { capture: true });
+    scope.on(document, 'keydown', e => { if (e.key === 'Escape' && current) current.skip?.(); });
+    scope.on(document, 'pointerdown', () => { if (current) current.skip?.(); }, { capture: true });
   }
 
   const cardOf = link => (link?.closest('.ph') && document.querySelector('[data-crystal]'))
@@ -57,8 +60,9 @@ export function createExpand({ motion }) {
     leaving = document.body.dataset.page || null;
     const to = intent.route?.place?.destination?.style || 'house';
     let kind;
-    if (intent.source === 'pop') kind = intent.route.page === 'home' && from !== 'house' && !motion.paused ? 'close' : 'fade';
-    else kind = motion.paused || to === 'house' ? 'fade' : to;
+    if (motion.paused) kind = 'fade';
+    else if (intent.source === 'pop') kind = intent.route.page === 'home' && from !== 'house' ? 'close' : 'fog';
+    else kind = to;
     const rect = originRect(link, vw, vh);
     const at = point || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     point = null;
@@ -67,7 +71,7 @@ export function createExpand({ motion }) {
     const el = cardOf(link);
     const cardR = el ? parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0 : 24;
     const run = scene?.ready && kind !== 'fade'
-      ? scene.open(kind, { rect, point: at, from, cardR })
+      ? scene.open(kind, { rect, point: at, from, to, cardR })
       : open(kind, { rect, point: at, vw, vh, from, to });
     current = run;
     runs.set(intent, run);

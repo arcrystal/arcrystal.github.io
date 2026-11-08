@@ -11,7 +11,9 @@ vec3 sceneDarkroom(vec2 px) {
   vec2 L = R * vec2(0.5, -0.1);
   vec2 dl = (px - L) / vec2(R.x * 0.6, R.y * 0.8);
   float glow = exp(-dot(dl, dl) * 2.0);
-  col += DR_RED * glow * 0.5;
+  col += DR_RED * glow * 0.62;
+  // The lamp itself, just above the frame, blooming.
+  col += vec3(1.0, 0.4, 0.32) * exp(-dot(dl, dl) * 14.0) * 0.3;
   col *= 0.94 + 0.06 * noise(px * 0.02);
   // The tray: a ripple field below 70% of the screen, its crests catching the safelight.
   float tray = smoothstep(0.66, 0.86, uv.y);
@@ -19,8 +21,8 @@ vec3 sceneDarkroom(vec2 px) {
   float stir = uPtrOn * exp(-pow(length(px - PTR) / 220.0, 2.0));
   float h = fbm3(q + vec2(T * 0.03, -T * 0.08)) + 0.25 * sin(length(px - PTR) * 0.05 - T * 3.0) * stir;
   float crest = pow(smoothstep(0.45, 0.85, h), 3.0);
-  col += DR_RED * tray * (0.08 + crest * 0.55) * (0.4 + glow);
-  col += vec3(1.0, 0.55, 0.45) * tray * pow(crest, 6.0) * 0.18;
+  col += DR_RED * tray * (0.1 + crest * 0.75) * (0.4 + glow);
+  col += vec3(1.0, 0.55, 0.45) * tray * pow(crest, 6.0) * 0.3;
   // Dust in the beam.
   vec2 p = (px + vec2(0.0, T * 9.0)) / 34.0;
   vec2 id = floor(p), f = fract(p) - 0.5;

@@ -32,14 +32,20 @@ vec3 glacierAt(vec2 px, float soft) {
   float glow = uPtrOn * exp(-pow(length(px - PTR) / 300.0, 2.0));
   float k = c * (0.5 + 0.5 * smoothstep(1.05, 0.15, uv.y)) * (1.0 + 0.7 * glow);
   col = mix(col, col * vec3(0.9, 0.95, 1.0), 0.5 * fbm3(px * 0.0012 + T * 0.01));
-  col += mix(ICE_BLUE, vec3(1.0), 0.45) * k * mix(0.95, 0.4, soft);
+  col += mix(ICE_BLUE, vec3(1.0), 0.35) * k * mix(1.15, 0.4, soft);
+  col -= ICE_DEEP * 0.05 * (1.0 - k) * smoothstep(0.2, 1.0, uv.y) * (1.0 - soft);
   col += ICE_MINT * 0.07 * smoothstep(0.55, 1.0, uv.y) * (0.5 + 0.5 * sin(px.x * 0.0035 + T * 0.2));
   if (soft < 0.5) {
+    // A faint aurora along the top: two mint curtains that ripple slowly.
+    float ax = px.x / R.y;
+    float curtain = smoothstep(0.32, 0.0, uv.y - 0.06 - 0.05 * sin(ax * 2.3 + T * 0.15) - 0.03 * sin(ax * 5.1 - T * 0.11));
+    float rays = 0.6 + 0.4 * sin(ax * 40.0 + 3.0 * fbm3(vec2(ax * 3.0, T * 0.05)));
+    col = mix(col, col * 0.9 + ICE_MINT * 0.32 + ICE_BLUE * 0.1, curtain * rays * 0.4);
     float shaft = pow(max(0.0, sin((px.x * 0.55 + px.y) * 0.0032 - T * 0.05 + 1.4 * fbm3(px * 0.0018))), 12.0);
     col += shaft * 0.11;
     float iso = abs(fract(fbm3(px * 0.0021 + 4.0) * 13.0) - 0.5);
     col = mix(col, ICE_DEEP, 0.08 * smoothstep(0.035, 0.0, iso) * smoothstep(0.55, 1.0, uv.y));
-    vec2 g = px / 96.0 + vec2(T * 0.04, -T * 0.22);
+    vec2 g = px / 96.0 + vec2(T * 0.04, -T * 0.22 - uVel * 0.35);
     vec2 id = floor(g);
     float d = length(fract(g) - hash2(id)) * 96.0;
     col += smoothstep(2.4, 0.6, d) * step(0.74, hash(id + 9.1)) * 0.75;

@@ -8,11 +8,15 @@
 // their cover and behind it for their reveal.
 import { onTick, motion } from '../lib/util.js';
 import { VERTEX, fragment } from './glsl/index.js';
+import { createTransit } from './transit.js';
 
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
-  'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint'];
-const COVER_MS = 760, REVEAL_MS = 720, CLOSE_MS = 260;
+  'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
+  'uReach', 'uBaked'];
+// The reach takes its time: it grows out to every edge before the new world fills in behind it.
+const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
+const EFFECT_PX = 6e6;
 const root = document.documentElement;
 
 let instance;
@@ -41,7 +45,7 @@ function createScene() {
   const coarse = matchMedia('(pointer: coarse)').matches;
   const quality = coarse || innerWidth < 900 ? 4 : 5;
   const hosts = new Set();
-  let program = null, U = {}, ready = false, drewLast = false;
+  let program = null, U = {}, ready = false, drewLast = false, transit = null;
   let effect = null, stopTick = null;
   let cssW = 0, cssH = 0, dpr = 1, scale = 1, slow = 0, fast = 0;
   // The viewport, cached: reading innerWidth after the hosts have written styles would force a layout.
@@ -72,10 +76,15 @@ function createScene() {
         program = p;
         U = Object.fromEntries(UNIFORMS.map(n => [n, gl.getUniformLocation(p, n)]));
         gl.useProgram(p);
+        gl.uniform1i(U.uTexA, 0);
+        gl.uniform1i(U.uTexB, 1);
+        gl.uniform1i(U.uSim, 2);
+        gl.uniform1i(U.uReach, 5);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         ready = true;
+        transit = createTransit(gl, { renderWorld, coarse });
         requestAnimationFrame(() => root.classList.add('gl'));
         resolve(true);
       };
@@ -83,7 +92,7 @@ function createScene() {
     });
   }
 
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; root.classList.remove('gl'); });
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; transit = null; root.classList.remove('gl'); });
   canvas.addEventListener('webglcontextrestored', () => { compile(); });
 
   // ---- input ---------------------------------------------------------------------------------
@@ -97,7 +106,9 @@ function createScene() {
   // ---- drawing --------------------------------------------------------------------------------
   function resize() {
     const w = vpW, h = vpH;
-    const d = Math.min(devicePixelRatio || 1, w < 900 ? 1.25 : 1.5) * scale;
+    let d = Math.min(devicePixelRatio || 1, w < 900 ? 1.25 : 1.5) * scale;
+    // A click's transition is all motion: on big screens it draws at no more than about 6 megapixels.
+    if (effect) d = Math.min(d, Math.sqrt(EFFECT_PX / Math.max(1, w * h)));
     if (w === cssW && h === cssH && d === dpr) return;
     cssW = w; cssH = h; dpr = d;
     canvas.width = Math.max(1, Math.round(w * d));
@@ -117,6 +128,8 @@ function createScene() {
     gl.uniform1i(U.uB, s.b ?? 0);
     gl.uniform1f(U.uH, s.h ?? 0);
     gl.uniform1f(U.uVel, paused ? 0 : (s.vel ?? 0));
+    if (s.baked) { gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, s.baked); gl.activeTexture(gl.TEXTURE0); }
+    gl.uniform1f(U.uBaked, s.baked ? 1 : 0);
     const c = s.card;
     gl.uniform4f(U.uCard, c ? c[0] : 0, c ? c[1] : 0, c ? c[2] : 0, c ? c[3] : 0);
     gl.uniform1f(U.uCardR, s.cardR ?? 24);
@@ -126,8 +139,30 @@ function createScene() {
     gl.uniform1f(U.uHover, s.hover ?? -1);
     gl.uniform1f(U.uE, s.e ?? 0);
     gl.uniform2f(U.uPoint, s.point ? s.point[0] : cssW / 2, s.point ? s.point[1] : cssH / 2);
+    const g = s.grid;
+    gl.uniform4f(U.uGrid, g ? g[0] : 1, g ? g[1] : 1, g ? g[2] : 1, g ? g[3] : 1);
+    gl.uniform1f(U.uSimOn, s.simOn ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     return true;
+  }
+
+  // A world over a region, into a snapshot (a transit's texture): the same shader, offset so its
+  // pixels land where the region is on screen.
+  function renderWorld(style, fb, tw, th, region, vel) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.viewport(0, 0, tw, th);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.useProgram(program);
+    gl.uniform2f(U.uRes, tw, th);
+    gl.uniform1f(U.uDpr, tw / Math.max(1, region[2]));
+    gl.uniform2f(U.uOrigin, region[0], region[1]);
+    gl.uniform4f(U.uRegion, region[0], region[1], region[2], region[3]);
+    gl.uniform1i(U.uMode, 0);
+    gl.uniform1i(U.uA, style);
+    gl.uniform1f(U.uVel, motion.paused ? 0 : (vel ?? 0));
+    gl.uniform4f(U.uCard, 0, 0, 0, 0);
+    gl.uniform1f(U.uCardMix, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   function tick(dt) {
@@ -152,6 +187,31 @@ function createScene() {
       if (drewLast) { gl.disable(gl.SCISSOR_TEST); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); drewLast = false; }
       return;
     }
+    gl.useProgram(program);
+    gl.uniform1f(U.uTime, time);
+    gl.uniform2f(U.uPointer, ptrX, ptrY);
+    gl.uniform1f(U.uPtrOn, ptrOn);
+    gl.uniform2f(U.uView, cssW, cssH);
+    // Transits first draw their snapshots and step their fluid, off screen. With reduced motion the
+    // seams stay the plain, still ones.
+    const now = performance.now();
+    const info = transit && !paused ? { scale, now, time, vpW: cssW, vpH: cssH, ptr: { x: ptrX, y: ptrY, on: ptrOn } } : null;
+    if (info) {
+      for (const u of [0, 1, 2, 5]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
+      gl.activeTexture(gl.TEXTURE0);
+      for (const s of list) {
+        s.transit = s.mode === 6 && s.p !== undefined && transit.prepare(s, dt, info);
+        // A click's reach (opens.js): from the card's centre while covering, the click while revealing.
+        if ((s.mode === 2 || s.mode === 3) && !s.h) {
+          const c = s.card, O = s.mode === 2 ? (c ? [c[0] + c[2] / 2, c[1] + c[3] / 2] : [cssW / 2, cssH / 2]) : (s.point || [cssW / 2, cssH / 2]);
+          const far = Math.hypot(Math.max(O[0], cssW - O[0]), Math.max(O[1], cssH - O[1])) * 1.02;
+          s.baked = transit.bakeEffect(s.a, O, far, cssW, cssH);
+        }
+      }
+      transit.sweep(now);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.useProgram(program);
+    }
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST);
     gl.clearColor(0, 0, 0, 0);
@@ -159,13 +219,17 @@ function createScene() {
     gl.enable(gl.SCISSOR_TEST);
     gl.uniform2f(U.uRes, canvas.width, canvas.height);
     gl.uniform1f(U.uDpr, dpr);
-    gl.uniform1f(U.uTime, time);
-    gl.uniform2f(U.uPointer, ptrX, ptrY);
-    gl.uniform1f(U.uPtrOn, ptrOn);
+    gl.uniform2f(U.uOrigin, 0, 0);
     drewLast = false;
-    for (const s of list) drewLast = draw(s) || drewLast;
+    for (const s of list) {
+      const drew = s.transit ? transit.draw(s, info, drawGround, restoreMain) : draw(s);
+      drewLast = drew || drewLast;
+    }
     adapt(dt);
   }
+
+  const drawGround = s => { gl.useProgram(program); return draw(s); };
+  const restoreMain = () => gl.useProgram(program);
 
   // Dynamic resolution: drop the buffer scale when frames run long, recover when they are quick.
   function adapt(dt) {
@@ -190,19 +254,22 @@ function createScene() {
   // ---- effects ----------------------------------------------------------------------------
   // A two-act run in the shape effects.js uses: covered resolves once the cover fills the screen;
   // reveal() uncovers the new page. cancel/fail let go, skip finishes, slow shows a waiting line.
-  function open(kind, { rect, point, from, cardR = 24 }) {
-    const close = kind === 'close';
-    const style = STYLE_ID[close ? from : kind] ?? 0;
+  // kind: a style (its reach), 'close' (back into the homepage's band) or 'fog' (a history step,
+  // in the colours of to).
+  function open(kind, { rect, point, from, to: dest, cardR = 24 }) {
+    const close = kind === 'close', fog = kind === 'fog';
+    const style = STYLE_ID[close ? from : fog ? dest : kind] ?? 0;
     const vw = innerWidth, vh = innerHeight;
     const card = rect ? [rect.left, rect.top, rect.width, rect.height] : null;
     const at = point ? [point.x, point.y] : [vw / 2, vh / 2];
-    let e = 0, goal = 1, ms = close ? CLOSE_MS : COVER_MS, done = null, dead = false, wait = null;
+    let e = 0, goal = 1, ms = close ? CLOSE_MS : fog ? FOG_MS : COVER_MS, done = null, dead = false, wait = null;
     const run = {
       front: true, behind: false,
       state() {
         const region = [0, 0, vpW, vpH];
-        if (run.front) return { region, mode: close ? 4 : 2, a: style, e, card, cardR, point: at };
-        return { region, mode: 3, a: style, e, point: at };
+        const h = fog ? 1 : 0;
+        if (run.front) return { region, mode: close ? 4 : 2, a: style, e, h, card, cardR, point: at };
+        return { region, mode: 3, a: style, e, h, point: at };
       },
       step(dt) {
         if (dead || e === goal) return;
@@ -246,7 +313,7 @@ function createScene() {
         root.dataset.xpReveal = '';
         run.front = false; run.behind = true;
         e = 0;
-        await to(1, REVEAL_MS);
+        await to(1, fog ? FOG_MS : REVEAL_MS);
         end();
       },
       skip() { if (!dead) { e = goal; done?.(); done = null; } },

@@ -174,9 +174,7 @@ body[data-style="chrome"] {
   [data-destination="about"] .ab-reach-arrow { grid-column: 2; grid-row: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-destination="about"] .ab-section * { transition-duration: 1ms !important; transition-delay: 0s !important; }
-}
+html.motion-paused [data-destination="about"] .ab-section * { transition-duration: 1ms !important; transition-delay: 0s !important; }
 @media print {
   [data-destination="about"] .ab-section { background: none; padding-block: 24px; }
 }

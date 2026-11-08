@@ -20,7 +20,7 @@ vec3 aboutWorld(vec2 px) {
   float base = R.y * 0.64;
   float h = 24.0 + 150.0 * pow(hash(vec2(id, 1.0)), 2.0);
   float tick = step(fract(x), 0.26) * step(base - h, px.y) * step(px.y, base);
-  float hot = step(0.985, hash(vec2(id, 4.0)));
+  float hot = max(step(0.985, hash(vec2(id, 4.0))), step(0.72, hash(vec2(id, 4.0))) * uPtrOn * smoothstep(150.0, 20.0, abs(px.x - PTR.x)));
   col = mix(col, mix(vec3(0.12), spectrum(px.y * 0.004 + T * 0.05) * 0.8, hot), tick * 0.8);
   col = mix(col, vec3(0.08), smoothstep(1.2, 0.0, abs(px.y - base - 3.0)) * 0.4);
   return col;
