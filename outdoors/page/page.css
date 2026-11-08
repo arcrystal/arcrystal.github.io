@@ -78,4 +78,7 @@
 [data-destination="outdoors"] .x-card h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
 [data-destination="outdoors"] .x-stat { font-family: var(--font-display); font-style: italic; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
 [data-destination="outdoors"] .x-stat span { margin-left: 4px; font-family: var(--font-body, inherit); font-style: normal; font-size: var(--t-small); color: var(--c-fg-mute); }
+[data-destination="outdoors"] .x-mine { margin-top: 4px; font-size: var(--t-small); }
+[data-destination="outdoors"] .x-mine a { color: var(--c-accent); text-decoration: none; font-style: italic; font-family: var(--font-display); font-size: 1.05rem; }
+[data-destination="outdoors"] .x-mine a:hover { text-decoration: underline; }
 [data-destination="outdoors"] .x-text { font-size: var(--t-small); line-height: 1.55; color: var(--c-fg-mute); }

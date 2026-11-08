@@ -1,0 +1,28 @@
+/* The share card: 1200 × 630, the page's name in its style's display face over the process its
+   transition is built on, drawn by card.js. */
+html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #000; }
+.card {
+  position: relative; width: 1200px; height: 630px; overflow: hidden;
+  background: var(--bg); color: var(--ink); font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.card svg.art { position: absolute; inset: 0; width: 1200px; height: 630px; }
+/* Keeps the words legible where the drawing reaches under them. */
+.card .scrim { position: absolute; inset: 0; background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 38%, var(--bg-clear) 64%); }
+.card .text { position: absolute; left: 68px; top: 66px; bottom: 58px; width: 660px; display: flex; flex-direction: column; }
+.card .kicker { margin: 0; font: 500 15px/1.2 var(--label); letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); }
+.card .kicker b { color: var(--accent); font-weight: 600; }
+.card .title {
+  margin: 30px 0 0; font-family: var(--display); font-weight: var(--weight); font-style: var(--slant);
+  font-size: var(--size); line-height: 0.94; letter-spacing: var(--track); text-transform: var(--case); white-space: nowrap;
+}
+.card .line {
+  margin: 26px 0 0; max-width: var(--measure, 610px); font: 400 27px/1.34 'DM Sans', sans-serif; color: var(--mute);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card .foot { margin: auto 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font: 500 15px/1.2 var(--label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
+.card .foot i { width: 26px; height: 2px; background: var(--accent); }
+.card .foot b { color: var(--ink); font-weight: 600; }
+.card .dests { display: flex; flex-wrap: wrap; gap: 10px 20px; max-width: 470px; margin: 0; padding: 0; list-style: none; }
+.card .dests li { display: flex; align-items: center; gap: 8px; }
+.card .dests li::before { content: ""; width: 11px; height: 11px; border-radius: 3px; background: var(--dot); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }

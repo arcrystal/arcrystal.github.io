@@ -182,7 +182,14 @@ _NAV_EXTRA = {'resume': ('Résumé', RESUME), 'contact': ('Contact', '#contact')
 NAV = [(k, BY_ID[k]['title'], BY_ID[k]['url']) if k in BY_ID else (k, *_NAV_EXTRA[k]) for k in REG['nav']]
 
 
-def head(title, description, canonical, theme_color, styles, preload=(), extra=''):
+def og_image(card):
+    """The share card for a page (static/og/<card>.jpg, drawn by tools/site/og_cards.mjs), or the
+    site-wide one while a page has none."""
+    rel = f'static/og/{card}.jpg'
+    return f'/{rel}' if card and os.path.exists(os.path.join(ROOT, rel)) else '/static/og.jpg'
+
+
+def head(title, description, canonical, theme_color, styles, preload=(), extra='', card=None):
     links = [f'<link rel="stylesheet" href="{esc(versioned(s))}">' for s in STYLE_SHEETS]
     links += [f'<link rel="stylesheet" href="{esc(versioned(s))}" data-page-style>' for s in styles]
     fonts = ['dm-sans-latin-1.woff2', *preload]
@@ -205,7 +212,10 @@ def head(title, description, canonical, theme_color, styles, preload=(), extra='
 <meta property="og:url" content="{SITE}{canonical}">
 <meta property="og:title" content="{esc(title)}">
 <meta property="og:description" content="{esc(description)}">
-<meta property="og:image" content="{SITE}/static/og.jpg">
+<meta property="og:image" content="{SITE}{og_image(card)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{esc(title)}">
 <meta name="twitter:card" content="summary_large_image">
 {extra}{preloads}
 {nl.join(links)}
@@ -262,7 +272,7 @@ def footer():
 
 def page(*, title, description, canonical, style, styles, current, page_id, main_attrs, main_html, preload=(), head_extra=''):
     theme = style_of(style)['colors']['bg']
-    return f'''{head(title, description, canonical, theme, styles, preload, head_extra)}
+    return f'''{head(title, description, canonical, theme, styles, preload, head_extra, card=page_id)}
 <body data-page="{page_id}" data-style="{style}">
 <a class="skip-link" href="#main">Skip to content</a>
 {header(current)}
@@ -651,7 +661,9 @@ def extremes_list():
                      f'<p class="x-kind">{esc(e["kind"])} <span>{esc(e["where"])}</span></p>'
                      f'<h3>{esc(e["name"])}</h3>'
                      f'<p class="x-stat">{esc(e["stat"])} <span>{esc(e["sub"])}</span></p>'
-                     f'<p class="x-text">{esc(e["text"])}</p></li>')
+                     f'<p class="x-text">{esc(e["text"])}</p>'
+                     + (f'<p class="x-mine"><a href="{esc(e["mine"]["href"])}">{esc(e["mine"]["label"])} <span aria-hidden="true">→</span></a></p>' if e.get('mine') else '')
+                     + '</li>')
     sources = ' · '.join(f'<a href="{esc(e["source"])}" target="_blank" rel="noreferrer">{esc(e["name"])}</a>' for e in data['extremes'])
     return f'{defs}<ol class="x-cards" role="list">{"".join(cards)}</ol><p class="o-note">Sources: {sources}.</p>'
 
@@ -742,7 +754,7 @@ def algorithms_list():
 
 def band(pkg, body, cls=''):
     reg = pkg.reg
-    return f'''<section class="band band--{pkg.id}{cls}" id="band-{pkg.id}" data-band="{pkg.id}" data-style="{pkg.style}" aria-labelledby="band-{pkg.id}-title">
+    return f'''<section class="band band--{pkg.id}{cls}" id="band-{pkg.id}" data-band="{pkg.id}" data-style="{pkg.style}" data-faces aria-labelledby="band-{pkg.id}-title">
   <div class="art art--{pkg.style} band-art" aria-hidden="true">{ART[pkg.style]() if pkg.style in ART else ''}</div>
   {band_algorithms(pkg)}
   <div class="wrap band-inner">
@@ -855,8 +867,7 @@ def home_page(packages):
 {bands}
 </div>'''
     return page(title='Alex Crystal', description=HOME_DESCRIPTION, canonical='/', style='house', styles=[],
-                current='home', page_id='home', main_attrs='', main_html=main_html,
-                preload=('unbounded-latin.woff2',), head_extra=person_ld())
+                current='home', page_id='home', main_attrs='', main_html=main_html, head_extra=person_ld())
 
 
 # Who the site is about, for search engines (schema.org Person). Profiles are the ones the site links.
@@ -965,7 +976,7 @@ def hero(pkg):
 def next_card(pkg, packages):
     nxt = packages[pkg.reg['next']]
     reg = nxt.reg
-    return f'''<nav class="d-next" data-style="{nxt.style}" aria-label="Next page">
+    return f'''<nav class="d-next" data-style="{nxt.style}" data-faces aria-label="Next page">
   <div class="art art--{nxt.style} d-next-art" aria-hidden="true">{art_of(nxt.style)}</div>
   <div class="wrap d-next-inner">
     <p class="label d-next-label">Next</p>

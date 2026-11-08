@@ -135,6 +135,10 @@ html.gl .band-art { opacity: 0; }
 @media (min-width: 900px) { .band-inner { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); align-items: center; } }
 .band-head { display: grid; gap: var(--s-3); align-content: start; }
 .band-n { font-family: var(--font-label); font-size: var(--t-label); letter-spacing: var(--tracking-label); color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+/* Faces on demand. A block drawn in another style ([data-faces]: the homepage's bands, the next-page
+   card) sets its words in the house face until it is about three screens away (lib/common.js adds
+   .faces), so a page fetches only the faces it gets near. Without JavaScript they load as usual. */
+.js [data-faces]:not(.faces) { --font-display: var(--font); --font-label: var(--font); --font-mono: var(--font); }
 .band-title { font-family: var(--font-display); font-weight: var(--w-display); font-size: clamp(2.6rem, 1rem + 4.4vw, 6.4rem); line-height: var(--lh-display); letter-spacing: var(--tracking-display); }
 .band-title a { color: inherit; text-decoration: none; }
 .band-title a::after { content: " →"; font-size: 0.4em; vertical-align: 0.6em; color: var(--c-accent); opacity: 0; transition: opacity var(--d-short); }
@@ -144,6 +148,21 @@ html.gl .band-art { opacity: 0; }
 .band-cta a span { transition: transform var(--d-short) var(--ease-out); }
 .band-cta a:hover span { transform: translateX(6px); }
 .band-body { min-width: 0; }
+/* A seam's hold (home.js) and its caption: the process and where it is going, pinned to the foot
+   of the screen while the hold passes, fading in and out with its progress (--p, 0..1), with a
+   thin line for how far it has come. A dark frosted pill, so it reads on every world. */
+.seam-hold { position: relative; }
+.seam-cap {
+  position: sticky; top: calc(100svh - 74px); z-index: 2; width: max-content; max-width: calc(100vw - 32px); margin: 0 auto;
+  padding: 9px 16px 8px; border-radius: 999px; background: rgb(14 14 18 / 0.58); color: #F4F2EE;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 10px 30px -14px rgb(0 0 0 / 0.6);
+  font-family: var(--font-label); font-size: 13px; line-height: 1.2; letter-spacing: 0.02em; white-space: nowrap; pointer-events: none;
+  opacity: clamp(0, min(var(--p, 0) * 12 - 0.6, (1 - var(--p, 0)) * 12 - 0.6), 1);
+}
+.seam-cap-k { font-weight: 600; }
+.seam-cap-to { color: rgb(244 242 238 / 0.72); }
+.seam-cap i { display: block; height: 2px; margin-top: 7px; border-radius: 2px;
+  background: linear-gradient(to right, #F4F2EE calc(var(--p, 0) * 100%), rgb(244 242 238 / 0.18) 0); }
 /* Each band's information button (top right) and its panel: the algorithms behind the band
    (build_pages.py band_algorithms). A native popover, anchored under the button where anchor
    positioning is supported and centred otherwise; home.js stands in where popovers are not. */
@@ -274,7 +293,7 @@ html.gl .band-art { opacity: 0; }
 .dr-print figure { height: 100%; margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 10px; }
 .dr-print img { width: 100%; height: 100%; object-fit: cover; background: #F2EEE6; box-shadow: 0 0 0 8px #F2EEE6, 0 30px 60px -24px rgb(0 0 0 / 0.8); }
 .dr-print figcaption { margin-top: 8px; font-size: var(--t-label); color: var(--c-fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dr-frame { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--c-accent); margin-right: 6px; }
+.dr-frame { font-family: var(--font-mono); color: var(--c-accent); margin-right: 6px; }
 /* Each print develops when it reaches the middle of the reel (home.js marks it). */
 .js:not(.motion-paused) .dr-print img { filter: brightness(1.9) contrast(0.25) sepia(0.6); transition: filter 1600ms cubic-bezier(0.3, 0, 0.2, 1); }
 .js:not(.motion-paused) .dr-print.is-developed img { filter: none; }

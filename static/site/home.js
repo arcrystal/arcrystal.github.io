@@ -47,7 +47,8 @@ export function mount(main, ctx) {
   function measure() {
     vw = root.clientWidth; vh = innerHeight; headH = header?.offsetHeight || 64;
     if (!holdVh || vw !== holdVw || Math.abs(vh - holdVh) > 140) { holdVh = vh; holdVw = vw; }
-    const holdH = `${Math.round(holdVh * (1 + HOLD.pin))}px`;
+    const pin = coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin;
+    const holdH = `${Math.round(holdVh * (1 + pin))}px`;
     holds.forEach(el => { if (el.style.height !== holdH) el.style.height = holdH; });
     const sy = scrollY;
     const hr = hero.getBoundingClientRect();
@@ -319,6 +320,8 @@ export function mount(main, ctx) {
           if (c.hold) {
             const { y, p } = holdAt(scrollY, c.hold.top, c.hold.h, vh);
             if (y + vh <= 0 || y >= vh) return null;
+            const cap = captions.get(i);
+            if (cap && Math.abs(cap.p - p) > 0.002) { cap.p = p; cap.el.style.setProperty('--p', p.toFixed(3)); }
             return { region: [0, y, vw, vh], card: [0, y, vw, vh], mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
               p, h: 1 - p, vel: clamp(vel, -3, 3) };
           }
@@ -339,6 +342,10 @@ export function mount(main, ctx) {
   // The holds are there while the scene draws with motion on (html.gl, not .motion-paused), and come
   // and go keeping whatever is on screen where it was.
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
+  // Each hold names its transition while it plays, at the foot of the screen, with a thin line
+  // for how far it has come: the process (glsl/flight.js) and where it is going.
+  const PROCESS = { cosmos: 'A Hilbert curve', glass: 'Crystal growth', folio: 'Peeling sheets', darkroom: 'An iris, then halftone', ink: 'Branching ink' };
+  const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;
     const anchor = bands.find(b => b.getBoundingClientRect().bottom > headH);
@@ -349,12 +356,24 @@ export function mount(main, ctx) {
         const el = document.createElement('div');
         el.className = 'seam-hold';
         el.setAttribute('aria-hidden', 'true');
+        const process = PROCESS[b.dataset.style];
+        if (process) {
+          const cap = document.createElement('p');
+          cap.className = 'seam-cap';
+          const to = b.querySelector('.band-title')?.textContent.trim() || '';
+          cap.innerHTML = '<span class="seam-cap-k"></span> <span aria-hidden="true">→</span> <span class="seam-cap-to"></span><i></i>';
+          cap.querySelector('.seam-cap-k').textContent = process;
+          cap.querySelector('.seam-cap-to').textContent = to;
+          el.append(cap);
+          captions.set(i, { el: cap, p: -1 });
+        }
         b.before(el);
         holds.set(i, el);
       });
     } else {
       holds.forEach(el => el.remove());
       holds.clear();
+      captions.clear();
     }
     measure();
     if (anchor) scrollBy(0, anchor.getBoundingClientRect().top - before);

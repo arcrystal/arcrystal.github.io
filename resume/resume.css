@@ -94,10 +94,43 @@ main[data-page="resume"] .recognition-list { display: grid; grid-template-column
 main[data-page="resume"] .recognition-list article { display: grid; gap: 6px; padding: var(--s-5); border: 1px solid var(--c-rule); border-radius: var(--radius-card); }
 main[data-page="resume"] .recognition-list h3 { font-size: var(--t-body); font-weight: var(--w-medium); }
 
+/* ---- print, and the PDF (tools/site/resume_pdf.mjs): your name and contact line on top, the
+   sections flowing on, each job, degree and item kept whole, on a print type scale. ---- */
+main[data-page="resume"] .print-head { display: none; }
 @media print {
-  main[data-page="resume"] .resume-actions, main[data-page="resume"] .resume-index { display: none !important; }
-  main[data-page="resume"] .resume-layout { display: block; }
-  main[data-page="resume"] .resume-section { padding-block: 16px; break-inside: avoid-page; }
-  main[data-page="resume"] .resume-facts, main[data-page="resume"] .metric-row > div, main[data-page="resume"] .education-grid article,
-  main[data-page="resume"] .publication-card, main[data-page="resume"] .recognition-list article { background: none; }
+  @page { size: letter; margin: 0.5in 0.6in; }
+  html { font-size: 9.4pt; }
+  main[data-page="resume"] { line-height: 1.38; }
+  body:has(main[data-page="resume"]) :is(.d-hero, .contact, .site-foot) { display: none !important; }
+  main[data-page="resume"] { padding: 0 !important; }
+  main[data-page="resume"] .shell { max-width: none; padding-inline: 0; }
+  main[data-page="resume"] .print-head { display: block; margin-bottom: 4pt; padding-bottom: 7pt; border-bottom: 1.5pt solid #000; }
+  main[data-page="resume"] .print-name { font-size: 22pt; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+  main[data-page="resume"] .print-line { margin-top: 3pt; font-size: 8pt; color: #333; }
+  main[data-page="resume"] :is(.resume-hero, .resume-actions, .resume-index) { display: none !important; }
+  main[data-page="resume"] .resume-layout { display: block; padding: 0; }
+  main[data-page="resume"] .resume-section { padding: 7pt 0 4pt; border-top: 0.75pt solid #999; break-inside: auto; }
+  main[data-page="resume"] .resume-section:first-child { border-top: 0; }
+  main[data-page="resume"] .resume-section-title { margin-bottom: 5pt; gap: 6pt; break-after: avoid; }
+  main[data-page="resume"] .resume-section-title h2 { font-size: 12pt; letter-spacing: -0.01em; }
+  main[data-page="resume"] h3 { font-size: 10.4pt; letter-spacing: 0; }
+  main[data-page="resume"] .profile-copy { gap: 4pt; max-width: none; font-size: 9.4pt; line-height: 1.4; }
+  /* The three figures repeat what the experience below says; on paper they cost a quarter page. */
+  main[data-page="resume"] .metric-row { display: none; }
+  main[data-page="resume"] :is(.timeline article, .resume-projects article, .skill-rows > div) {
+    grid-template-columns: 1.3in minmax(0, 1fr); gap: 2pt 12pt; padding-block: 5pt; break-inside: avoid;
+  }
+  main[data-page="resume"] :is(.timeline-body, .resume-projects article > div:last-child) { gap: 2pt; max-width: none; }
+  main[data-page="resume"] .timeline-meta { align-content: start; gap: 2pt; }
+  main[data-page="resume"] .achievement-list { gap: 3pt; margin: 2pt 0 0; }
+  main[data-page="resume"] .achievement-list li { display: block; padding-left: 6pt; break-inside: avoid; }
+  main[data-page="resume"] .achievement-list li strong::after { content: " · "; font-weight: 400; }
+  main[data-page="resume"] .achievement-list li span { display: inline; }
+  main[data-page="resume"] .education-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6pt; }
+  main[data-page="resume"] :is(.education-grid article, .publication-card) { gap: 2pt; padding: 6pt 8pt; border-radius: 4pt; background: none; break-inside: avoid; }
+  main[data-page="resume"] .education-grid ul { gap: 1pt; margin: 2pt 0 0; font-size: 8.8pt; }
+  main[data-page="resume"] .recognition-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5pt; }
+  main[data-page="resume"] .recognition-list article { gap: 1pt; padding: 4pt 7pt; border-radius: 4pt; break-inside: avoid; }
+  main[data-page="resume"] :is(.micro-label, .school-year, .project-year, .recognition-list span, .timeline-meta, .project-place, .resume-section-title span) { font-size: 7.2pt; }
+  main[data-page="resume"] * { box-shadow: none !important; }
 }

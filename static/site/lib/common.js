@@ -17,6 +17,33 @@ export function mountCommon(root, scope, { hashScroll = false } = {}) {
     scope.add(() => clearInterval(id));
   }
   mountReveals(root, scope);
+  mountFaces(root, scope);
+}
+
+// Faces on demand (site.css [data-faces]): each block takes its own faces about three screens before
+// it reaches the view, which on the homepage is before the hold ahead of it begins, so the fonts are
+// in before the block shows. Once given, they stay. A block has to stay that near for a moment
+// first: the homepage inserts its holds once the scene is up, just after mounting, and they push
+// the bands further away than they first measure.
+const FACES_SETTLE_MS = 1200;
+function mountFaces(root, scope) {
+  const blocks = [...root.querySelectorAll('[data-faces]')];
+  if (!blocks.length) return;
+  if (!('IntersectionObserver' in window)) { blocks.forEach(b => b.classList.add('faces')); return; }
+  const pending = new Map(), t0 = performance.now();
+  const give = target => { target.classList.add('faces'); io.unobserve(target); };
+  const io = new IntersectionObserver(entries => entries.forEach(({ target, isIntersecting, boundingClientRect: r }) => {
+    clearTimeout(pending.get(target));
+    pending.delete(target);
+    if (!isIntersecting) return;
+    // At once once the page has settled, or when already on screen (a link to a band, a restored
+    // scroll), since the holds keep what is on screen where it is.
+    const wait = FACES_SETTLE_MS - (performance.now() - t0);
+    if (wait <= 0 || (r.top < innerHeight && r.bottom > 0)) give(target);
+    else pending.set(target, setTimeout(() => give(target), wait));
+  }), { rootMargin: '300% 0px 300% 0px' });
+  blocks.forEach(b => io.observe(b));
+  scope.add(() => { io.disconnect(); pending.forEach(t => clearTimeout(t)); });
 }
 
 // Reveals fade in as they enter the view; with motion paused they are simply visible, including

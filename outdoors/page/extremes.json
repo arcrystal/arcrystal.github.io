@@ -1,5 +1,5 @@
 {
-  "about": "Earth's Extremes on the Outdoors page (tools/site/build_pages.py extremes_list). art names an engraving drawn by the build; source is where the figures come from.",
+  "about": "Earth's Extremes on the Outdoors page (tools/site/build_pages.py extremes_list). art names an engraving drawn by the build; source is where the figures come from; mine, where there is one, links to my own photographs of the place.",
   "extremes": [
     {
       "id": "k2", "kind": "Mountain", "where": "Karakoram · Pakistan–China", "name": "K2",
@@ -35,7 +35,8 @@
       "id": "bryce", "kind": "Hoodoos", "where": "Utah · USA", "name": "Bryce Canyon",
       "stat": "200+", "sub": "freeze–thaw days a year",
       "text": "The largest collection of hoodoos on Earth: limestone spires split apart by ice that freezes and thaws in their cracks on more than 200 days a year.",
-      "art": "hoodoos", "source": "https://www.nps.gov/brca/learn/nature/hoodoos.htm"
+      "art": "hoodoos", "source": "https://www.nps.gov/brca/learn/nature/hoodoos.htm",
+      "mine": {"href": "/image%20portfolio/gallery.html#photo-49", "label": "My photographs of Bryce Canyon"}
     },
     {
       "id": "angel", "kind": "Waterfall", "where": "Canaima · Venezuela", "name": "Angel Falls",

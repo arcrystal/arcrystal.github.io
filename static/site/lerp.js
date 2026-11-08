@@ -65,7 +65,8 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // A seam's hold (home.js): PIN screens of scroll with the seam held full screen; the transit starts
 // LEAD screens before the hold and ends LEAD after. holdAt gives, for a hold whose page top is T and
 // whose length is H (CSS px, so H - vh of it is held), the strip's top on screen and the progress p.
-export const HOLD = { pin: 1.75, lead: 0.35 };
+// pinTouch: phones and touch screens, where a long hold costs more thumb.
+export const HOLD = { pin: 1.75, pinTouch: 0.9, lead: 0.35 };
 export function holdAt(sy, T, H, vh) {
   const R = Math.max(1, H - vh), lead = HOLD.lead * vh;
   const y = sy < T ? T - sy : sy > T + R ? T + R - sy : 0;

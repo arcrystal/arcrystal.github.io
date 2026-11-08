@@ -8,6 +8,8 @@ Google Chrome already on the machine over the DevTools protocol.
 | `build_pages.py` | writes every page from `static/site/*.json` and the destination packages: `python3 tools/site/build_pages.py [--only chess] [--check]` |
 | `check_pages.py` | structural checks of the generated pages (one `h1`, metadata, every local link resolves, no video or render paths) |
 | `contrast.mjs` | WCAG contrast of every text pair in `static/site/styles.json` |
+| `resume_pdf.mjs` | prints the résumé page to `resume/Alex-Crystal-Resume.pdf` (US Letter, the page's print styles); run it after editing `resume/content.html`: `node tools/site/resume_pdf.mjs` |
+| `og_cards.mjs` | the share cards, `static/og/<page>.jpg`, each drawn by `og/card.html` in its page's style; run it after changing a page's name or line: `node tools/site/og_cards.mjs [id ...]` |
 | `perf.mjs` | wheels down the homepage past the last band and reports frame times, style recalculation and layout, on the GPU, with the CPU throttled 4× and on SwiftShader: `node tools/site/perf.mjs [--strict]` |
 | `scene_check.mjs` | the WebGL scene headless: screenshots of the hero, the crystal filled with each world, each band, each seam with the meeting line at a quarter, half and three quarters of the screen, and each destination's hero: `node tools/site/scene_check.mjs --out DIR [--only NAME] [--preset nowebgl] [--reduced-motion] [--size 390x844]` |
 | `tests/*.test.mjs` | unit tests: `node --test tools/site/tests/*.test.mjs` |
