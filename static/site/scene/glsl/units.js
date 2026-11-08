@@ -23,6 +23,7 @@ uniform vec4 uGrid2;
 uniform int uFirst;
 uniform float uClick;     // 1: a click's cover (only Science's cubes read it)
 uniform vec2 uO;          // the click's origin
+uniform int uPass;        // Science's cubes: 0 those behind the axis, 1 those in front, 2 all
 uniform sampler2D uTexA;
 uniform sampler2D uTexB;
 `;
@@ -57,11 +58,11 @@ const vec3 INK_INDIGO = vec3(0.184, 0.290, 0.420);
 `;
 
 // ---- About Me → Science, and a click into Science: cubes in a vortex --------------------------------
-// Where a cube is (flight.js vortexAt). For a seam, instance rows run from the top to kd rows below
-// the screen (cubes rising from there), and each cube flies from its cell to the mirror cell kd rows
-// up (thrown out over the top, for the top rows). For a click
-// (uClick), out of the axis between the click and the cell it builds, on away from the click. False
-// when it is not in flight. Shared by the cubes and the streamlines.
+// Which cube an instance is, where it leaves and where it lands, and its flight u; false when it is
+// not in flight. A seam's: one a cell, as planned (lerp.js vortexPlan, in uReach: the cell it lands
+// on, when it leaves, and, at that cell, when it lands). A click's: out of the axis between the click
+// and the cell it builds, on away from the click (vortexAt). Shared by the cubes and a click's
+// streamlines.
 const VORTEX_UNIT = /* glsl */ `
 bool vortexUnit(inout ivec2 c, out vec2 home, out vec2 dest, out float drop, out float ax, out float u) {
   vec2 cell = uGrid.zw, S = uRegion.zw;
@@ -77,21 +78,27 @@ bool vortexUnit(inout ivec2 c, out vec2 home, out vec2 dest, out float drop, out
     u = mix(VX_CLICK_U0, 1.0, v);
     return v > 0.0 && v < 1.0;
   }
-  int kd = vortexDrop(int(uGrid.y));
-  if (c.y >= int(uGrid.y) + kd) return false;
+  if (c.y >= int(uGrid.y)) return false;
+  vec4 plan = texelFetch(uReach, c, 0);
+  int di = int(plan.x + 0.5), cols = int(uGrid.x);
+  ivec2 d = ivec2(di % cols, di / cols);
+  float land = texelFetch(uReach, d, 0).z;
   ax = S.x * 0.5;
   home = (vec2(c) + 0.5) * cell;
-  drop = -float(kd) * cell.y;
-  dest = vec2(S.x - home.x, home.y + drop);
-  u = vortexU(vortexSeamA(home, S, vortexJit(home, vec2(c))), transitP(uH));
+  dest = (vec2(d) + 0.5) * cell;
+  drop = 0.0;
+  u = clamp((transitP(uH) - plan.y) / max(land - plan.y, 1e-3), 0.0, 1.0);
   return u > 0.0 && u < 1.0;
 }
 `;
 
 // Each cube rides the flow: it turns with it about the leaning axis, so after its odd number of half
 // turns its paper face is underneath and its other face, carrying the sky of the cell it lands in,
-// is up, and it rocks about its own radius on the way. Mid-flight it takes the colour of its speed
-// (vortexHue); its sides are liquid chrome. A click's cubes have no paper face.
+// is up, and it rocks about its own radius on the way; its sides are liquid chrome. A click's take
+// the colour of their speed (vortexHue) and have no paper face. A seam's ride the ring (vortexOrbit),
+// a little larger in the wind, their edges catching a warm light against the cool wind, drawn in two
+// passes round it (uPass): those behind the axis first, as a see-through shell of pale glass, and
+// those in front after it, solid.
 const CUBES_VS = VHEAD + VORTEX_UNIT + /* glsl */ `
 out vec2 vQ;
 flat out int vFace;
@@ -100,6 +107,7 @@ out vec2 vL;
 out float vMid;
 out vec3 vHue;
 out float vBack;
+out float vAl;
 const vec3 NRM[6] = vec3[6](vec3(0, 0, 1), vec3(0, 0, -1), vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0));
 const vec3 TU[6] = vec3[6](vec3(1, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 1, 0), vec3(1, 0, 0), vec3(1, 0, 0));
 const vec3 TV[6] = vec3[6](vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1));
@@ -123,11 +131,27 @@ void main() {
   // Its own pace and place round the axis, so the cubes swirl through the vortex, not as rows.
   vec3 ch = vortexCharacter(vec2(c));
   u = vortexPace(u, ch.x);
-  float rcI = vortexRc(uRegion.zw) * (0.35 + 0.65 * r1);
-  vec3 pos = vortexAt(home, drop, ax, rcI, ch.z, ch.y, u, gTh, gTilt);
-  // Round the back of the vortex it falls into shadow, so its orbit reads in depth.
-  vBack = vortexDepth(u) * (1.0 - smoothstep(-rcI * 0.7, rcI * 0.3, pos.z));
-  float k = vortexDepth(u);
+  vec3 pos;
+  float k, spin;
+  vAl = 1.0;
+  vBack = 0.0;
+  if (uClick > 0.5) {
+    pos = vortexAt(home, drop, ax, vortexRc(uRegion.zw) * (0.35 + 0.65 * r1), ch.z, ch.y, u, gTh, gTilt);
+    k = vortexDepth(u);
+    spin = vortexSpin(u);
+  } else {
+    float rad;
+    pos = vortexOrbit(home, dest, vec2(c), u, transitP(uH), uTime, uRegion.zw, gTh, k, rad);
+    gTilt = VX_TILT * k;
+    spin = 0.3 + 0.2 * r1;
+    // Restless in the wind, even while the page is still.
+    float ph = r3 * TAU;
+    pos += k * vec3(sin(uTime * 1.7 + ph) * 6.0, sin(uTime * 2.3 + ph * 1.3) * 8.0, sin(uTime * 1.3 + ph * 0.7) * 6.0);
+    if ((uPass == 0 && pos.z >= 0.0) || (uPass == 1 && pos.z < 0.0)) { gl_Position = GONE; return; }
+    // Solid in front of the axis; round the back, a see-through shell.
+    vBack = k * (1.0 - smoothstep(-0.35 * rad, 0.05 * rad, pos.z));
+    vAl = 1.0 - 0.62 * vBack;
+  }
   pos.y += k * clamp(uVel, -3.0, 3.0) * 20.0;
   gWob = sin(PI * u) * (r3 - 0.5) * 2.2;
   gTax = normalize(vec3(hash(vec2(c) + 3.1) - 0.5, hash(vec2(c) + 4.2) - 0.5, hash(vec2(c) + 6.4) - 0.5) + 1e-3);
@@ -137,7 +161,7 @@ void main() {
   int f = gl_VertexID / 6;
   vec2 kq = QUAD[gl_VertexID % 6] * 2.0 - 1.0;
   vec3 n = NRM[f];
-  vec3 half_ = vec3(cell * 0.5, min(cell.x, cell.y) * 0.5) * (1.0 - 0.3 * k) * grow;
+  vec3 half_ = vec3(cell * 0.5, min(cell.x, cell.y) * 0.5) * (uClick > 0.5 ? 1.0 - 0.3 * k : 1.0 + 0.12 * k) * grow;
   vec3 rn = orient(n);
   vec3 faceC = pos + orient(n * half_);
   vec3 eye = vec3(uView * 0.5 - uRegion.xy, FOCAL);
@@ -150,11 +174,11 @@ void main() {
   vN = rn;
   vL = kq;
   vMid = k;
-  vHue = vortexHue(vortexSpin(u));
+  vHue = vortexHue(spin);
   gl_Position = project(P);
 }`;
 
-const CUBES_FS = FHEAD + /* glsl */ `
+const CUBES_FS = FHEAD + NOISE + FLIGHT + /* glsl */ `
 in vec2 vQ;
 flat in int vFace;
 in vec3 vN;
@@ -162,6 +186,7 @@ in vec2 vL;
 in float vMid;
 in vec3 vHue;
 in float vBack;
+in float vAl;
 vec3 chrome(vec3 n) {
   float up = -n.y;
   vec3 c = mix(vec3(0.02, 0.025, 0.06), vec3(0.36, 0.23, 1.0) * 0.85, smoothstep(-0.3, 0.9, up));
@@ -177,22 +202,29 @@ void main() {
   // A paper cube's sides are paper until it is deep in the flow, so cubes lifting off the page read
   // as paper, not dark bars.
   vec3 side = uClick > 0.5 ? chrome(n) * (0.3 + 0.7 * vMid) : mix(texture(uTexA, tUV(vQ)).rgb * (0.82 + 0.18 * n.z), chrome(n), smoothstep(0.2, 0.7, vMid));
-  vec3 base = vFace == 0 ? texture(uTexA, tUV(vQ)).rgb : vFace == 1 ? texture(uTexB, tUV(vQ)).rgb : side;
+  // A seam's cube carries Science blurred, as its cell will be until the vortex sharpens it.
+  vec3 base = vFace == 0 ? texture(uTexA, tUV(vQ)).rgb : vFace == 1 ? (uClick > 0.5 ? texture(uTexB, tUV(vQ)).rgb : vortexBlur(uTexB, vQ, uRegion.zw, 1.0)) : side;
   vec3 L = normalize(vec3(-0.35, -0.6, 0.72));
   float dif = max(dot(n, L), 0.0);
   float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0);
   vec3 lit = base * (0.6 + 0.52 * dif) + spec * 0.4;
-  // Its speed, in the flow's colours: strongest on the chrome sides, a wash over the faces.
+  // Its speed, in the flow's colours: strongest on the chrome sides, a wash over the faces. A seam's
+  // keep more of their chrome, and their edges catch a warm light.
+  bool seam = uClick < 0.5;
   vec3 hued = vHue * (0.45 + 0.75 * dif) + spec * 0.55;
-  lit = mix(lit, hued, (vFace == 2 ? 0.75 : 0.35) * vMid);
-  float edge = smoothstep(0.78, 1.0, max(abs(vL.x), abs(vL.y)));
-  lit += vHue * edge * 0.3 * vMid;
-  o = vec4(mix(base, lit, smoothstep(0.0, 0.25, vMid)) * (1.0 - 0.55 * vBack), 1.0);
+  lit = mix(lit, hued, (vFace == 2 ? (seam ? 0.4 : 0.75) : (seam ? 0.18 : 0.35)) * vMid);
+  float edge = smoothstep(seam ? 0.7 : 0.78, 1.0, max(abs(vL.x), abs(vL.y)));
+  lit += (seam ? vec3(1.0, 0.6, 0.22) * 0.65 : vHue * 0.3) * edge * vMid;
+  if (seam) lit += spec * 0.35 * vMid;
+  vec3 col = mix(base, lit, smoothstep(0.0, 0.25, vMid));
+  // Round the back: pale glass in the wind's colours.
+  col = mix(col, vHue * 0.55 + 0.42, 0.6 * vBack);
+  o = vec4(col * vAl, vAl);
 }`;
 
-// Streamlines: thin ribbons along the same flow, each the last stretch of a path a cube would take,
-// as in the figure the vortex follows: teal and wide where it turns slowly, thin and orange at the
-// core. They fade in and out with their flight, so the strip is clean at rest.
+// A click's streamlines: thin ribbons along the same flow, each the last stretch of a path a cube
+// would take, as in the figure the vortex follows: teal and wide where it turns slowly, thin and
+// orange at the core. They fade in and out with their flight, so the screen is clean at rest.
 const STREAKS_VS = VHEAD + VORTEX_UNIT + /* glsl */ `
 const int NSEG = 18;
 const float TRAIL = 0.24;
@@ -241,6 +273,7 @@ void main() {
   vSide = side;
   gl_Position = vec4(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0, 0.0, 1.0);
 }`;
+
 
 const STREAKS_FS = FHEAD + /* glsl */ `
 in vec3 vCol;
@@ -501,15 +534,18 @@ out vec3 vCol;
 out float vAl;
 out float vSide;
 float gSpin, gBuf;
-// A line of wind at s along its loop: in from wide at the base, up the core, quickening, and out at
-// the top into the whirling rim the vortex climbs by. All of it turns with the vortex's spin (gSpin:
-// the clock and the scroll), and gusts shake it.
+// A line of wind at s along its loop: in from wide at the base, closing in fast like a trumpet (the
+// shape the cubes ride: flight.js vortexFunnel), up the core, quickening, and out at the top into the
+// whirling rim the vortex climbs by. All of it turns with the vortex's spin (gSpin: the clock and the
+// scroll), and gusts shake it.
 vec3 flowAt(float s, float R0, float th0, float turns, float yb, float yt, float ax) {
-  float k = smoothstep(0.0, 0.5, s);
+  float k = min(s / 0.85, 1.0);
+  float y = mix(yb, yt, pow(k, 1.15));
+  float r = mix(R0, R0 * 0.1 + 6.0, 1.0 - pow(1.0 - min(k / 0.55, 1.0), 2.6));
   float rim = smoothstep(0.78, 1.0, s);
-  float r = mix(R0, R0 * 0.1 + 6.0, k);
   r = mix(r, R0 * (0.85 + 0.3 * gBuf), rim);
-  float y = mix(yb, yt, pow(min(s / 0.85, 1.0), 1.5));
+  // The rim lifts a little as it flares.
+  y -= rim * 0.07 * uRegion.w;
   float th = th0 + gSpin + turns * TAU * (0.3 * s + 0.7 * smoothstep(0.05, 0.92, s)) + rim * 2.5;
   // Gusts.
   r += sin(s * 31.0 + uTime * 9.0 + th0 * 7.0) * (4.0 + 0.04 * R0);
@@ -527,16 +563,17 @@ void main() {
   float r1 = hash(vec2(id, 1.3)), r2 = hash(vec2(id, 2.9)), r3 = hash(vec2(id, 4.1)), r4 = hash(vec2(id, 6.7));
   vec2 S = uRegion.zw;
   float P = transitP(uH);
-  // The wind's band: its top climbing from the foot, its base subsiding up behind the built rows.
+  // Its spin: on the clock and with the scroll, so scrolling winds it up.
+  gSpin = uTime * 1.4 + P * 50.0;
+  // The wind's band: its base on the foot and its top climbing, until its base subsides up behind the
+  // built page.
   vec2 band = vortexBand(P, S);
   float yb = band.y, yt = band.x, span = yb - yt;
   float life = smoothstep(0.0, 24.0, span) * step(-0.2 * S.y, yb);
-  if (life <= 0.0 || gl_InstanceID >= int(uGrid.x * uGrid.y)) { gl_Position = GONE; return; }
+  if (life <= 0.0) { gl_Position = GONE; return; }
   // It is born a ring of wind spinning flat at the foot, and the funnel rises from that ring's edge.
-  float R0 = (0.25 + 0.75 * r1) * min(S.x * 0.48, 150.0 + span * 0.5);
+  float R0 = (0.25 + 0.75 * r1) * vortexWide(band, S);
   float turns = 1.5 + 2.5 * r2, th0 = r4 * TAU;
-  // Its spin: on the clock and with the scroll, so scrolling winds it up.
-  gSpin = uTime * 1.4 + P * 16.0;
   gBuf = r3;
   float s = fract(uTime * (0.11 + 0.09 * r2) + P * 1.5 + r3);
   int seg = gl_VertexID / 6;
@@ -559,6 +596,8 @@ void main() {
   float front = smoothstep(-R0 * 0.6, R0 * 0.4, p3.z);
   vCol = vortexHue(spin) * (0.85 + 0.45 * t) * (0.45 + 0.55 * front);
   vAl = pow(t, 1.2) * life * 0.85 * (0.5 + 0.5 * front) * step(0.0, si) * smoothstep(0.0, 0.04, sc) * (1.0 - smoothstep(0.95, 1.0, sc));
+  // A little fainter round the core's foot, where most cubes ride, so they stand out.
+  vAl *= 1.0 - 0.3 * exp(-pow((sc - 0.22) / 0.12, 2.0));
   vSide = side;
   gl_Position = vec4(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0, 0.0, 1.0);
 }`;
@@ -641,7 +680,7 @@ void main() {
 
 // blend: 'opaque', 'over' (premultiplied) or 'add'. grid: which uniform holds the instance grid.
 export const UNIT_PROGRAMS = {
-  cubes: { vs: CUBES_VS, fs: CUBES_FS, verts: 36, blend: 'opaque' },
+  cubes: { vs: CUBES_VS, fs: CUBES_FS, verts: 36, blend: 'over' },
   streaks: { vs: STREAKS_VS, fs: STREAKS_FS, verts: 18 * 6, blend: 'over' },
   flow: { vs: FLOW_VS, fs: STREAKS_FS, verts: 22 * 6, blend: 'over' },
   film: { vs: FILM_VS, fs: FILM_FS, verts: 120 * 6, blend: 'opaque' },   // instances: the rows of film

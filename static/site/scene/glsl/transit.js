@@ -23,30 +23,27 @@ bool seamReach(vec2 q, float P, out Reach Rq, out float u) {
   return true;
 }
 
-// About Me → Science. A vortex stands up the middle of the screen, its base at the foot (right
-// beneath About Me as the seam scrolls in), growing up the screen (flight.js vortexBand). Its base
-// gathers the paper into cubes from the foot up; they swirl up the core and its top throws them out to
-// land, mirrored, kd rows higher, building Science. A cell is paper until its cube leaves, then a
-// shaded hollow in the paper, darkening only as the cube bound for it (from the mirror cell kd rows
-// down, or from below the screen) comes in to land; Science once it has. The core glows from the
-// base to the top.
+// About Me → Science. A vortex stands on the foot of the screen and grows up it (flight.js
+// vortexBand), gathering the page into cubes behind its top and throwing them down and out to build
+// Science from the bottom corners, upward and inward (lerp.js vortexPlan, in uReach, a texel a cell:
+// when its own cube leaves, when the cube bound for it lands). A cell is paper until its cube leaves,
+// then an empty socket in the paper until its new cube lands, bringing Science blurred; the vortex's
+// tendrils then sharpen it (flight.js vortexSharp). The core glows from the base to the top.
 vec3 groundCubes(vec2 q, vec2 px, float P) {
   ivec2 n = ivec2(uGrid.xy);
   ivec2 c = clamp(ivec2(floor(q / uGrid.zw)), ivec2(0), n - 1);
   vec2 S = uRegion.zw;
-  int kd = vortexDrop(n.y);
-  vec2 home = (vec2(c) + 0.5) * uGrid.zw;
-  float uX = vortexU(vortexSeamA(home, S, vortexJit(home, vec2(c))), P);
-  ivec2 sc = ivec2(n.x - 1 - c.x, c.y + kd);
-  vec2 from = (vec2(sc) + 0.5) * uGrid.zw;
-  float uY = vortexU(vortexSeamA(from, S, vortexJit(from, vec2(sc))), P);
+  vec4 plan = texelFetch(uReach, c, 0);
   vec3 col;
-  if (uX <= 0.0) col = sceneHouse(px);
-  else if (uY >= 1.0) col = sceneCosmos(px);
-  else {
-    // The paper a shade darker where its cube has gone, until the cube bound for it lands.
+  if (P <= plan.y) col = sceneHouse(px);
+  else if (P >= plan.z) {
+    float sh = vortexSharp(q, vortexLandNear(uReach, q, uGrid), P, S);
+    col = sh < 1.0 ? vortexBlur(uTexB, q, S, 1.0 - sh) : vec3(0.0);
+    if (sh > 0.8) col = mix(col, sceneCosmos(px), smoothstep(0.8, 1.0, sh));
+  } else {
     vec3 paper = sceneHouse(px);
-    col = mix(paper, paper * 0.9, smoothstep(0.0, 0.12, uX));
+    vec2 e = abs(fract(q / uGrid.zw) - 0.5) * 2.0;
+    col = mix(paper, paper * (0.86 - 0.06 * smoothstep(0.8, 1.0, max(e.x, e.y))), smoothstep(plan.y, plan.y + 0.03, P));
   }
   vec2 band = vortexBand(P, S);
   float amt = smoothstep(band.x - 30.0, band.x + 140.0, q.y) * smoothstep(band.y + 30.0, band.y - 140.0, q.y)

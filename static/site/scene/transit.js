@@ -16,23 +16,20 @@
 // the scene's plain seams.
 import { VERTEX } from './glsl/index.js';
 import { UNIT_PROGRAMS, SIM, REACH_BAKE } from './glsl/units.js';
-import { transitP, carveMaze } from '../lerp.js';
+import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
 
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
 // bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach, or the crystals.
 const KINDS = {
-  '0-3': { id: 'cubes', units: ['flow', 'streaks', 'cubes'] },        // About Me → Science: a vortex
+  '0-3': { id: 'cubes', units: ['cubes:back', 'flow', 'cubes:front'] },   // About Me → Science: a vortex
   '3-2': { id: 'crystals', units: [], sim: true, bake: 'crystals' },  // Science → Racing: crystal growth
   '2-4': { id: 'sheets', units: ['sheets', 'glitter'] },             // Racing → Outdoors: peeling sheets
   '4-5': { id: 'film', units: ['film'] },                            // Outdoors → Photography: film, developed
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
 };
 // Cell sizes in CSS px (fine pointer, touch).
-const CELL = { cubes: [10, 13], streaks: [26, 36], flow: [30, 44], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [14, 22] };
+const CELL = { cubes: [18, 22], streaks: [26, 36], flow: [30, 44], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [14, 22] };
 const FLY = 420;   // how far, CSS px, a unit can stray from its row
-// Science's cubes land this share of the rows above where they left (glsl/flight.js VX_DROP): the
-// seam draws that many extra rows of them, rising from below the screen.
-const vortexDrop = rows => Math.floor(rows * 0.38 + 0.5);
 // Outdoors' layers of sheets (glsl/flight.js layerGrid): [cols, rows] of layer k.
 const SHEET_LAYERS = 3;
 function layerGrid(k, w, h) {
@@ -137,7 +134,7 @@ export function createTransit(gl, { renderWorld, coarse }) {
   const kindOf = s => KINDS[`${s.a}-${s.b}`] || null;
   function usable(K) {
     if (!programs.bake) return false;
-    for (const u of K.units) if (!programs[u]) return false;
+    for (const u of K.units) if (!programs[u.split(':')[0]]) return false;
     return true;
   }
 
@@ -193,7 +190,13 @@ export function createTransit(gl, { renderWorld, coarse }) {
     if (snap && (snap.w !== w || snap.h !== h)) { dropSnap(snap); snap = null; }
     if (!snap) {
       const tex = [0, 1].map(() => texture(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE));
-      snap = { w, h, tex, fb: tex.map(target), fresh: true, flip: 0, used: 0 };
+      // Science's vortex reads the world below blurred, from its mipmaps (glsl/flight.js vortexBlur).
+      if (K.id === 'cubes') {
+        gl.bindTexture(gl.TEXTURE_2D, tex[1]);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+      snap = { w, h, tex, fb: tex.map(target), fresh: true, flip: 0, used: 0, mips: K.id === 'cubes' };
       snaps.set(K.id, snap);
     }
     return snap;
@@ -322,6 +325,30 @@ export function createTransit(gl, { renderWorld, coarse }) {
     return t;
   }
 
+  // Science's vortex plan (lerp.js vortexPlan) for a cube grid: a float texel a cell (the cell its
+  // cube lands on, when it leaves, when the cube bound for it lands), made once per grid.
+  let plan = null;
+  function planTexture([cols, rows]) {
+    const key = `${cols} ${rows}`;
+    if (plan?.key === key) return plan.t;
+    const data = vortexPlanTexels(vortexPlan(cols, rows));
+    if (plan) gl.deleteTexture(plan.t);
+    const t = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, cols, rows, 0, gl.RGBA, gl.FLOAT, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    plan = { key, t };
+    return t;
+  }
+  // Made ahead, while the page is idle, for this screen, so the vortex starts without the work.
+  later(() => { if (!gl.isContextLost()) planTexture(grid('cubes', innerWidth, innerHeight, { scale: 1 })); });
+
   let frame = 0;
   const effectSnap = { tex: [], fb: [], reach: null };
   return {
@@ -349,6 +376,7 @@ export function createTransit(gl, { renderWorld, coarse }) {
       const snap = snapFor(K, tw, th);
       snap.used = f.now;
       if (K.bake) bake(snap, s.b, w, h, null, K.bake);
+      let below = snap.fresh;
       if (snap.fresh) {
         renderWorld(s.a, snap.fb[0], tw, th, s.region, s.vel);
         renderWorld(s.b, snap.fb[1], tw, th, s.region, s.vel);
@@ -356,6 +384,15 @@ export function createTransit(gl, { renderWorld, coarse }) {
       } else {
         snap.flip ^= 1;
         renderWorld(snap.flip ? s.b : s.a, snap.fb[snap.flip], tw, th, s.region, s.vel);
+        below = snap.flip === 1;
+      }
+      if (snap.mips && below) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, snap.tex[1]);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE0);
       }
       if (K.sim && simWanted) {
         if (!sim) { const made = createSim(); if (made === null) simWanted = false; else if (made) sim = made; }
@@ -374,20 +411,23 @@ export function createTransit(gl, { renderWorld, coarse }) {
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, snap.tex[1]);
       const simOn = K.sim && sim;
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, simOn ? sim.texture : null);
-      gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, snap.reach?.t ?? null);
-      gl.activeTexture(gl.TEXTURE0);
       const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : null;
+      // The ink's reach, or the vortex's plan.
+      const reach = ground ? planTexture(ground) : snap.reach?.t ?? null;
+      gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, reach);
+      gl.activeTexture(gl.TEXTURE0);
       const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn });
       if (!drew || !K.units.length) return drew;
       // The units keep the ground's scissor: while the strip scrolls in or out, they stay in it.
-      for (const name of K.units) {
+      for (const unit of K.units) {
+        // name:pass, where a kind draws in passes (Science's cubes: behind the wind, then in front).
+        const [name, pass] = unit.split(':');
         const prog = programs[name], def = UNIT_PROGRAMS[name];
         const g = name === 'sheets' || name === 'film' ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
-        // The vortex carries its units the whole height of the screen: all of them, plus the rows
-        // rising from below it. The sheets draw a layer at a time, the lowest first.
-        const vortex = name === 'cubes' || name === 'streaks';
+        // The vortex carries its cubes the whole height of the screen, one a cell. The sheets draw a
+        // layer at a time, the lowest first.
         const [first, count] = name === 'sheets' ? [0, 1] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
-          : vortex ? [0, g[0] * (g[1] + vortexDrop(g[1]))] : name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
+          : name === 'cubes' || name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;
         gl.useProgram(p);
@@ -399,6 +439,7 @@ export function createTransit(gl, { renderWorld, coarse }) {
         gl.uniform4f(U.uGrid, ...g);
         gl.uniform1i(U.uFirst, first);
         if (U.uClick) gl.uniform1f(U.uClick, 0);
+        if (U.uPass) gl.uniform1i(U.uPass, pass === 'back' ? 0 : pass === 'front' ? 1 : 2);
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uReach, 5);
@@ -456,6 +497,7 @@ export function createTransit(gl, { renderWorld, coarse }) {
         gl.uniform4f(U.uGrid, ...g);
         gl.uniform1i(U.uFirst, 0);
         gl.uniform1f(U.uClick, 1);
+        if (U.uPass) gl.uniform1i(U.uPass, 2);
         gl.uniform2f(U.uO, s.origin[0], s.origin[1]);
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);

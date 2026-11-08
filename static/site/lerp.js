@@ -106,24 +106,30 @@ export const filmArrival = (rn, jit = 0.5) => 0.1 + 0.74 * clamp01(rn) + (jit - 
 export const filmU = (A, P) => clamp01((P - A + 0.2) / 0.5);
 export const filmNeg = (A, P) => smoothstep((P - A + 0.28) / 0.08);
 
-// Science: a vortex (flight.js) standing up the middle of the screen, its flow running up the axis.
-// A seam's cube leaves its cell and lands mirrored across the axis, vortexDrop(rows) rows higher
-// (thrown out over the top, for the top rows; the bottom rows are filled from below the screen).
-// vortexSeamA: when a cube is at the core (home in CSS px, size the screen's); vortexU its flight at
-// P; coreEase eases through the core; vortexAt where it is (x across, y down, z toward the viewer).
-export const VORTEX = { spin: 2.5, sink: 6, d: 0.5, drop: 0.38, tilt: 0.42, climb: 0.5, lead: 0.3 };
-// The wind's clock by height (flight.js): when it starts to blow at up (0 the foot), and when it dies.
-export const vortexWindOn = up => -0.2 + VORTEX.climb * up;
-export const vortexWindOff = up => vortexWindOn(up - VORTEX.drop) + VORTEX.lead + VORTEX.d + 0.09;
-export const vortexDrop = rows => Math.floor(rows * VORTEX.drop + 0.5);
-export function vortexSeamA([hx, hy], [W, H], jit = 0.5) {
-  const up = 1 - hy / H, rn = Math.abs(hx / W - 0.5) * 2;
-  const A = vortexWindOn(up) + VORTEX.lead + 0.5 * VORTEX.d + 0.03 * Math.min(rn, 1) + (jit - 0.5) * 0.06;
-  return Math.min(Math.max(A, -0.2 + 0.5 * VORTEX.d), 1.2 - 0.5 * VORTEX.d);
-}
-// A cube's own pace through the vortex: a warp of u (a within ±0.7) that leaves both ends in place.
+// Science: a vortex (flight.js) standing up the middle of the screen. A click's cubes come out of
+// its axis (coreEase eases them through the core; vortexAt is where they are). A seam's vortex stands
+// on the foot of the screen and grows taller, and the page is gathered up the screen behind its
+// growing top, each height over a long window (some cubes lag), so the foot is still giving up its
+// last cubes while the upper middle starts. Each cube goes round the vortex, rising with it, and is
+// thrown down and out onto a cell: the bottom corners are built first, then upward and inward, the
+// middle top last (vortexPlan). vortexOrbit: where a seam's cube is (x across, y down, z toward the
+// viewer). Science comes in blurred, and the vortex's tendrils sharpen it (vortexSharp).
+export const VORTEX = {
+  spin: 2.5, sink: 6, tilt: 0.42,
+  // The gathering: the foot's starts at c0, the front climbs a screen in c1, each height over lc.
+  c0: -0.15, c1: 0.5, lc: 0.375,
+  // A cube's flight; how soon after a cell's paper goes a cube may land on it.
+  d: 0.17, gap: 0.04,
+  // The building order: up, then in.
+  byUp: 0.45, byIn: 0.55,
+  // The wind's base leaves the foot at base0 and reaches the top base1 later. A built cell stays
+  // blurred blurWait, then sharpens over blurD as the base ring's front (reachW deep) reaches it.
+  base0: 0.78, base1: 0.4, blurWait: 0.08, blurD: 0.14, reachW: 0.12,
+  in: 0.12, out: 0.2, v0: 0.08,
+  swarms: 5, clump: 0.82, wave: 80, lzN: 32, lzT: 0.8, lzPx: 2.4,
+};
+// A cube's own pace through a click's vortex: a warp of u (a within ±0.7) that leaves both ends in place.
 export const vortexPace = (u, a) => u + a * u * (1 - u);
-export const vortexU = (A, P) => clamp01(0.5 + (P - A) / VORTEX.d);
 export const coreEase = (u, K) => (u * (1 + 0.5 * K) - K * Math.sin(2 * Math.PI * u) / (4 * Math.PI)) / (1 + 0.5 * K);
 export const vortexTurn = u => coreEase(u, VORTEX.spin);
 export function vortexAt([hx, hy], drop, ax, rc, turns, u, phase = 0) {
@@ -132,6 +138,157 @@ export function vortexAt([hx, hy], drop, ax, rc, turns, u, phase = 0) {
   const th = turns * Math.PI * vortexTurn(u) + phase * Math.sin(Math.PI * u) ** 2, tilt = VORTEX.tilt * smoothstep(k / 0.4);
   const X = r * Math.cos(th), Z = r * Math.sin(th) * 0.75;
   return [ax + X, hy + drop * coreEase(u, VORTEX.sink) + Z * Math.sin(tilt), Z * Math.cos(tilt)];
+}
+// The wind (up: 0 at the foot of the screen, 1 at the top): it reaches a height a little before the
+// gathering there starts; it dies there once the cubes there have landed. Its band at P ([top,
+// base], CSS px, y down) and its widest radius.
+export const vortexWindOn = up => VORTEX.c0 - 0.07 + VORTEX.c1 * up;
+export const vortexWindOff = up => VORTEX.base0 + VORTEX.base1 * up;
+export function vortexBand(P, [, H]) {
+  const top = (P - vortexWindOn(0)) / VORTEX.c1, base = (P - VORTEX.base0) / VORTEX.base1;
+  return [H * (1 - Math.min(top, 1.7)), base <= 0 ? H + 20 : H * (1 - base)];
+}
+export const vortexWide = ([top, base], [W]) => Math.min(W * 0.48, 150 + (base - top) * 0.5);
+// The wind's base (screens up) at P, how far above it its base ring reaches dx from the axis, and
+// how sharp a cell at q (CSS px) built at land is at P (0 blurred, 1 sharp): the later of its wait and
+// the ring's front. n (0..1): flight.js's noise on the front.
+export const vortexBaseUp = P => Math.max(0, (P - VORTEX.base0) / VORTEX.base1);
+export const vortexReach = (dx, [W]) => { const k = dx / (0.55 * W); return 0.08 + 0.25 * Math.sqrt(Math.max(1 - k * k, 0)); };
+export function vortexSharp([qx, qy], land, P, S, n = 0.5) {
+  const V = VORTEX, t = (P - land - V.blurWait) / V.blurD;
+  if (t <= 0) return 0;
+  const front = (vortexBaseUp(P) + vortexReach(qx - 0.5 * S[0], S) + 0.04 * (n - 0.5) - (1 - qy / S[1])) / V.reachW;
+  return smoothstep(Math.min(t, front));
+}
+// How much of the wind's widest a cube orbits at, at height y in the band: a trumpet, wide at the
+// foot, closed into the core by halfway up (never closer in than vortexHug).
+export function vortexFunnel(y, [top, base]) {
+  const k = clamp01((base - y) / Math.max(base - top, 1));
+  return 1 - 0.9 * (1 - (1 - Math.min(k / 0.55, 1)) ** 2.6);
+}
+export const vortexHug = 0.35;
+
+// The plan for a seam's cube grid (cols × rows, on screen S): for each cell (row-major from the top
+// left), when its own cube leaves (leave), the cell its cube lands on (dest) and when the cube bound
+// for it lands (land). Gathering: by height from the foot up, each cell lagging by a mix of a smooth
+// field and its own chance. Building: every cube flies for VORTEX.d; landing slots come in the order
+// cubes leave, and each goes to the cell first in the building order (its key: low and outward
+// first) of those whose paper has been gone at least VORTEX.gap. Seeded, so the same screen always
+// builds the same way.
+const vrand = seed => { let a = seed >>> 0 || 1; return () => { a ^= a << 13; a >>>= 0; a ^= a >>> 17; a ^= a << 5; a >>>= 0; return a / 4294967296; }; };
+function vfield(cols, rows, scale, rand) {
+  const gw = Math.ceil(cols / scale) + 2, gh = Math.ceil(rows / scale) + 2, g = Array.from({ length: gw * gh }, rand);
+  return (c, r) => {
+    const x = c / scale, y = r / scale, i = Math.floor(x), j = Math.floor(y), fx = smoothstep(x - i), fy = smoothstep(y - j), v = (a, b) => g[b * gw + a];
+    return (v(i, j) * (1 - fx) + v(i + 1, j) * fx) * (1 - fy) + (v(i, j + 1) * (1 - fx) + v(i + 1, j + 1) * fx) * fy;
+  };
+}
+export function vortexPlan(cols, rows, seed = 7) {
+  const V = VORTEX, rand = vrand(seed), scale = Math.max(3, cols / 12), lagField = vfield(cols, rows, scale, rand), keyField = vfield(cols, rows, scale * 0.7, rand);
+  const N = cols * rows, leave = new Float64Array(N), land = new Float64Array(N), key = new Float64Array(N), dest = new Int32Array(N);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const i = r * cols + c, up = 1 - (r + 0.5) / rows, inward = 1 - Math.abs((c + 0.5) / cols - 0.5) * 2;
+    const lag = clamp01(0.5 + 1.32 * (lagField(c, r) - 0.5) + 0.4 * (rand() - 0.5)) ** 1.3;
+    leave[i] = V.c0 + V.c1 * up + V.lc * lag;
+    key[i] = V.byUp * up + V.byIn * inward + 0.06 * (keyField(c, r) - 0.5);
+  }
+  const bySrc = [...Array(N).keys()].sort((a, b) => leave[a] - leave[b]);
+  const heap = [];
+  const less = (a, b) => key[heap[a]] < key[heap[b]];
+  const swap = (a, b) => { const t = heap[a]; heap[a] = heap[b]; heap[b] = t; };
+  const push = i => { heap.push(i); for (let k = heap.length - 1; k > 0;) { const p = (k - 1) >> 1; if (!less(k, p)) break; swap(k, p); k = p; } };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      for (let k = 0; ;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && less(l, m)) m = l; if (r < heap.length && less(r, m)) m = r; if (m === k) break; swap(m, k); k = m; }
+    }
+    return top;
+  };
+  let j = 0;
+  for (const s of bySrc) {
+    const t = leave[s] + V.d;
+    while (j < N && leave[bySrc[j]] <= t - V.gap) push(bySrc[j++]);
+    const d = pop();
+    dest[s] = d;
+    land[d] = t;
+  }
+  return { cols, rows, leave, land, dest };
+}
+// The plan as an RGBA float texture's data, a texel a cell: the cell its cube lands on (as an index,
+// row-major), when it leaves, when the cube bound for it lands, and the latest landing round it (it
+// and its eight neighbours), which the blur's timing is read from, smoothly across cells, so it
+// clears without showing the cells and never before a cell's own cube is down.
+export function vortexPlanTexels({ cols, rows, leave, land, dest }) {
+  const out = new Float32Array(cols * rows * 4);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const i = r * cols + c;
+    let near = land[i];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) near = Math.max(near, land[rr * cols + cc]);
+    }
+    out.set([dest[i], leave[i], land[i], near], i * 4);
+  }
+  return out;
+}
+
+// A cube's turn round the axis by u (its angular speed a trapezoid); the swarms' pull on its angle;
+// a throw's Lorenz swerve (a bridge, none at either end).
+export function vortexSweep(u) {
+  u = clamp01(u);
+  const a = VORTEX.in, b = VORTEX.out, v0 = VORTEX.v0;
+  const I = u < a ? u * u / (2 * a) : u > 1 - b ? 1 - 0.5 * a - 0.5 * b - (1 - u) ** 2 / (2 * b) : u - 0.5 * a;
+  return (v0 * u + (1 - v0) * I) / (v0 + (1 - v0) * (1 - 0.5 * a - 0.5 * b));
+}
+export const vortexSwarm = (phi, P, t, f) =>
+  phi - VORTEX.clump * Math.sin(VORTEX.swarms * (phi - (VORTEX.wave * P + 1.4 * t + 2 * (f - 0.9) / 0.1))) / VORTEX.swarms;
+const lorenz = ([x, y, z]) => [10 * (y - x), x * (28 - z) - y, x * y - 8 / 3 * z];
+export function vortexSwerve(p0, tau) {
+  const N = VORTEX.lzN, dt = VORTEX.lzT / N, k = tau * N;
+  let p = p0, at = p0;
+  for (let i = 0; i < N; i++) {
+    const d1 = lorenz(p), m = p.map((v, j) => v + 0.5 * dt * d1[j]), d2 = lorenz(m), q = p.map((v, j) => v + dt * d2[j]);
+    if (i < k && k <= i + 1) at = p.map((v, j) => v + (q[j] - v) * (k - i));
+    p = q;
+  }
+  return at.map((v, j) => v - p0[j] - tau * (p[j] - p0[j]));
+}
+// How high (CSS px, y down) a seam's cube orbits at u: from its own cell's height it rises with the
+// wind to a little above the higher of its two cells, so it is always thrown down onto its new one.
+export const vortexRise = (home, dest, u, [, H]) => {
+  const top = Math.min(home[1], dest[1]) - 0.07 * H;
+  return home[1] + (top - home[1]) * smoothstep((u - 0.1) / 0.75);
+};
+// Where a seam's cube is at u. o: its own draw (flight.js hashes the cell for these): f its place
+// across the funnel (0.8..1), whole its whole turns (2..4), lift (-0.5..0.5) its height in the
+// swarm, seed [3] (0..1) its Lorenz start and turn.
+export function vortexOrbit(home, dest, o, u, P, t, S) {
+  const ax = 0.5 * S[0], sm = (a, b, x) => smoothstep((x - a) / (b - a));
+  const band = vortexBand(P, S), y = vortexRise(home, dest, u, S);
+  const rad = vortexWide(band, S) * o.f * Math.max(vortexFunnel(y, band), vortexHug);
+  const across = (home[0] < ax) !== (dest[0] < ax);
+  const turns = 2 * o.whole + (across ? 1 : 0);
+  const a = turns * Math.PI * vortexSweep(u);
+  const th = a + (across ? 0 : Math.PI * sm(0.1, 0.9, u));
+  const c0 = sm(0, 1.4 * VORTEX.in, u), tau = clamp01((u - 1 + VORTEX.out) / VORTEX.out), wz = smoothstep(tau);
+  const grip = c0 * (1 - wz);
+  let phi = a + (home[0] < ax ? Math.PI : 0);
+  phi += (vortexSwarm(phi, P, t, o.f) - phi) * grip;
+  const Z = rad * Math.sin(phi) * 0.8;
+  const ring = [ax + rad * Math.cos(phi), y + Z * Math.sin(VORTEX.tilt) + o.lift * 26, Z * Math.cos(VORTEX.tilt)];
+  const p = [home[0], home[1], 0].map((v, i) => v + (ring[i] - v) * c0);
+  const wxy = tau * tau * (10 - 16 * tau + 7 * tau * tau);
+  const at = [p[0] + (dest[0] - p[0]) * wxy, p[1] + (dest[1] - p[1]) * wxy, p[2] * (1 - wz)];
+  if (tau > 0 && tau < 1) {
+    const [h2, h3, h5] = o.seed;
+    const L = vortexSwerve([2 + (h2 - 0.5) * 14, 3 + (h3 - 0.5) * 14, 22 + (h5 - 0.5) * 10], tau);
+    const psi = h5 * 2 * Math.PI, e = VORTEX.lzPx * Math.sin(Math.PI * tau);
+    at[0] += (Math.cos(psi) * L[0] - Math.sin(psi) * L[1]) * e;
+    at[1] += -0.8 * L[2] * e;
+    at[2] += (Math.sin(psi) * L[0] + Math.cos(psi) * L[1]) * e;
+  }
+  return { at, th, phi, grip, rad, turns, ring };
 }
 
 // About Me, Résumé, Contact: a maze carved by depth-first backtracking from start ([col, row]) over

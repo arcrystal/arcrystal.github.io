@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs';
 import {
   parseHex, toOklab, oklabCss, mixOklab, approach, seamAt, smoothstep, easeInOutCubic,
   transitP, flightAt, arrivalRange, HOLD, holdAt, holdFor, holdEase,
-  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexDrop, vortexSeamA, vortexWindOn, vortexWindOff, vortexPace, vortexU, coreEase, vortexTurn, vortexAt,
+  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexWindOn, vortexWindOff, vortexPace, coreEase, vortexTurn, vortexAt,
+  vortexBand, vortexWide, vortexSharp, vortexFunnel, vortexHug, vortexSweep, vortexSwarm, vortexSwerve, vortexRise, vortexOrbit,
+  vortexPlan, vortexPlanTexels,
 } from '../../../static/site/lerp.js';
 
 const { order, styles } = JSON.parse(readFileSync(new URL('../../../static/site/styles.json', import.meta.url), 'utf8'));
@@ -163,9 +165,9 @@ test('processes: film is exposed and pulled from the foot up, resting at the top
   }
 });
 
-test('processes: a vortex cube leaves its cell flat and lands flat, mirrored across the axis and lower', () => {
+test('processes: a click\'s vortex cube leaves its cell flat and lands flat, mirrored across the axis and lower', () => {
   const ax = 720;
-  for (const home of [[20, 30], [700, -120], [1430, 890], [300, 600], [1100, 120]]) for (const turns of [3, 5, 7]) for (const drop of [0, 342, -200]) for (const phase of [0, -2.9, 3.1]) {
+  for (const home of [[20, 30], [700, -120], [1430, 890], [300, 600], [1100, 120]]) for (const turns of [3, 5, 7, 11]) for (const drop of [0, 342, -200]) for (const phase of [0, -2.9, 3.1]) {
     const a = vortexAt(home, drop, ax, 117, turns, 0, phase), b = vortexAt(home, drop, ax, 117, turns, 1, phase);
     for (const [got, want] of [[a, [home[0], home[1], 0]], [b, [2 * ax - home[0], home[1] + drop, 0]]]) {
       got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-6, `${home} turns=${turns}: ${got} vs ${want}`));
@@ -182,59 +184,167 @@ test('processes: each cube keeps its own pace through the vortex, starting and e
   }
 });
 
-test('processes: every cell of a vortex seam sends one cube and receives one (some from below the screen)', () => {
-  for (const [cols, rows] of [[1, 1], [7, 5], [120, 75], [30, 53]]) {
-    const kd = vortexDrop(rows), got = new Map();
-    for (let r = 0; r < rows + kd; r++) for (let c = 0; c < cols; c++) {
-      const d = [cols - 1 - c, r - kd];
-      if (d[1] >= 0) got.set(d.join(), (got.get(d.join()) || 0) + 1);
+test('processes: a click\'s cube turns fastest at the core', () => {
+  assert.equal(vortexTurn(0), 0);
+  assert.ok(Math.abs(vortexTurn(1) - 1) < 1e-12);
+  let prev = -1;
+  for (let u = 0; u <= 1.0001; u += 0.01) { assert.ok(vortexTurn(u) > prev); prev = vortexTurn(u); }
+  const K = VORTEX.sink, f = u => coreEase(u, K);
+  assert.equal(f(0), 0);
+  assert.ok(Math.abs(f(1) - 1) < 1e-12);
+  assert.ok(Math.abs((f(0.5 + 1e-6) - f(0.5)) / (f(1e-6) - f(0)) - (1 + K)) < 1e-3);
+});
+
+test('processes: a seam\'s cube is swept onto the wind, goes round the vortex 2 to 4½ times with the swarms, and is thrown onto its new cell', () => {
+  // Its sweep: slow as it lifts off, steady round the vortex, easing as it is thrown.
+  assert.equal(vortexSweep(0), 0);
+  assert.ok(Math.abs(vortexSweep(1) - 1) < 1e-12);
+  let prev = -1;
+  for (let u = 0; u <= 1.0001; u += 0.01) { assert.ok(vortexSweep(u) > prev); prev = vortexSweep(u); }
+  const rate = u => (vortexSweep(u + 1e-6) - vortexSweep(u)) / 1e-6;
+  for (let u = VORTEX.in + 0.01; u <= 1 - VORTEX.out - 0.01; u += 0.05) assert.ok(Math.abs(rate(u) - rate(0.5)) < 1e-3, `u=${u}`);
+  assert.ok(rate(0.5) > 8 * rate(0.001));
+  // The swarms draw a cube toward the nearest clump, never past it: its angle still only advances,
+  // and cubes spread evenly round the ring bunch up five times over.
+  for (let phi = 0; phi < 7; phi += 0.01) assert.ok(vortexSwarm(phi + 0.01, 0.4, 3, 0.9) > vortexSwarm(phi, 0.4, 3, 0.9));
+  const bins = new Array(40).fill(0);
+  for (let i = 0; i < 4000; i++) bins[Math.floor((((vortexSwarm(i / 4000 * 2 * Math.PI, 0.4, 3, 0.9) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI) * 40)]++;
+  assert.ok(Math.max(...bins) > 4 * Math.max(1, Math.min(...bins)), `${Math.max(...bins)} vs ${Math.min(...bins)}`);
+  // A throw's swerve along the Lorenz attractor is nothing at either end and real in between.
+  for (const p0 of [[2, 3, 22], [-4, 9, 18], [8, -3, 26]]) {
+    for (const tau of [0, 1]) vortexSwerve(p0, tau).forEach(v => assert.ok(Math.abs(v) < 1e-9));
+    assert.ok(Math.hypot(...vortexSwerve(p0, 0.5)) > 3, `${p0}`);
+  }
+  // The funnel the cubes ride: wide at the wind's foot, closed in to the core by halfway up.
+  const band = vortexBand(0.4, [1440, 900]);
+  assert.ok(Math.abs(vortexFunnel(band[1], band) - 1) < 1e-9);
+  assert.ok(Math.abs(vortexFunnel((band[0] + band[1]) / 2, band) - 0.1) < 0.02);
+  for (let y = band[1]; y > band[0]; y -= 10) assert.ok(vortexFunnel(y - 10, band) <= vortexFunnel(y, band) + 1e-12);
+  const S = [1440, 900], ax = 720;
+  for (const home of [[20, 600], [700, 880], [1430, 500], [300, 40], [1100, 120]]) for (const dest of [[900, 520], [100, 840]]) for (const whole of [2, 3, 4]) for (const P of [0.2, 0.5, 0.8, 1.0]) {
+    const o = { f: 0.9, whole, lift: 0.2, seed: [0.3, 0.6, 0.8] };
+    const a = vortexOrbit(home, dest, o, 0, P, 4, S), b = vortexOrbit(home, dest, o, 1, P, 4, S);
+    for (const [got, want] of [[a.at, [...home, 0]], [b.at, [...dest, 0]]]) got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-9, `${home} → ${got} vs ${want}`));
+    // Its other face up: an odd number of half turns of its own, and 2 to 4½ times round the vortex.
+    assert.ok(Math.abs(Math.cos(b.th) + 1) < 1e-9);
+    assert.ok(b.turns >= 4 && b.turns <= 9);
+    // Round the vortex while the wind holds it, behind the axis and in front of it.
+    let behind = false, front = false, first = null, last = null;
+    for (let u = 0; u <= 1; u += 0.004) {
+      const q = vortexOrbit(home, dest, o, u, P, 4, S);
+      if (q.grip > 0.95) {
+        first ??= q.phi; last = q.phi;
+        if (q.at[2] < -0.3 * q.rad) behind = true;
+        if (q.at[2] > 0.3 * q.rad) front = true;
+        assert.ok(q.rad >= vortexHug * 0.8 * vortexWide(vortexBand(P, S), S) - 1e-9);
+      }
     }
-    assert.equal(got.size, cols * rows);
-    assert.ok([...got.values()].every(n => n === 1));
+    assert.ok(last - first > 1.3 * 2 * Math.PI, `${home} whole=${whole}: ${(last - first) / 2 / Math.PI}`);
+    assert.ok(behind && front, `${home} whole=${whole} P=${P}`);
   }
 });
 
-test('processes: the vortex turns and rises fastest at its core', () => {
-  for (const [f, K] of [[vortexTurn, VORTEX.spin], [u => coreEase(u, VORTEX.sink), VORTEX.sink]]) {
-    assert.equal(f(0), 0);
-    assert.ok(Math.abs(f(1) - 1) < 1e-12);
-    let prev = -1;
-    for (let u = 0; u <= 1.0001; u += 0.01) { assert.ok(f(u) > prev); prev = f(u); }
-    const rate = u => (f(u + 1e-6) - f(u)) / 1e-6;
-    assert.ok(Math.abs(rate(0.5) / rate(1e-6) - (1 + K)) < 1e-3);
+// Science's plan on the grids transit.js makes (18 px cells, 22 on touch screens).
+const PLAN_GRIDS = [[80, 50], [18, 38], [107, 49], [44, 33], [5, 3], [1, 1]];
+const rowUp = (r, rows) => 1 - (r + 0.5) / rows;
+
+test('processes: every cell of a vortex seam sends one cube and receives one, after its paper has gone, and is sharp before the wind there dies', () => {
+  for (const [cols, rows] of PLAN_GRIDS) {
+    const p = vortexPlan(cols, rows), N = cols * rows, got = new Uint8Array(N), tx = vortexPlanTexels(p);
+    // The blur's timing anywhere in a cell: at most the latest landing round it or its neighbours.
+    const nearMax = i => {
+      const r = Math.floor(i / cols), c = i % cols;
+      let m = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) m = Math.max(m, tx[(rr * cols + cc) * 4 + 3]); }
+      return m;
+    };
+    for (let i = 0; i < N; i++) {
+      const d = p.dest[i];
+      got[d]++;
+      // Every flight is the same length, and none is still going at either end of the hold.
+      assert.ok(Math.abs(p.land[d] - p.leave[i] - VORTEX.d) < 1e-9);
+      assert.ok(p.leave[i] > transitP(0) && p.land[d] < transitP(1) - 0.1, `${cols}×${rows} ${i}`);
+    }
+    assert.ok(got.every(n => n === 1), `${cols}×${rows}`);
+    for (let i = 0; i < N; i++) {
+      const up = rowUp(Math.floor(i / cols), rows);
+      assert.ok(p.land[i] >= p.leave[i] + VORTEX.gap - 1e-9, `${cols}×${rows} cell ${i} built before its paper went`);
+      // Blurred as it lands and for a while after; sharp by the time the wind there dies, and at the end.
+      const q = [((i % cols) + 0.5) / cols * 1440, (Math.floor(i / cols) + 0.5) / rows * 900];
+      assert.ok(tx[i * 4 + 3] >= Math.fround(p.land[i]));
+      for (const n of [0, 1]) {
+        assert.equal(vortexSharp(q, tx[i * 4 + 3], Math.fround(p.land[i]) + VORTEX.blurWait - 1e-7, [1440, 900], n), 0);
+        const late = nearMax(i), wind = vortexWindOff(Math.max(0, up - 0.5 / rows));
+        // (Any real screen has at least 16 rows of cells; on fewer a cell's neighbours span the screen.)
+        if (rows >= 16) assert.equal(vortexSharp(q, late, wind, [1440, 900], n), 1, `${cols}×${rows} cell ${i} still blurred when the wind there dies`);
+        assert.equal(vortexSharp(q, late, transitP(1), [1440, 900], n), 1);
+      }
+    }
+    // The texture: a texel a cell, as the shaders read it.
+    for (let i = 0; i < N; i += 7) assert.deepEqual([...tx.slice(i * 4, i * 4 + 3)], [p.dest[i], Math.fround(p.leave[i]), Math.fround(p.land[i])]);
   }
+  // Only ever sharper as the vortex works: at the foot soon after it is built; higher up, not until
+  // the wind's base has lifted and its ring's front climbs to it.
+  const S = [1440, 900];
+  for (const q of [[100, 880], [720, 860], [1300, 450], [720, 450], [200, 60], [720, 30]]) for (const land of [0.1, 0.4, 0.7]) {
+    let prev = 0;
+    for (let P = land; P <= 1.2; P += 0.005) { const s = vortexSharp(q, land, P, S); assert.ok(s >= prev - 1e-12, `${q} ${land} ${P}`); prev = s; }
+  }
+  assert.equal(vortexSharp([720, 860], 0.1, 0.1 + VORTEX.blurWait + VORTEX.blurD, S), 1);
+  assert.equal(vortexSharp([1300, 450], 0.3, 0.7, S), 0);
+  assert.ok(vortexSharp([1300, 450], 0.3, 1.0, S) > 0.99);
+  // The same screen always builds the same way.
+  assert.deepEqual([...vortexPlan(44, 33).dest], [...vortexPlan(44, 33).dest]);
 });
 
-test('processes: the vortex gathers the page from the foot up, at rest at both ends and at the strip\'s edges', () => {
-  const S = [1440, 900], rows = 90, ch = S[1] / rows, kd = vortexDrop(rows), drop = kd * ch;
-  const home = (r, x = 500) => [x, (r + 0.5) * ch];
-  // The wind comes first at every height, for the same time, and dies there only after the cubes
-  // bound for that height have landed: the vortex grows from the foot and subsides from the foot.
-  for (let r = 0; r < rows; r++) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
-    const up = 1 - (r + 0.5) / rows;
-    const leave = vortexSeamA(home(r, x), S, j) - VORTEX.d / 2;
-    const lead = leave - vortexWindOn(up);
-    assert.ok(lead > 0.26 && lead < 0.36, `r=${r} lead=${lead}`);
-    const land = vortexSeamA(home(r + kd, S[0] - x), S, j) + VORTEX.d / 2;
-    assert.ok(land < vortexWindOff(up), `r=${r}`);
+test('processes: the vortex stands on the foot and grows, and the page is gathered up the screen behind it, the lower heights still giving up cubes as higher ones start', () => {
+  for (const [cols, rows] of PLAN_GRIDS.slice(0, 4)) {
+    const p = vortexPlan(cols, rows);
+    const win = (lo, hi) => {
+      let a = Infinity, b = -Infinity;
+      for (let r = 0; r < rows; r++) { const up = rowUp(r, rows); if (up < lo || up >= hi) continue; for (let c = 0; c < cols; c++) { a = Math.min(a, p.leave[r * cols + c]); b = Math.max(b, p.leave[r * cols + c]); } }
+      return [a, b];
+    };
+    const bottom = win(0, 0.1), midBottom = win(0.2, 0.3), middle = win(0.45, 0.55), upperMid = win(0.7, 0.8), top = win(0.9, 1.01);
+    // The bottom starts, then the middle bottom, the middle, the upper middle; then the bottom
+    // finishes, then the top starts, and the middle bottom finishes after it.
+    assert.ok(bottom[0] < midBottom[0] && midBottom[0] < middle[0] && middle[0] < upperMid[0] && upperMid[0] < top[0], `${cols}×${rows}`);
+    assert.ok(upperMid[0] < bottom[1] && bottom[1] < top[0] + 0.02 && top[0] < midBottom[1] + 0.02, `${cols}×${rows}: ${bottom} ${upperMid} ${top} ${midBottom}`);
+    // The wind reaches every height first.
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) assert.ok(vortexWindOn(rowUp(r, rows)) < p.leave[r * cols + c]);
   }
-  // Higher cells go later (away from the noise of the schedule); each cell's own cube leaves before
-  // the one bound for it, from kd rows below, lands.
-  for (let r = 4; r < rows - 1; r++) assert.ok(vortexSeamA(home(r), S) > vortexSeamA(home(r + 1), S), `r=${r}`);
-  for (let r = 0; r < rows; r++) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
-    const own = vortexSeamA(home(r, x), S, j), inc = vortexSeamA(home(r + kd, S[0] - x), S, 1 - j);
-    assert.ok(own - VORTEX.d / 2 < inc + VORTEX.d / 2, `r=${r}`);
-  }
-  for (let r = 0; r < rows + kd; r++) for (const j of [0, 0.5, 1]) {
-    const A = vortexSeamA(home(r), S, j);
-    assert.equal(vortexU(A, transitP(0)), 0, `r=${r}`);
-    assert.equal(vortexU(A, transitP(1)), 1, `r=${r}`);
-  }
+  // The wind stands on the foot until the gathering is done, its top climbing; then its base subsides.
+  const S = [1440, 900];
+  for (let P = -0.15; P < VORTEX.base0; P += 0.05) assert.equal(vortexBand(P, S)[1], S[1] + 20);
+  for (let P = -0.15; P < 0.3; P += 0.05) assert.ok(vortexBand(P + 0.05, S)[0] < vortexBand(P, S)[0]);
   // The cells at the strip's top edge while it comes in are still paper.
-  for (const { P, top } of edges('cosmos')) if (top !== null) for (const j of [0, 1]) for (const x of [10, 720, 1430]) {
-    assert.equal(vortexU(vortexSeamA([x, top * S[1]], S, j), P), 0, `top=${top} P=${P}`);
+  const [cols, rows] = PLAN_GRIDS[0], p = vortexPlan(cols, rows);
+  for (const { P, top } of edges('cosmos')) if (top !== null) {
+    const r = Math.min(rows - 1, Math.max(0, Math.floor(top * rows)));
+    for (let c = 0; c < cols; c++) assert.ok(P < p.leave[r * cols + c], `top=${top} P=${P}`);
   }
-  void drop;
+});
+
+test('processes: the cubes build the bottom corners first, then upward and inward, the middle top last, thrown down onto their cells', () => {
+  const S = [1440, 900];
+  for (const [cols, rows] of PLAN_GRIDS.slice(0, 4)) {
+    const p = vortexPlan(cols, rows);
+    const mean = f => { let s = 0, n = 0; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const up = rowUp(r, rows), x = (c + 0.5) / cols; if (f(up, x)) { s += p.land[r * cols + c]; n++; } } return s / n; };
+    const corner = mean((up, x) => up < 0.2 && (x < 0.15 || x > 0.85)), bottomMid = mean((up, x) => up < 0.2 && Math.abs(x - 0.5) < 0.1);
+    const side = mean((up, x) => up > 0.45 && up < 0.65 && (x < 0.15 || x > 0.85)), topMid = mean((up, x) => up > 0.8 && Math.abs(x - 0.5) < 0.1);
+    assert.ok(corner < bottomMid && corner < side && bottomMid < topMid && side < topMid, `${cols}×${rows}`);
+    const last = [...p.land].sort((a, b) => a - b)[Math.floor(cols * rows * 0.9)];
+    assert.ok(topMid > last, `${cols}×${rows}`);
+    // Every cube rises with the wind above its new cell before it is thrown, so it comes down onto it.
+    for (let i = 0; i < cols * rows; i++) {
+      const hy = (Math.floor(i / cols) + 0.5) * S[1] / rows, dy = (Math.floor(p.dest[i] / cols) + 0.5) * S[1] / rows;
+      assert.ok(vortexRise([0, hy], [0, dy], 1 - VORTEX.out, S) < dy - 0.05 * S[1]);
+    }
+    // Many cubes in the air at once, but never most of them.
+    let most = 0;
+    for (let P = -0.2; P <= 1.2; P += 0.01) { let n = 0; for (let i = 0; i < cols * rows; i++) if (P > p.leave[i] && P < p.land[p.dest[i]]) n++; most = Math.max(most, n); }
+    assert.ok(most > 0.2 * cols * rows && most < 0.4 * cols * rows, `${cols}×${rows}: ${most}`);
+  }
 });
 
 test('processes: the maze is a spanning tree carved from the start', () => {
