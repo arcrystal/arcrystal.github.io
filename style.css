@@ -12,6 +12,9 @@ body {
     min-height: 350vw;
 }
 
+
+/* A faint botanical texture behind the AI Power Map, blurred and at 15%: a 640 px WebP (the
+   original PNG was 8.7 MB). */
 body::before {
     content: '';
     position: absolute;
@@ -19,7 +22,7 @@ body::before {
     left: 0;
     width: 100vw;
     height: 350vw;
-    background: url('static/background.png') center center scroll;
+    background: url('static/background-640.webp') center center scroll;
     background-size: 100% auto;
     filter: blur(3px);
     opacity: 0.15;

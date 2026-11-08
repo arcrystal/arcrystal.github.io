@@ -182,7 +182,7 @@ _NAV_EXTRA = {'resume': ('Résumé', RESUME), 'contact': ('Contact', '#contact')
 NAV = [(k, BY_ID[k]['title'], BY_ID[k]['url']) if k in BY_ID else (k, *_NAV_EXTRA[k]) for k in REG['nav']]
 
 
-def head(title, description, canonical, theme_color, styles, preload=()):
+def head(title, description, canonical, theme_color, styles, preload=(), extra=''):
     links = [f'<link rel="stylesheet" href="{esc(versioned(s))}">' for s in STYLE_SHEETS]
     links += [f'<link rel="stylesheet" href="{esc(versioned(s))}" data-page-style>' for s in styles]
     fonts = ['dm-sans-latin-1.woff2', *preload]
@@ -197,7 +197,9 @@ def head(title, description, canonical, theme_color, styles, preload=()):
 <meta name="description" content="{esc(description)}">
 <meta name="theme-color" content="{theme_color}">
 <link rel="canonical" href="{SITE}{canonical}">
-<link rel="icon" href="/static/crystal-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/static/crystal-mark.svg" sizes="any" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Alex Crystal">
 <meta property="og:url" content="{SITE}{canonical}">
@@ -205,7 +207,7 @@ def head(title, description, canonical, theme_color, styles, preload=()):
 <meta property="og:description" content="{esc(description)}">
 <meta property="og:image" content="{SITE}/static/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
-{preloads}
+{extra}{preloads}
 {nl.join(links)}
 <script>{boot_script()}</script>
 <script type="importmap">{import_map()}</script>
@@ -258,9 +260,9 @@ def footer():
 </footer>'''
 
 
-def page(*, title, description, canonical, style, styles, current, page_id, main_attrs, main_html, preload=()):
+def page(*, title, description, canonical, style, styles, current, page_id, main_attrs, main_html, preload=(), head_extra=''):
     theme = style_of(style)['colors']['bg']
-    return f'''{head(title, description, canonical, theme, styles, preload)}
+    return f'''{head(title, description, canonical, theme, styles, preload, head_extra)}
 <body data-page="{page_id}" data-style="{style}">
 <a class="skip-link" href="#main">Skip to content</a>
 {header(current)}
@@ -854,7 +856,35 @@ def home_page(packages):
 </div>'''
     return page(title='Alex Crystal', description=HOME_DESCRIPTION, canonical='/', style='house', styles=[],
                 current='home', page_id='home', main_attrs='', main_html=main_html,
-                preload=('unbounded-latin.woff2',))
+                preload=('unbounded-latin.woff2',), head_extra=person_ld())
+
+
+# Who the site is about, for search engines (schema.org Person). Profiles are the ones the site links.
+PERSON = {
+    '@context': 'https://schema.org', '@type': 'Person', 'name': 'Alex Crystal', 'url': f'{SITE}/',
+    'jobTitle': 'Generative AI Engineer', 'worksFor': {'@type': 'Organization', 'name': 'The MITRE Corporation'},
+    'alumniOf': [{'@type': 'CollegeOrUniversity', 'name': 'Northeastern University'},
+                 {'@type': 'CollegeOrUniversity', 'name': 'University of Rochester'}],
+    'knowsAbout': ['Generative AI', 'Machine learning', 'Natural language processing', 'Knowledge graphs'],
+    'sameAs': ['https://github.com/arcrystal', 'https://www.linkedin.com/in/alex-crystal-326b5a175/',
+               'https://www.chess.com/member/thecrystalball', 'https://ratings.uschess.org/player/32519583'],
+}
+
+
+def person_ld():
+    return f'<script type="application/ld+json">{json.dumps(PERSON, ensure_ascii=False, separators=(",", ":"))}</script>\n'
+
+
+def sitemap():
+    """Every page of the site, for search engines: the homepage, the six destinations, the résumé and
+    the AI Power Map. Redirects are left out."""
+    urls = ['/'] + [d['url'] for d in DESTS] + ['/resume/resume.html', '/ai-timeline/']
+    rows = ''.join(f'  <url><loc>{SITE}{u}</loc></url>\n' for u in urls)
+    return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{rows}</urlset>\n'
+
+
+def robots():
+    return f'User-agent: *\nAllow: /\n\nSitemap: {SITE}/sitemap.xml\n'
 
 
 # ---- destination pages --------------------------------------------------------------------------
@@ -1052,6 +1082,8 @@ def main(argv=None):
             write(file_of(BY_ID[ident]['url']), destination_page(packages[ident], packages), args.check, changed)
         if 'home' in only:
             write('index.html', home_page(packages), args.check, changed)
+            write('sitemap.xml', sitemap(), args.check, changed)
+            write('robots.txt', robots(), args.check, changed)
         if 'resume' in only:
             write('resume/resume.html', resume_page(), args.check, changed)
             for r in REG.get('redirects', []):

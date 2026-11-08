@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   readGame, annotate, describePly, endSummary, openingFamily, openingName, outcome, resultText, material,
   moveLabel, stripComments, header, START_FEN, placement,
-} from '../../../chess/page/lib/pgn.js';
+ checkGame } from '../../../chess/page/lib/pgn.js';
 import { Chess } from '../../../static/vendor/chess/chess.js';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'chess');
@@ -141,4 +141,21 @@ test('stripping clock comments keeps the game identical', () => {
   const plain = stripComments(pgn);
   assert.ok(plain.length < pgn.length);
   assert.equal(readGame(plain).fens.at(-1), readGame(pgn).fens.at(-1));
+});
+
+test('checkGame agrees with readGame on legality and length, without replaying', () => {
+  const games = [
+    '1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 1-0',
+    '1. Nf3 d5 2. c4 *',
+    '[FEN "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"]\n[SetUp "1"]\n\n2. Nf3 Nc6 3. Bb5 *',
+    '[FEN "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"]\n[SetUp "1"]\n\n2... Nc6 3. Bb5 a6 *',
+    '1. e4 e5 2. Ke3 *',
+    '',
+  ];
+  for (const g of games) {
+    const r = readGame(g), c = checkGame(g);
+    assert.equal(c.ok, r.ok, g);
+    assert.equal(c.plies, r.ok ? r.moves.length : 0, g);
+    if (!c.ok) assert.ok(c.error);
+  }
 });

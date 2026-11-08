@@ -7,7 +7,7 @@
 //   loading      set by the page while a request is in flight
 // Ratings are never written into the page source; "saved" is a copy of an earlier live answer kept
 // in the visitor's own localStorage. Panels are independent: stats and games fail separately.
-import { readGame, openingFamily, openingName, outcome, resultText, stripComments, header } from './pgn.js';
+import { checkGame, openingFamily, openingName, outcome, resultText, stripComments, header } from './pgn.js';
 
 export const MODES = ['rapid', 'blitz', 'bullet'];
 const API = 'https://api.chess.com/pub/player';
@@ -109,7 +109,7 @@ export function analyzeGames(rawGames, account, limit = 100) {
     const id = String(g.uuid || g.url || `${g.end_time}`);
     if (!pgn || !player?.result || seen.has(id)) { skipped += 1; continue; }
     seen.add(id);
-    const read = readGame(pgn);
+    const read = checkGame(pgn);
     out.push({
       id,
       url: typeof g.url === 'string' ? g.url : header(pgn, 'Link'),
@@ -126,7 +126,7 @@ export function analyzeGames(rawGames, account, limit = 100) {
       opening: openingFamily(pgn),
       openingName: openingName(pgn),
       eco: header(pgn, 'ECO'),
-      plies: read.ok ? read.moves.length : 0,
+      plies: read.plies,
       readable: read.ok,
       error: read.ok ? '' : read.error,
       pgn,
@@ -297,13 +297,13 @@ function restoreGames(data) {
   const games = [];
   for (const g of list) {
     if (!g || typeof g.pgn !== 'string' || typeof g.id !== 'string') continue;
-    const read = readGame(g.pgn);
+    const read = checkGame(g.pgn);
     games.push({
       id: g.id, url: String(g.url || ''), endTime: num(g.endTime) || 0, timeClass: String(g.timeClass || ''), rated: g.rated !== false,
       color: g.color === 'black' ? 'black' : 'white', result: ['win', 'loss', 'draw'].includes(g.result) ? g.result : 'loss',
       resultText: String(g.resultText || ''), opponentResult: String(g.opponentResult || ''), playerRating: num(g.playerRating),
       opponentRating: num(g.opponentRating), accuracy: num(g.accuracy), opening: String(g.opening || ''), openingName: String(g.openingName || ''),
-      eco: String(g.eco || ''), plies: read.ok ? read.moves.length : 0, readable: read.ok, error: read.ok ? '' : read.error, pgn: g.pgn,
+      eco: String(g.eco || ''), plies: read.plies, readable: read.ok, error: read.ok ? '' : read.error, pgn: g.pgn,
     });
   }
   return { games, summary: summarize(games), empty: !games.length, partial: null, skipped: 0 };

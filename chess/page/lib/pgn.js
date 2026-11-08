@@ -112,6 +112,27 @@ export function signed(n) {
   return n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0';
 }
 
+// Checks a game without replaying it: chess.js's legality pass (loadPgn) and the number of plies,
+// worked out from where the move counter starts and ends. For lists of games, where only the
+// length and whether it reads are needed; readGame does the full replay when a game is opened.
+// → { ok: true, plies } | { ok: false, plies: 0, error }
+export function checkGame(pgn) {
+  try {
+    const text = String(pgn || '');
+    if (!text.trim()) return { ok: false, plies: 0, error: 'empty move list' };
+    const chess = new Chess();
+    chess.loadPgn(text);
+    const fen = chess.getHeaders().FEN;
+    const [, turn0 = 'w', , , , full0 = '1'] = fen ? fen.split(' ') : [];
+    const [, turn1, , , , full1] = chess.fen().split(' ');
+    const plies = (Number(full1) - Number(full0)) * 2 + (turn1 === 'b' ? 1 : 0) - (turn0 === 'b' ? 1 : 0);
+    if (plies <= 0) return { ok: false, plies: 0, error: 'no moves' };
+    return { ok: true, plies };
+  } catch (error) {
+    return { ok: false, plies: 0, error: String(error?.message || error).split('\n')[0] };
+  }
+}
+
 // Reads a game from a PGN (Chess.com's, with clock comments) or from a SAN list.
 // → { ok: true, headers, startFen, moves[], fens[], boards[], result } | { ok: false, error }
 export function readGame(source, { startFen = START_FEN } = {}) {
