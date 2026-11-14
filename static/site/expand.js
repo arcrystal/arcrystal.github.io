@@ -64,12 +64,14 @@ export function createExpand({ motion }) {
     else if (intent.source === 'pop') kind = intent.route.page === 'home' && from !== 'house' ? 'close' : 'fog';
     else kind = to;
     const rect = originRect(link, vw, vh);
-    const at = point || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const origin = to === 'glass' && link ? link.getBoundingClientRect() : rect;
+    const at = point || { x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 };
     point = null;
     if (current) { current.cancel(); finish(current); }
     const scene = getScene();
     const el = cardOf(link);
     const cardR = el ? parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0 : 24;
+    if (kind === 'glass' && (matchMedia('(prefers-reduced-motion: reduce)').matches || !scene?.iceReady?.())) kind = 'fade';
     const run = scene?.ready && kind !== 'fade'
       ? scene.open(kind, { rect, point: at, from, to, cardR })
       : open(kind, { rect, point: at, vw, vh, from, to });

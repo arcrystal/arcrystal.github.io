@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import {
   parseHex, toOklab, oklabCss, mixOklab, approach, seamAt, smoothstep, easeInOutCubic,
   transitP, flightAt, arrivalRange, HOLD, holdAt, holdFor, holdEase,
-  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexWindOn, vortexWindOff, vortexPace, coreEase, vortexTurn, vortexAt,
-  vortexBand, vortexWide, vortexSharp, vortexFunnel, vortexHug, vortexSweep, vortexSwarm, vortexSwerve, vortexRise, vortexOrbit,
+  layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexWindOn, vortexPace, coreEase, vortexTurn, vortexAt,
+  vortexBand, vortexWide, vortexClearY, vortexSharp, vortexFunnel, vortexHug, vortexSweep, vortexSwarm, vortexSwerve, vortexRise, vortexOrbit,
   vortexPlan, vortexPlanTexels,
 } from '../../../static/site/lerp.js';
 
@@ -100,7 +100,7 @@ test('transits: at rest at either end of the hold, and the strip’s edges meet 
 const edges = (style, phone = true) => {
   const out = [];
   for (const [vh, pin] of phone ? [[900, HOLD.pin], [844, HOLD.pinTouch]] : [[900, HOLD.pin]]) {
-    const L = holdFor(style), H = vh * (1 + pin * L.pin), T = 5000;
+    const L = holdFor(style, pin), H = vh * (1 + pin * L.pin), T = 5000;
     for (let sy = T - L.leadIn * vh; sy <= T + H; sy += 5) {
       const { y, p } = holdAt(sy, T, H, vh, L.leadIn, L.leadOut);
       out.push({ P: transitP(holdEase(p)), top: y > 0 ? y / vh : null, foot: y < 0 ? 1 + y / vh : null });
@@ -248,7 +248,7 @@ test('processes: a seam\'s cube is swept onto the wind, goes round the vortex 2 
 const PLAN_GRIDS = [[80, 50], [18, 38], [107, 49], [44, 33], [5, 3], [1, 1]];
 const rowUp = (r, rows) => 1 - (r + 0.5) / rows;
 
-test('processes: every cell of a vortex seam sends one cube and receives one, after its paper has gone, and is sharp before the wind there dies', () => {
+test('processes: every cell of a vortex seam sends one cube and receives one, after its paper has gone, and sharpens immediately below the departing wind', () => {
   for (const [cols, rows] of PLAN_GRIDS) {
     const p = vortexPlan(cols, rows), N = cols * rows, got = new Uint8Array(N), tx = vortexPlanTexels(p);
     // The blur's timing anywhere in a cell: at most the latest landing round it or its neighbours.
@@ -267,32 +267,47 @@ test('processes: every cell of a vortex seam sends one cube and receives one, af
     }
     assert.ok(got.every(n => n === 1), `${cols}×${rows}`);
     for (let i = 0; i < N; i++) {
-      const up = rowUp(Math.floor(i / cols), rows);
       assert.ok(p.land[i] >= p.leave[i] + VORTEX.gap - 1e-9, `${cols}×${rows} cell ${i} built before its paper went`);
-      // Blurred as it lands and for a while after; sharp by the time the wind there dies, and at the end.
+      // Blurred as it lands and while the wind is overhead; sharp just below the base, and at the end.
       const q = [((i % cols) + 0.5) / cols * 1440, (Math.floor(i / cols) + 0.5) / rows * 900];
       assert.ok(tx[i * 4 + 3] >= Math.fround(p.land[i]));
       for (const n of [0, 1]) {
         assert.equal(vortexSharp(q, tx[i * 4 + 3], Math.fround(p.land[i]) + VORTEX.blurWait - 1e-7, [1440, 900], n), 0);
-        const late = nearMax(i), wind = vortexWindOff(Math.max(0, up - 0.5 / rows));
-        // (Any real screen has at least 16 rows of cells; on fewer a cell's neighbours span the screen.)
-        if (rows >= 16) assert.equal(vortexSharp(q, late, wind, [1440, 900], n), 1, `${cols}×${rows} cell ${i} still blurred when the wind there dies`);
+        const late = nearMax(i);
         assert.equal(vortexSharp(q, late, transitP(1), [1440, 900], n), 1);
       }
     }
     // The texture: a texel a cell, as the shaders read it.
     for (let i = 0; i < N; i += 7) assert.deepEqual([...tx.slice(i * 4, i * 4 + 3)], [p.dest[i], Math.fround(p.leave[i]), Math.fround(p.land[i])]);
   }
-  // Only ever sharper as the vortex works: at the foot soon after it is built; higher up, not until
-  // the wind's base has lifted and its ring's front climbs to it.
+  // Only ever sharper as the vortex works, following immediately below its rising base.
   const S = [1440, 900];
   for (const q of [[100, 880], [720, 860], [1300, 450], [720, 450], [200, 60], [720, 30]]) for (const land of [0.1, 0.4, 0.7]) {
     let prev = 0;
     for (let P = land; P <= 1.2; P += 0.005) { const s = vortexSharp(q, land, P, S); assert.ok(s >= prev - 1e-12, `${q} ${land} ${P}`); prev = s; }
   }
-  assert.equal(vortexSharp([720, 860], 0.1, 0.1 + VORTEX.blurWait + VORTEX.blurD, S), 1);
+  assert.equal(vortexSharp([720, 860], 0.1, 0.1 + VORTEX.blurWait + VORTEX.blurD, S), 0);
   assert.equal(vortexSharp([1300, 450], 0.3, 0.7, S), 0);
-  assert.ok(vortexSharp([1300, 450], 0.3, 1.0, S) > 0.99);
+  // At the visible ring (including perspective) everything is blurred; a narrow strip below clears.
+  for (const size of [[1440, 900], [390, 844], [2560, 1440], [3840, 2160]]) {
+    for (const P of [0.9, 1.0, 1.1]) for (const x of [0, size[0] / 2, size[0]]) {
+      const edge = vortexClearY(x, P, size);
+      for (const n of [0, 1]) {
+        assert.equal(vortexSharp([x, edge - 0.008 * size[1]], 0.1, P, size, n), 0);
+        assert.equal(vortexSharp([x, edge + 0.03 * size[1]], 0.1, P, size, n), 1);
+      }
+    }
+    for (let x = 0; x <= size[0]; x += size[0] / 20) {
+      assert.equal(vortexSharp([x, 0], 0.7, transitP(1), size, 0), 1);
+    }
+    const L = holdFor('cosmos'), H = size[1] * (1 + (size[0] < 700 ? HOLD.pinTouch : HOLD.pin) * L.pin);
+    const end = H - size[1] + L.leadOut * size[1];
+    assert.ok(H - end < size[1] * 0.5, 'Science has scrolled into the clearing background before the transition finishes');
+    const entering = holdAt(H - size[1] * 0.75, 0, H, size[1], L.leadIn, L.leadOut);
+    const P = transitP(holdEase(entering.p));
+    assert.ok(P < transitP(1), 'The vortex is still leaving as Science enters');
+    assert.equal(vortexSharp([size[0] * 0.1, size[1] * 0.88], 0.6, P, size), 1, 'Science enters over clear background');
+  }
   // The same screen always builds the same way.
   assert.deepEqual([...vortexPlan(44, 33).dest], [...vortexPlan(44, 33).dest]);
 });

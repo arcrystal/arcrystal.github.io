@@ -1,9 +1,12 @@
 // Liquid Cosmos (Science): deep space and liquid metal, watched by instruments. An emission nebula
 // in violet and teal over a dark field; stars at three depths that shift a little with the pointer;
+// a dozen supergiants (giants.js), black bodies seen through a telescope's spider vanes;
 // drops of liquid chrome drifting like cells or small worlds, reflecting the nebula with thin-film
 // colour (one follows the pointer and merges with the rest); and the instruments: brackets that
 // track the larger drops, a faint coordinate grid and a slow scan.
+import { GIANTS_GLSL } from '../giants.js';
 export const COSMOS = /* glsl */ `
+${GIANTS_GLSL}
 const vec3 COS_BG = vec3(0.020, 0.024, 0.059);
 const vec3 COS_CYAN = vec3(0.133, 0.902, 1.0);
 const vec3 COS_MAG = vec3(1.0, 0.239, 0.796);
@@ -41,6 +44,29 @@ vec3 cosmosStars(vec2 px) {
   return c;
 }
 
+// The supergiants: a black body's colour, a bright core, a halo of scattered light and four diffraction
+// spikes from the telescope's spider vanes, breathing slowly. Science → Racing marks each spent once it
+// has exploded (gGiantGone, glsl/dew.js).
+float gGiantGone[GIANT_N] = float[GIANT_N](${'0.0, '.repeat(13)}0.0);
+vec3 cosmosGiants(vec2 px) {
+  vec3 c = vec3(0.0);
+  int n = R.x < 700.0 ? 8 : GIANT_N;
+  for (int k = 0; k < GIANT_N; k++) {
+    if (k >= n) break;
+    float keep = 1.0 - gGiantGone[k];
+    if (keep <= 0.0) continue;
+    vec4 g = GIANT_POS[k];
+    vec2 d = px - R * g.xy;
+    if (abs(d.x) > 90.0 || abs(d.y) > 90.0) continue;
+    float s = g.w, r2 = dot(d, d);
+    float breathe = 1.0 + .06 * sin(T * (.35 + .07 * float(k)) + float(k) * 2.1);
+    float core = exp(-r2 / (2.0 * s * s)) * 1.6 + exp(-sqrt(r2) / (s * 5.0)) * .25;
+    float spikes = exp(-abs(d.y) / .7) * exp(-abs(d.x) / (s * 22.0)) + exp(-abs(d.x) / .7) * exp(-abs(d.y) / (s * 22.0));
+    c += GIANT_COL[k] * (core + spikes * .45) * g.z * breathe * keep;
+  }
+  return c;
+}
+
 // What the chrome reflects: the nebula overhead, a black horizon, a cyan rim light from the right.
 vec3 spaceEnv(vec3 r) {
   float y = -r.y;
@@ -50,18 +76,32 @@ vec3 spaceEnv(vec3 r) {
   return mix(c, vec3(0.01), exp(-pow((y + 0.05) / 0.08, 2.0)) * 0.7);
 }
 
+// Science → Racing (glsl/dew.js) moves these drops as the cold turns them to water: per drop, an
+// offset from its place (xy), how much of its wobble and pointer-following it keeps (z), how far it
+// has turned to water (w), and its radius' scale. At rest (and everywhere but that seam) none of this
+// changes anything.
+vec4 gDrop[6] = vec4[6](vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0),
+                        vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0));
+float gDropScale[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+float gWet = 0.0;   // cosmosField: how far the drop field at this point has turned to water
+uniform float uNoDrops;   // 1 while Science → Racing snapshots Science without its drops (dew.js adds them live)
+vec3 dewDropWater(vec2 G, float F, vec2 px);   // glsl/dew.js
+
 vec3 cosmosDrop(int i) {
   float t = T * 0.16;
-  if (i == 0) return vec3(R * vec2(0.78, 0.32) + vec2(sin(t), cos(t * 0.8)) * 26.0, R.y * 0.15);
-  if (i == 1) return vec3(R * vec2(0.62, 0.62) + vec2(cos(t * 0.9), sin(t * 1.1)) * 40.0, R.y * 0.07);
-  if (i == 2) return vec3(R * vec2(0.92, 0.74) + vec2(sin(t * 1.3) * 30.0, cos(t) * 20.0), R.y * 0.055);
-  if (i == 3) return vec3(R * vec2(0.88, 0.1) + vec2(sin(t * 1.7), cos(t * 1.4)) * 18.0, R.y * 0.04);
-  if (i == 4) return vec3(R * vec2(0.1, 0.86) + vec2(cos(t * 1.2), sin(t)) * 22.0, R.y * 0.05);
-  return vec3(mix(R * vec2(0.7, 0.46) + vec2(sin(t * 2.0), cos(t * 1.6)) * 50.0, PTR, uPtrOn * 0.85), R.y * 0.035);
+  vec4 m = gDrop[i];
+  vec3 b;
+  if (i == 0) b = vec3(R * vec2(0.78, 0.32) + vec2(sin(t), cos(t * 0.8)) * 26.0 * m.z, R.y * 0.15);
+  else if (i == 1) b = vec3(R * vec2(0.62, 0.62) + vec2(cos(t * 0.9), sin(t * 1.1)) * 40.0 * m.z, R.y * 0.07);
+  else if (i == 2) b = vec3(R * vec2(0.92, 0.74) + vec2(sin(t * 1.3) * 30.0, cos(t) * 20.0) * m.z, R.y * 0.055);
+  else if (i == 3) b = vec3(R * vec2(0.88, 0.1) + vec2(sin(t * 1.7), cos(t * 1.4)) * 18.0 * m.z, R.y * 0.04);
+  else if (i == 4) b = vec3(R * vec2(0.1, 0.86) + vec2(cos(t * 1.2), sin(t)) * 22.0 * m.z, R.y * 0.05);
+  else b = vec3(mix(R * vec2(0.7, 0.46) + vec2(sin(t * 2.0), cos(t * 1.6)) * 50.0 * m.z, PTR, uPtrOn * 0.85 * m.z), R.y * 0.035);
+  return vec3(b.xy + m.xy, b.z * gDropScale[i]);
 }
 
 float cosmosField(vec2 px, out vec2 grad) {
-  float F = 0.0;
+  float F = 0.0, wet = 0.0;
   grad = vec2(0.0);
   for (int i = 0; i < 6; i++) {
     vec3 b = cosmosDrop(i);
@@ -69,8 +109,10 @@ float cosmosField(vec2 px, out vec2 grad) {
     float d2 = dot(d, d) + 1.0;
     float k = b.z * b.z / d2;
     F += k;
+    wet += k * gDrop[i].w;
     grad += -2.0 * k / d2 * d;
   }
+  gWet = wet / max(F, 1e-6);
   return F;
 }
 
@@ -82,8 +124,8 @@ vec3 cosmosMetal(vec3 n) {
     + pow(max(dot(r, normalize(vec3(-0.4, -0.7, 0.6))), 0.0), 40.0) * 0.9;
 }
 
-vec3 sceneCosmos(vec2 px) {
-  vec3 col = cosmosSky(px) + cosmosStars(px);
+// Science's drops over a background: chrome, or water once the cold has turned them (gDrop).
+vec3 cosmosDrops(vec3 col, vec2 px) {
   vec2 G;
   float F = cosmosField(px, G);
   float w = fwidth(F) + 1e-4;
@@ -91,7 +133,27 @@ vec3 sceneCosmos(vec2 px) {
   col += COS_VIOLET * smoothstep(0.35, 1.0, F) * 0.12 * (1.0 - inside);
   if (inside > 0.0) {
     float flat_ = 1.0 - 0.7 * smoothstep(1.3, 3.2, F);
-    col = mix(col, cosmosMetal(normalize(vec3(-G * 70.0 * flat_, 1.0))), inside);
+    vec3 n = normalize(vec3(-G * 70.0 * flat_, 1.0));
+    vec3 face = gWet >= 1.0 ? dewDropWater(G, F, px) : cosmosMetal(n);
+    if (gWet > 0.0 && gWet < 1.0) face = mix(face, dewDropWater(G, F, px), gWet);
+    col = mix(col, face, inside);
+  }
+  return col;
+}
+
+vec3 sceneCosmos(vec2 px) {
+  vec3 col = cosmosSky(px) + cosmosStars(px) + cosmosGiants(px);
+  vec2 G;
+  float F = uNoDrops > 0.5 ? 0.0 : cosmosField(px, G);
+  float w = fwidth(F) + 1e-4;
+  float inside = smoothstep(1.0 - w, 1.0 + w, F);
+  col += COS_VIOLET * smoothstep(0.35, 1.0, F) * 0.12 * (1.0 - inside);
+  if (inside > 0.0) {
+    float flat_ = 1.0 - 0.7 * smoothstep(1.3, 3.2, F);
+    vec3 n = normalize(vec3(-G * 70.0 * flat_, 1.0));
+    vec3 face = cosmosMetal(n);
+    if (gWet > 0.0) face = mix(face, dewDropWater(G, F, px), gWet);
+    col = mix(col, face, inside);
   }
   // Brackets track the three larger drops.
   for (int i = 0; i < 3; i++) {

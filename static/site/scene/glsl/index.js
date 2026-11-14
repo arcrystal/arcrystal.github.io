@@ -9,6 +9,7 @@ import { DARKROOM } from './darkroom.js';
 import { HOUSE } from './house.js';
 import { SEAMS } from './seams.js';
 import { REACH_LOOK } from './reach.js';
+import { DEW_GLSL } from './dew.js';
 import { TRANSIT } from './transit.js';
 import { OPENS, MAIN } from './opens.js';
 
@@ -19,5 +20,5 @@ void main() {
 }`;
 
 export function fragment(quality = 5) {
-  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, TRANSIT, OPENS, MAIN].join('\n');
+  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, DEW_GLSL, TRANSIT, OPENS, MAIN].join('\n');
 }

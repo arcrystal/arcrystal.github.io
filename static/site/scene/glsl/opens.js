@@ -3,7 +3,7 @@
 // reveal(): on the new page, the same process lets go onto its scene. Each style by its process:
 //   0 About Me, Résumé, Contact  a maze carved by depth-first backtracking from the click
 //   1 Chess                      ink: a branching reach of soft fingers
-//   2 Racing                     crystal growth: six-armed ice stars nucleating and meeting
+//   2 Racing                     dew, then frost: condensation spreading from the click, frozen from it
 //   3 Science                    a vortex at the click whose cubes fly out and build the page
 //   4 Outdoors                   sheets unrolling, gilt rolls travelling across brick-laid panes
 //   5 Photography                a camera iris, then the print developing (halftone, dither, tone)
@@ -18,13 +18,6 @@ Reach clickReach(vec2 px, vec2 O, float far) {
   if (uBaked < 0.5) return reachPolar(px, O, far, 0.0);
   vec4 t = bakedAt(px);
   return Reach(t.x * 64.0, t.y * 24.0, t.z, t.w, 1.0);
-}
-vec3 frostAt(vec2 px) {
-  vec4 v = voronoi(px * 0.03);
-  vec3 c = vec3(0.925, 0.96, 0.982) + (hash(v.zw) - 0.5) * 0.045;
-  c += smoothstep(0.07, 0.0, v.y - v.x) * 0.05;
-  c += smoothstep(0.985, 1.0, noise(px * 0.4)) * 0.25;
-  return c;
 }
 
 // ---- 0: a maze --------------------------------------------------------------------------------------
@@ -103,14 +96,6 @@ vec4 vortexCover(vec2 px, vec2 O, float E) {
   return vec4(COS_BG * veil + glow, veil);
 }
 
-// ---- 2: crystals ----------------------------------------------------------------------------------
-vec4 crystalsAt(vec2 px, vec2 O, float far) { return uBaked > 0.5 ? bakedAt(px) : crystalAt(px, R, true, O, far); }
-vec3 iceOf(vec4 X, vec2 px, vec3 world) {
-  vec3 ice = mix(world, frostAt(px + X.z * 300.0), 0.55);
-  ice *= 0.86 + 0.28 * X.z;
-  return ice + vec3(0.85, 0.95, 1.0) * X.x * 0.5;
-}
-
 // ---- 4: sheets -------------------------------------------------------------------------------------
 // Brick-laid panes over the screen, five rows. Each unrolls from its top edge down, laying the
 // folio's plate as a gilt roll travels across it, one corner leading; the panes go in rings from the
@@ -165,18 +150,7 @@ vec4 cover(int s, vec2 px, float e) {
     Look L = branchLook(Rr, E, px);
     return vec4(mix(o.rgb, L.c, L.m), mix(o.a, 1.0, L.m));
   }
-  if (s == 2) {
-    vec4 X = crystalsAt(px, O, far);
-    float age = E - X.w;
-    float fz = smoothstep(0.0, 0.012, age);
-    vec3 col = iceOf(X, px, sceneOf(2, px)) * fz;
-    col += vec3(0.85, 0.95, 1.0) * X.y * fz * 0.6;
-    float front = exp(-abs(age) * 80.0);
-    col += (vec3(0.7, 0.9, 1.0) * 0.8 + spectrum(age * 10.0 + X.z) * 0.25) * front;
-    // A cold haze runs just ahead of the ice.
-    float haze = smoothstep(-0.1, 0.0, age) * (1.0 - fz) * 0.18;
-    return vec4(col + vec3(0.8, 0.9, 1.0) * haze, max(fz, haze));
-  }
+  if (s == 2) return dewMaterial(px, px, R, -.2 + 1.04 * e, true, false);
   if (s == 3) return vortexCover(px, O, E);
   if (s == 4) {
     float laid;
@@ -221,14 +195,7 @@ vec3 reveal(int s, vec2 px, float e) {
     Look L = branchLook(Rr, E, px);
     return mix(col, L.c, L.m);
   }
-  if (s == 2) {
-    // Each crystal flashes and clears, in its own time.
-    vec4 X = crystalsAt(px, O, far);
-    float ct = 0.1 + 0.65 * X.z;
-    float clear = smoothstep(ct, ct + 0.1, e);
-    vec3 col = mix(iceOf(X, px, scene) + vec3(0.85, 0.95, 1.0) * X.y * 0.6, scene, clear);
-    return col + vec3(0.9, 0.97, 1.0) * exp(-abs(e - ct) * 40.0) * 0.4;
-  }
+  if (s == 2) return scene; // Racing's reveal is a translucent front overlay (MAIN).
   // 3: the vortex has spent itself building the page; nothing is left to let go.
   if (s == 3) return scene;
   if (s == 4) {
@@ -272,13 +239,23 @@ void main() {
     }
   }
   else if (uMode == 2) o = cover(uA, px, uE);
-  else if (uMode == 3) o = vec4(reveal(uA, px, uE), 1.0);
+  else if (uMode == 3) {
+    if (uA == 2 && uH < .5) {
+      vec4 dew = dewMaterial(px, px, R, .84 + .36 * uE, true, true);
+      // The DOM is clipped to the fully clear area above this canvas; the glacier stays live under
+      // the freezing pane throughout the handoff, never a blank CSS background.
+      o = vec4(dewDisplay(dewLinear(dew.rgb / max(dew.a, .000001)) * dew.a + dewLinear(sceneGlacier(px)) * (1.0 - dew.a)), 1.0);
+    } else o = vec4(reveal(uA, px, uE),1.0);
+  }
   else if (uMode == 4) o = vec4(sceneOf(uA, px), 1.0) * uE;
   else if (uMode == 6) o = vec4(seam(uA, uB, px), 1.0);
   else if (uMode == 7) o = vec4(heroScene(px), 1.0);
   else if (uMode == 8) o = vec4(transitGround(uA, px0 - uRegion.xy, px), 1.0);
+  else if (uMode == 9) o = dewGasPacked(px0 - uRegion.xy, transitP(uH));   // Racing's lit gas, for transit.js
   else o = vec4(mix(sceneOf(uA, px), sceneOf(uB, px), smoothstep(0.3, 0.7, uH)), 1.0);
-  o.rgb += (hash(gl_FragCoord.xy + fract(T) * 17.0) - 0.5) / 255.0 * o.a;
+  bool icePass = (uMode == 8 && uB == 2 && uH > -.2 && uH < 1.12)
+              || ((uMode == 2 || uMode == 3) && uA == 2 && uH < .5 && (uMode == 2 || uE < .7777778));
+  o.rgb += (hash(gl_FragCoord.xy + (icePass ? 0.0 : fract(T) * 17.0)) - 0.5) / 255.0 * o.a;
   outColor = o;
 }
 `;

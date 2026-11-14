@@ -1,9 +1,10 @@
 // The share card for one page, drawn in that page's style: its name in the style's display face,
 // its line, and on the right the process its transition is built on, drawn here in SVG (the maze,
-// the vortex, crystal growth, layers of peeling sheets, film developed into prints, branching ink). The
+// the vortex, stardust gathered into drops and frozen into coloured snow crystals, layers of peeling sheets, film developed into prints, branching ink). The
 // homepage gets the crystal, one facet per destination. Everything is seeded, so a card only
 // changes when its words or this file do. Sets <html data-ready> once the fonts are in.
 import { carveMaze } from '/static/site/lerp.js';
+import { makeDewPlan, radiusAt, liveAt, grainAt } from '/static/site/scene/dew-plan.js';
 
 const W = 1200, H = 630;
 const id = new URLSearchParams(location.search).get('id') || 'home';
@@ -22,7 +23,7 @@ const TYPE = {
 };
 // What each style's transition is made of (the homepage's hold captions say the same).
 const PROCESS = {
-  house: 'A maze carved depth-first', cosmos: 'A vortex', glass: 'Crystal growth',
+  house: 'A maze carved depth-first', cosmos: 'A vortex', glass: 'Stardust, then frost',
   folio: 'Layers of sheets', darkroom: 'Film, developed', ink: 'Branching ink',
 };
 
@@ -125,32 +126,67 @@ ART.cosmos = () => {
   <g mask="url(#fade)"><rect x="${C[0] - 26}" y="0" width="52" height="${H}" fill="url(#core)"/><g fill="none" stroke-linecap="butt" stroke-linejoin="round">${lines}</g></g>`;
 };
 
-// Racing: crystal growth. Six-fold dendrites nucleated at different moments, so they reach
-// different sizes; side branches leave each arm at 60 degrees and shorten toward the tip.
+// Racing: the live transition's own plan, left to right as it plays: stardust spiralling into
+// coloured drops, the drops frozen into snow crystals in their colours (six arms branching at 60°)
+// over a frosted mosaic, and the field lines of the break-apart sweeping into Racing's card,
+// fragments of the ice streaming along them.
 ART.glass = () => {
-  const r = rng(5);
-  const dendrite = (cx, cy, R, rot) => {
+  const card = [W * 0.8, H * 0.3, W * 0.15, H * 0.4];
+  const plan = makeDewPlan(W, H, { phone: false, card }), q = rng(41);
+  const rgb = c => `rgb(${c.map(v => Math.round(255 * Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2))).join(',')})`;
+  let gems = '', drops = '', trails = '', lines = '', frags = '', clips = '';
+  // The crystals: each cell a frosted pane in its colour, its crystal's six arms and their branches.
+  plan.cells.forEach((g, gi) => {
+    if (g.centroid[0] < W * 0.6 + 50 * (q() - 0.5)) return;
+    const pts = g.poly.map(v => `${f(v[0])},${f(v[1])}`).join(' '), m = Math.max(...g.col), col = g.col.map(v => v / m);
+    clips += `<clipPath id="cell${gi}"><polygon points="${pts}"/></clipPath>`;
     let d = '';
+    const La = Math.min(g.radius * 0.95, 90), arm = k => g.angle + k * Math.PI / 3;
     for (let k = 0; k < 6; k++) {
-      const a = rot + k * Math.PI / 3, ux = Math.cos(a), uy = Math.sin(a);
-      d += `M${f(cx)} ${f(cy)}L${f(cx + ux * R)} ${f(cy + uy * R)}`;
-      for (let t = 0.2; t < 0.93; t += 0.105) {
-        const L = R * (1 - t) * (0.42 + 0.16 * Math.sin(t * 17 + k)), px = cx + ux * R * t, py = cy + uy * R * t;
-        for (const sg of [-1, 1]) { const b = a + sg * Math.PI / 3; d += `M${f(px)} ${f(py)}L${f(px + Math.cos(b) * L)} ${f(py + Math.sin(b) * L)}`; }
+      const a = arm(k), ux = Math.cos(a), uy = Math.sin(a), x0 = g.seed[0], y0 = g.seed[1];
+      d += `M${f(x0)} ${f(y0)}L${f(x0 + ux * La)} ${f(y0 + uy * La)}`;
+      const hs = rng(Math.round(g.hseed * 1e6));
+      for (let c = 0.12 + 0.08 * hs(); c < 0.9; c += 0.07 + 0.1 * hs()) {
+        const bl = Math.min(1 - c, c * 1.1) * La * (0.35 + 0.65 * hs());
+        for (const side of [-1, 1]) {
+          const b = a + side * Math.PI / 3, px = x0 + ux * La * c, py = y0 + uy * La * c;
+          d += `M${f(px)} ${f(py)}L${f(px + Math.cos(b) * bl)} ${f(py + Math.sin(b) * bl)}`;
+        }
       }
     }
-    const plate = Array.from({ length: 6 }, (_, k) => { const a = rot + k * Math.PI / 3; return `${f(cx + Math.cos(a) * R * 0.15)},${f(cy + Math.sin(a) * R * 0.15)}`; }).join(' ');
-    return `<path d="${d}" stroke="#fff" stroke-width="${f(Math.max(4, R / 22))}" stroke-opacity="0.55" filter="url(#soft)"/>
-      <path d="${d}" stroke="${C.accent}" stroke-width="${f(Math.max(1, R / 120))}" stroke-opacity="0.55" transform="translate(1.5 1.5)"/>
-      <path d="${d}" stroke="#fff" stroke-width="${f(Math.max(1.4, R / 90))}"/>
-      <polygon points="${plate}" fill="#fff" fill-opacity="0.7" stroke="${C.accent}" stroke-opacity="0.5"/>`;
-  };
-  const seeds = [[925, 318, 250], [1150, 80, 120], [1130, 560, 105], [700, 560, 70], [760, 90, 58], [1185, 330, 46], [640, 300, 30]];
-  return `<defs>${fade(470, 700)}<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
-    <radialGradient id="orb1" cx="0.8" cy="0.25" r="0.4"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.3"/><stop offset="1" stop-color="${C.accent}" stop-opacity="0"/></radialGradient>
-    <radialGradient id="orb2" cx="0.95" cy="0.9" r="0.35"><stop offset="0" stop-color="${C.accent2}" stop-opacity="0.32"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0"/></radialGradient></defs>
-  <rect width="${W}" height="${H}" fill="url(#orb1)"/><rect width="${W}" height="${H}" fill="url(#orb2)"/>
-  <g mask="url(#fade)" fill="none" stroke-linecap="round">${seeds.map(([x, y, R]) => dendrite(x, y, R, r() * Math.PI / 3)).join('')}</g>`;
+    gems += `<g clip-path="url(#cell${gi})"><polygon points="${pts}" fill="${rgb(col.map((v, k) => v * 0.07 + [0.012, 0.018, 0.05][k]))}"/><path d="${d}" fill="none" stroke="${rgb(col.map(v => v * 0.75 + 0.25))}" stroke-width="1.1" stroke-linecap="round" stroke-opacity=".95"/></g><polygon points="${pts}" fill="none" stroke="#dff2ff" stroke-opacity=".22" stroke-width=".6"/>`;
+  });
+  // The drops as they gather, beyond the gems: coloured water, a highlight each, and the stardust's spirals.
+  const P = 0.4;
+  for (const rec of plan.records) {
+    if (rec.science !== undefined || !liveAt(rec, P) || rec.c[0] < W * 0.42 || rec.c[0] > W * 0.6) continue;
+    const r = radiusAt(rec, P);
+    if (r < 1.2) continue;
+    drops += `<circle cx="${f(rec.c[0])}" cy="${f(rec.c[1])}" r="${f(r)}" fill="${rgb(rec.col.map(v => v * 0.75))}" stroke="#fff" stroke-opacity=".35" stroke-width=".6"/><circle cx="${f(rec.c[0] - r * 0.35)}" cy="${f(rec.c[1] - r * 0.4)}" r="${f(Math.max(0.6, r * 0.18))}" fill="#fff" fill-opacity=".8"/>`;
+  }
+  plan.cores.forEach((c, i) => {
+    if (c.c[0] < W * 0.42 || c.c[0] > W * 0.6 || i % 2) return;
+    for (let k = 0; k < 5; k++) {
+      const u0 = 0.3 + 0.7 * q(), th0 = q() * Math.PI * 2, w = c.spin * 2, D = c.td - c.ts, P0 = c.ts + D * (-0.15 + 0.5 * u0);
+      const pts = [];
+      for (let s = 0; s <= 24; s++) { const g = grainAt(c, u0, th0, w, P0 + (s / 24) * D * (0.35 + 0.3 * u0) * 0.96); pts.push(`${f(g[0])} ${f(g[1])}`); }
+      trails += `<path d="M${pts.join('L')}" fill="none" stroke="${rgb(c.col)}" stroke-opacity=".7" stroke-width=".9"/>`;
+    }
+  });
+  const at = (path, u) => { const x = u * (path.length - 1), i = Math.min(path.length - 2, Math.floor(x)), t = x - i; return [path[i][0] + (path[i + 1][0] - path[i][0]) * t, path[i][1] + (path[i + 1][1] - path[i][1]) * t, Math.atan2(path[i + 1][1] - path[i][1], path[i + 1][0] - path[i][0])]; };
+  plan.frags.forEach((fr, i) => {
+    if (i % 3 || fr.c[0] < W * 0.55) return;
+    lines += `M${fr.path.map(p => `${f(p[0])} ${f(p[1])}`).join('L')}`;
+    if (i % 9) return;
+    const [x, y, a] = at(fr.path, 0.3 + 0.55 * q()), s = 3 + 5 * q(), col = plan.cells[fr.cell].col;
+    frags += `<polygon points="${[0, 2.1, 4.2].map(k => `${f(x + Math.cos(a + k) * s * (k ? 1 : 1.8))},${f(y + Math.sin(a + k) * s * (k ? 1 : 1.8))}`).join(' ')}" fill="${rgb(col)}" fill-opacity=".9" stroke="#fff" stroke-width=".5"/>`;
+  });
+  return `<defs>${fade(480, 700)}${clips}<radialGradient id="neb" cx=".62" cy=".4" r=".55"><stop offset="0" stop-color="#5b3bff" stop-opacity=".3"/><stop offset="1" stop-color="#5b3bff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="fl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6fd0ff"/><stop offset="1" stop-color="#c79bff"/></linearGradient></defs>
+  <g mask="url(#fade)"><rect width="${W}" height="${H}" fill="#070a1c"/><rect width="${W}" height="${H}" fill="url(#neb)"/>${gems}${trails}${drops}
+  <path d="${lines}" fill="none" stroke="url(#fl)" stroke-opacity=".22" stroke-width=".8"/>
+  <rect x="${f(card[0])}" y="${f(card[1])}" width="${f(card[2])}" height="${f(card[3])}" rx="18" fill="#e8f6ff" fill-opacity=".22" stroke="#fff" stroke-opacity=".8" stroke-width="1.4"/>
+  ${frags}</g>`;
 };
 
 // Outdoors: peeling sheets. Engraved sheets stacked in a folio; the top one's corner folds back

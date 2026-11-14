@@ -9,20 +9,24 @@
 //   3. the units (glsl/units.js), instanced: one or two draw calls per seam, each unit placed by
 //      the seam's progress and its own seed alone, so scrolling back un-builds it (a click into
 //      Science draws its cubes the same way, over its cover: prepareEffect, drawEffect);
-//   4. for Science → Racing, a small fluid sim that stirs the flow.
+//   Racing reads a worker-prepared condensation plan (dew-plan.js); no time-integrated state.
 //
 // Only seams on screen do any work, and only rows of units that can be in flight are drawn. The
 // grids coarsen on touch screens and when the scene's resolution has dropped; reduced motion keeps
 // the scene's plain seams.
+import { createDewResources } from './dew-resources.js';
 import { VERTEX } from './glsl/index.js';
-import { UNIT_PROGRAMS, SIM, REACH_BAKE } from './glsl/units.js';
+import { UNIT_PROGRAMS, REACH_BAKE } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
+import { DEW, FRAG } from './dew-plan.js';
 
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
-// bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach, or the crystals.
+// bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach. plan: its
+// choreography is worked out ahead in lerp.js (PLANS below) and read from the same slot. mips: the
+// lower world's snapshot is mipmapped, to be read blurred; mipsA: the upper world's too.
 const KINDS = {
-  '0-3': { id: 'cubes', units: ['cubes:back', 'flow', 'cubes:front'] },   // About Me → Science: a vortex
-  '3-2': { id: 'crystals', units: [], sim: true, bake: 'crystals' },  // Science → Racing: crystal growth
+  '0-3': { id: 'cubes', units: ['cubes:back', 'flow', 'cubes:front'], plan: true, mips: true },   // About Me → Science: a vortex
+  '3-2': { id: 'dew', units: ['grains', 'fieldlines', 'frags'], mips: true, mipsA: true },   // Science → Racing: nebulae, stardust, drops, gems, field lines into the card
   '2-4': { id: 'sheets', units: ['sheets', 'glitter'] },             // Racing → Outdoors: peeling sheets
   '4-5': { id: 'film', units: ['film'] },                            // Outdoors → Photography: film, developed
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
@@ -37,11 +41,19 @@ function layerGrid(k, w, h) {
   return [Math.max(3, Math.floor(w / ((h / rows) * 0.9) + 0.5)), rows];
 }
 
-export function createTransit(gl, { renderWorld, coarse }) {
+export function createTransit(gl, { renderWorld, renderPane, coarse }) {
+  const dew = createDewResources(gl, coarse);
+  // Where Racing's card sits during its hold (home.js measures it and says so): its fragments' field
+  // lines end there. Read from the page too, in case that was said before this was listening.
+  document.addEventListener('dew:card', e => { if (Array.isArray(e.detail)) dew.request(innerWidth, innerHeight, e.detail); });
+  const heldCard = () => {
+    const card = document.querySelector('.seam-wrap > .band--racing .r-band-race'), band = card?.closest('.band--racing');
+    if (!card) return undefined;
+    const cr = card.getBoundingClientRect(), br = band.getBoundingClientRect();
+    return [cr.left, cr.top - br.top, cr.width, cr.height];
+  };
   const programs = {};
   const snaps = new Map();
-  let sim = null;
-  let simWanted = true;
 
   // ---- programs, compiled off the main thread where the driver allows ------------------------------
   const ext = gl.getExtension('KHR_parallel_shader_compile');
@@ -73,7 +85,6 @@ export function createTransit(gl, { renderWorld, coarse }) {
     const prog = { p: L.p, U: locations(L.p) };
     const def = UNIT_PROGRAMS[name];
     if (def) warm(prog, def);
-    if (name.startsWith('sim.')) later(warmSim);
     return prog;
   }
   // Draw once, a pixel, in the state the seam will use: the driver builds its pipeline now, while
@@ -93,7 +104,6 @@ export function createTransit(gl, { renderWorld, coarse }) {
   }
   const jobs = [
     ...Object.entries(UNIT_PROGRAMS).map(([name, def]) => ({ name, vs: def.vs, fs: def.fs, def })),
-    ...Object.entries(SIM).map(([name, fs]) => ({ name: `sim.${name}`, vs: VERTEX, fs })),
     { name: 'bake', vs: VERTEX, fs: REACH_BAKE },
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
@@ -160,10 +170,49 @@ export function createTransit(gl, { renderWorld, coarse }) {
     snap.tex.forEach(t => gl.deleteTexture(t));
     snap.fb.forEach(f => gl.deleteFramebuffer(f));
     if (snap.reach) { gl.deleteTexture(snap.reach.t); gl.deleteFramebuffer(snap.reach.fb); }
+    if (snap.ice) { gl.deleteTexture(snap.ice.t); gl.deleteFramebuffer(snap.ice.fb); }
+    if (snap.gas) { gl.deleteTexture(snap.gas.t); gl.deleteFramebuffer(snap.gas.fb); }
+  }
+  // Racing's lit gas (glsl/dew.js dewGasField): soft, so drawn at a fraction of the screen's resolution
+  // each frame it changes, into its own texture, for the ground to sample (on unit 3). Once the nebulae
+  // have drained (P GAS_STILL) it no longer changes: drawn there once and kept, for the drops and gems
+  // to see through.
+  const GAS_STILL = 0.55;
+  const gasOn = P => P > -0.12 && P < 1.0;
+  function gasPass(snap, s, w, h, P) {
+    const sc = w * h > 2.5e6 ? 0.3 : w * h > 0.6e6 ? 0.45 : 0.7, tw = Math.max(1, Math.round(w * sc)), th = Math.max(1, Math.round(h * sc));
+    let fresh = false;
+    if (!snap.gas || snap.gas.tw !== tw || snap.gas.th !== th) {
+      if (snap.gas) { gl.deleteTexture(snap.gas.t); gl.deleteFramebuffer(snap.gas.fb); }
+      const t = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+      snap.gas = { t, fb: target(t), tw, th, tick: 0, still: false };
+      fresh = true;
+    }
+    const still = P >= GAS_STILL;
+    if (still && snap.gas.still && !fresh) return;
+    // It changes smoothly with P: every other frame is plenty.
+    if (!fresh && !still && !snap.gas.still && ++snap.gas.tick % 2) return;
+    snap.gas.still = still;
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+    renderPane({ ...s, mode: 9, h: still ? (GAS_STILL + 0.2) / 1.4 : s.p ?? 0, e: 0, clip: null }, snap.gas.fb, tw, th);
+  }
+  // The gems as they were at P = DEW.still, still (no push, no squeeze, no shake): the fragments'
+  // faces (glsl/units.js frags). Rendered once per size, the first time the seam passes that point;
+  // the same every time, so scrolling back and forth is exact.
+  function iceSnap(snap, s, w, h) {
+    const key = `${w} ${h}`;
+    if (snap.ice?.key === key) return snap.ice.t;
+    if (snap.ice) { gl.deleteTexture(snap.ice.t); gl.deleteFramebuffer(snap.ice.fb); }
+    const sc = Math.min(1, Math.max(0.45, 1100 / w));
+    const tw = Math.max(1, Math.round(w * sc)), th = Math.max(1, Math.round(h * sc));
+    const t = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+    snap.ice = { key, t, fb: target(t) };
+    renderPane({ ...s, mode: 8, h: (DEW.still + 0.2) / 1.4, e: 1, iceReady: true, clip: null }, snap.ice.fb, tw, th);
+    return t;
   }
   // The seam's reach, baked once for its size (flight.js SEAM_TEX): about a texel per CSS px, a
   // little coarser on big screens.
-  // kind: 'reach' (the ink's branches) or 'crystals'.
+  // kind: 'reach' (the ink's branches).
   function bake(snap, style, w, h, polar = null, kind = 'reach') {
     const rs = w > 1600 ? 0.6 : 0.8;
     const tw = Math.max(1, Math.round(w * rs)), th = Math.max(1, Math.round(h * rs));
@@ -176,7 +225,6 @@ export function createTransit(gl, { renderWorld, coarse }) {
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
     gl.useProgram(p);
     gl.uniform1i(U.uPolar, polar ? 1 : 0);
-    gl.uniform1i(U.uKind, kind === 'crystals' ? 1 : 0);
     if (polar) { gl.uniform2f(U.uO, polar[0], polar[1]); gl.uniform1f(U.uFar, polar[2]); }
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.BLEND);
@@ -190,93 +238,20 @@ export function createTransit(gl, { renderWorld, coarse }) {
     if (snap && (snap.w !== w || snap.h !== h)) { dropSnap(snap); snap = null; }
     if (!snap) {
       const tex = [0, 1].map(() => texture(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE));
-      // Science's vortex reads the world below blurred, from its mipmaps (glsl/flight.js vortexBlur).
-      if (K.id === 'cubes') {
-        gl.bindTexture(gl.TEXTURE_2D, tex[1]);
+      // The world below read blurred, from its mipmaps (glsl/flight.js vortexBlur).
+      for (const [i, on] of [[1, K.mips], [0, K.mipsA]]) {
+        if (!on) continue;
+        gl.bindTexture(gl.TEXTURE_2D, tex[i]);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.bindTexture(gl.TEXTURE_2D, null);
       }
-      snap = { w, h, tex, fb: tex.map(target), fresh: true, flip: 0, used: 0, mips: K.id === 'cubes' };
+      snap = { w, h, tex, fb: tex.map(target), fresh: true, flip: 0, used: 0, mips: !!K.mips, mipsA: !!K.mipsA };
       snaps.set(K.id, snap);
     }
     return snap;
   }
 
-  // ---- the fluid ----------------------------------------------------------------------------------
-  function createSim() {
-    if (!gl.getExtension('EXT_color_buffer_float')) return null;
-    const P = name => programs[`sim.${name}`];
-    if (!P('step') || !P('divergence') || !P('jacobi') || !P('gradient')) return undefined;   // not yet
-    const NX = 128;
-    let NY = 0, vel = [], pres = [], div = null, last = null;
-    const make = (internal, format) => { const t = texture(NX, NY, internal, format, gl.HALF_FLOAT); return { t, fb: target(t) }; };
-    function alloc(ny) {
-      [...vel, ...pres, div].forEach(x => { if (x) { gl.deleteTexture(x.t); gl.deleteFramebuffer(x.fb); } });
-      NY = ny;
-      vel = [make(gl.RG16F, gl.RG), make(gl.RG16F, gl.RG)];
-      pres = [make(gl.R16F, gl.RED), make(gl.R16F, gl.RED)];
-      div = make(gl.R16F, gl.RED);
-      const ok = [vel[0], div].every(x => { gl.bindFramebuffer(gl.FRAMEBUFFER, x.fb); return gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; });
-      return ok;
-    }
-    if (!alloc(64)) return null;
-    function pass(name, out, inputs, set) {
-      const { p, U } = P(name);
-      gl.useProgram(p);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, out.fb);
-      gl.uniform2f(U.uCells, NX, NY);
-      let unit = 3;
-      for (const [uniform, tex] of inputs) {
-        gl.activeTexture(gl.TEXTURE0 + unit);
-        gl.bindTexture(gl.TEXTURE_2D, tex.t);
-        gl.uniform1i(U[uniform], unit++);
-      }
-      set?.(U);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    }
-    return {
-      get texture() { return vel[0].t; },
-      step(dt, s, f) {
-        const [x, y, w, h] = s.region;
-        const ny = Math.max(24, Math.min(128, Math.round(NX * h / w)));
-        if (ny !== NY) alloc(ny);
-        gl.viewport(0, 0, NX, NY);
-        const px = f.ptr.x - x, py = f.ptr.y - y;
-        const k = 1 / Math.max(dt, 1 / 120);
-        const ptr = last ? [px, py, (px - last[0]) * k * f.ptr.on, (py - last[1]) * k * f.ptr.on] : [px, py, 0, 0];
-        last = [px, py];
-        pass('step', vel[1], [['uVelT', vel[0]]], U => {
-          gl.uniform2f(U.uSize, w, h);
-          gl.uniform1f(U.uDt, Math.min(dt, 1 / 30));
-          gl.uniform1f(U.uTime, f.time);
-          gl.uniform1f(U.uFront, transitP(s.p ?? 0));
-          gl.uniform1f(U.uScroll, s.vel ?? 0);
-          gl.uniform4f(U.uPtr, ptr[0], ptr[1], ptr[2], ptr[3]);
-        });
-        vel.reverse();
-        pass('divergence', div, [['uVelT', vel[0]]]);
-        for (let i = 0; i < 12; i++) { pass('jacobi', pres[1], [['uPres', pres[0]], ['uDiv', div]]); pres.reverse(); }
-        pass('gradient', vel[1], [['uPres', pres[0]], ['uVelT', vel[0]]]);
-        vel.reverse();
-        for (const u of [3, 4]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
-        gl.activeTexture(gl.TEXTURE0);
-      },
-      drop() { [...vel, ...pres, div].forEach(x => { gl.deleteTexture(x.t); gl.deleteFramebuffer(x.fb); }); },
-    };
-  }
-
-  // Build the fluid and run one step off screen as soon as its programs are in.
-  function warmSim() {
-    if (sim || !simWanted || gl.isContextLost()) return;
-    const made = createSim();
-    if (made === null) { simWanted = false; return; }
-    if (!made) return;
-    sim = made;
-    sim.step(1 / 60, { region: [0, 0, 1440, 900], p: 0.5, vel: 0 }, { ptr: { x: 0, y: 0, on: 0 }, time: 0 });
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  }
-
-  // ---- grids ----------------------------------------------------------------------------------------
+  // ---- instanced unit grids -----------------------------------------------------------------------
   function grid(name, w, h, f) {
     const coarsen = f.scale < 0.8 ? 1.35 : 1;
     const cell = CELL[name][coarse ? 1 : 0] * coarsen;
@@ -325,78 +300,106 @@ export function createTransit(gl, { renderWorld, coarse }) {
     return t;
   }
 
-  // Science's vortex plan (lerp.js vortexPlan) for a cube grid: a float texel a cell (the cell its
-  // cube lands on, when it leaves, when the cube bound for it lands), made once per grid.
-  let plan = null;
-  function planTexture([cols, rows]) {
-    const key = `${cols} ${rows}`;
-    if (plan?.key === key) return plan.t;
-    const data = vortexPlanTexels(vortexPlan(cols, rows));
-    if (plan) gl.deleteTexture(plan.t);
+  // Plans: a seam's choreography worked out ahead in lerp.js, as float texels its shaders read from
+  // uReach. Each kind's entry gives, for the screen (w, h) and its cube grid g, a key and the texture
+  // (width, height, data), made once per key. The vortex: a texel a cell (the cell its cube lands on,
+  // when it leaves, when the cube bound for it lands). Racing owns its separate worker resources.
+  const PLANS = {
+    cubes: (w, h, g) => ({ key: `${g[0]} ${g[1]}`, make: () => ({ tw: g[0], th: g[1], data: vortexPlanTexels(vortexPlan(g[0], g[1])) }) }),
+  };
+  const plans = new Map();
+  function planTexture(kind, w, h, g) {
+    const spec = PLANS[kind](w, h, g);
+    const had = plans.get(kind);
+    if (had?.key === spec.key) return had.t;
+    const { tw, th, data } = spec.make();
+    if (had) gl.deleteTexture(had.t);
     const t = gl.createTexture();
     gl.activeTexture(gl.TEXTURE5);
     gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, cols, rows, 0, gl.RGBA, gl.FLOAT, data);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, tw, th, 0, gl.RGBA, gl.FLOAT, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
-    plan = { key, t };
+    plans.set(kind, { key: spec.key, t });
     return t;
   }
-  // Made ahead, while the page is idle, for this screen, so the vortex starts without the work.
-  later(() => { if (!gl.isContextLost()) planTexture(grid('cubes', innerWidth, innerHeight, { scale: 1 })); });
+  // Made ahead, while the page is idle, for this screen, so the seams start without the work.
+  later(() => {
+    if (gl.isContextLost()) return;
+    const w = innerWidth, h = innerHeight;
+    planTexture('cubes', w, h, grid('cubes', w, h, { scale: 1 }));
+    dew.request(w, h, heldCard());
+  });
 
   let frame = 0;
   const effectSnap = { tex: [], fb: [], reach: null };
   return {
+    // Racing's plan (names kept from the ice transition this replaced; scene.js and the tools use them).
+    iceReady: (w, h) => dew.ready(w, h),
+    bindIce: (w, h) => dew.bind(w, h),
+    iceStats: (w, h) => dew.stats(w, h),
+    dispose() { dew.dispose(); snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); },
     // What a click's cover reads (opens.js), made once per click from its origin O and far corner:
-    // the maze (house), the ink's reach, the crystals; null for processes computed on the fly, or
+    // the maze (house), the ink's reach; null for processes computed on the fly, or
     // while the bake program is still compiling (the effect then computes what it can live).
     bakeEffect(style, O, far, w, h) {
       if (style === 0) return mazeTexture(O, w, h);
-      if (style !== 1 && style !== 2) return null;
+      if (style !== 1) return null;
       if (!programs.bake) return null;
-      bake(effectSnap, style, w, h, [Math.round(O[0]), Math.round(O[1]), Math.round(far)], style === 2 ? 'crystals' : 'reach');
+      bake(effectSnap, style, w, h, [Math.round(O[0]), Math.round(O[1]), Math.round(far)], 'reach');
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       return effectSnap.reach.t;
     },
     // Whether this seam is a transit, and ready.
     handles(s) { const K = kindOf(s); return !!K && usable(K); },
 
-    // Before the frame's drawing: refresh the snapshots and step the fluid.
+    // Before drawing: refresh the snapshots.
     prepare(s, dt, f) {
       const K = kindOf(s);
       if (!K || !usable(K)) return false;
       const [, , w, h] = s.region;
-      const ts = (coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
+      // The dew is seen through drops and frost: its worlds' snapshots can be coarser on big screens.
+      const ts = (K.id === 'dew' ? (w > 1800 ? 0.36 : coarse ? 0.45 : 0.5) : coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
       const tw = Math.max(1, Math.round(w * ts)), th = Math.max(1, Math.round(h * ts));
       const snap = snapFor(K, tw, th);
       snap.used = f.now;
+      if (K.id === 'dew' && (snap.planMode === undefined || (!snap.planMode && (s.p <= 0 || s.p >= 1)))) snap.planMode = dew.ready(w, h);
       if (K.bake) bake(snap, s.b, w, h, null, K.bake);
-      let below = snap.fresh;
+      // Which snapshots this frame rendered: both when fresh, else the one whose turn it is.
+      const drew = [snap.fresh, snap.fresh];
       if (snap.fresh) {
-        renderWorld(s.a, snap.fb[0], tw, th, s.region, s.vel);
+        renderWorld(s.a, snap.fb[0], tw, th, s.region, s.vel, K.id === 'dew');
         renderWorld(s.b, snap.fb[1], tw, th, s.region, s.vel);
         snap.fresh = false;
+      } else if (K.id === 'dew') {
+        // The pane is mostly wet glass and frost: a snapshot every other frame (each world at 15 Hz)
+        // is plenty, and once the dawn has hidden Science everywhere (P .88) only Racing's. While the
+        // page is held still (the region unchanged), the worlds only drift: every fourth frame.
+        snap.tick = (snap.tick ?? 0) + 1;
+        const at = s.region.join(' '), still = snap.at === at;
+        snap.at = at;
+        if (snap.tick % (still ? 4 : 2) === 0) {
+          snap.flip = transitP(s.p ?? 0) < 0.88 ? snap.flip ^ 1 : 1;
+          renderWorld(snap.flip ? s.b : s.a, snap.fb[snap.flip], tw, th, s.region, s.vel, !snap.flip);
+          drew[snap.flip] = true;
+        }
       } else {
         snap.flip ^= 1;
         renderWorld(snap.flip ? s.b : s.a, snap.fb[snap.flip], tw, th, s.region, s.vel);
-        below = snap.flip === 1;
+        drew[snap.flip] = true;
       }
-      if (snap.mips && below) {
+      for (const [i, on] of [[1, snap.mips], [0, snap.mipsA]]) {
+        if (!on || !drew[i]) continue;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, snap.tex[1]);
+        gl.activeTexture(gl.TEXTURE0 + i);
+        gl.bindTexture(gl.TEXTURE_2D, snap.tex[i]);
         gl.generateMipmap(gl.TEXTURE_2D);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.activeTexture(gl.TEXTURE0);
-      }
-      if (K.sim && simWanted) {
-        if (!sim) { const made = createSim(); if (made === null) simWanted = false; else if (made) sim = made; }
-        if (sim) sim.step(dt, s, f);
       }
       return true;
     },
@@ -409,24 +412,37 @@ export function createTransit(gl, { renderWorld, coarse }) {
       const [, , w, h] = s.region;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, snap.tex[0]);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, snap.tex[1]);
-      const simOn = K.sim && sim;
-      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, simOn ? sim.texture : null);
+      const simOn = false;
       const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : null;
-      // The ink's reach, or the vortex's plan.
-      const reach = ground ? planTexture(ground) : snap.reach?.t ?? null;
+      // The ink's reach, or the seam's plan.
+      const reach = K.plan ? planTexture(K.id, w, h, ground) : snap.reach?.t ?? null;
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, reach);
       gl.activeTexture(gl.TEXTURE0);
-      const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn });
+      const iceReady = K.id === 'dew' && snap.planMode && dew.bind(w, h);
+      // Racing's fragments need the frozen pane once the rift is near; their field lines show a little before.
+      const P = transitP(s.p ?? 0);
+      const fragsOn = K.id === 'dew' && iceReady && renderPane && P > DEW.detach0 - 0.07 && P < DEW.detach1 + FRAG.maxFly + 0.03;
+      const ice = fragsOn ? iceSnap(snap, s, w, h) : null;
+      const nFrags = fragsOn ? (dew.stats(w, h)?.frags ?? 0) : 0;
+      // The stardust, while it falls.
+      const nGrains = K.id === 'dew' && iceReady && P > 0 && P < 0.5 ? (dew.stats(w, h)?.grains ?? 0) : 0;
+      // The gas, while it shows: drawn now (it needs the plan, bound above), sampled by the ground.
+      const gas = K.id === 'dew' && iceReady && renderPane && gasOn(P);
+      if (gas) { gasPass(snap, s, w, h, P); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, snap.gas.t); gl.activeTexture(gl.TEXTURE0); }
+      const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn, iceReady });
+      if (gas) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); }
       if (!drew || !K.units.length) return drew;
       // The units keep the ground's scissor: while the strip scrolls in or out, they stay in it.
       for (const unit of K.units) {
         // name:pass, where a kind draws in passes (Science's cubes: behind the wind, then in front).
         const [name, pass] = unit.split(':');
+        if ((name === 'frags' || name === 'fieldlines') && (!ice || !nFrags)) continue;
+        if (name === 'grains' && !nGrains) continue;
         const prog = programs[name], def = UNIT_PROGRAMS[name];
-        const g = name === 'sheets' || name === 'film' ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
+        const g = name === 'sheets' || name === 'film' || name === 'frags' || name === 'fieldlines' || name === 'grains' ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
         // The vortex carries its cubes the whole height of the screen, one a cell. The sheets draw a
         // layer at a time, the lowest first.
-        const [first, count] = name === 'sheets' ? [0, 1] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
+        const [first, count] = name === 'sheets' ? [0, 1] : name === 'frags' || name === 'fieldlines' ? [0, nFrags] : name === 'grains' ? [0, nGrains] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
           : name === 'cubes' || name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;
@@ -443,6 +459,8 @@ export function createTransit(gl, { renderWorld, coarse }) {
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uReach, 5);
+        // The fragments' faces: the frozen pane, on unit 3 (the scene's shader leaves it free).
+        if (name === 'frags') { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, ice); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(U.uTexA, 3); }
         if (def.blend === 'opaque') gl.disable(gl.BLEND);
         else {
           gl.enable(gl.BLEND);
@@ -457,6 +475,7 @@ export function createTransit(gl, { renderWorld, coarse }) {
         } else gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, count);
       }
       gl.disable(gl.BLEND);
+      if (ice) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); }
       restore();
       return true;
     },
@@ -502,6 +521,8 @@ export function createTransit(gl, { renderWorld, coarse }) {
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uReach, 5);
+        // The fragments' faces: the frozen pane, on unit 3 (the scene's shader leaves it free).
+        if (name === 'frags') { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, ice); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(U.uTexA, 3); }
         if (def.blend === 'opaque') gl.disable(gl.BLEND);
         else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
         gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, g[0] * g[1]);

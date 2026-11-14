@@ -8,7 +8,7 @@ vec3 texA(vec2 q) { return texture(uTexA, tUV(q)).rgb; }
 vec3 texB(vec2 q) { return texture(uTexB, tUV(q)).rgb; }
 
 // Each seam is told apart by its process (flight.js, reach.js): a vortex for Science, crystal
-// growth for Racing, peeling sheets for Outdoors, a camera iris for Photography, a branching reach of
+// condensation for Racing, peeling sheets for Outdoors, a camera iris for Photography, a branching reach of
 // ink for Chess. P = transitP(p); uH is p itself.
 const float BLEAD = 0.22;
 // The ink's reach at a seam point, where it matters: false where the point's height alone says
@@ -51,63 +51,8 @@ vec3 groundCubes(vec2 q, vec2 px, float P) {
   return col + vortexCore(q, S.x * 0.5, -1.0, vortexRc(S), amt);
 }
 
-// Science → Racing. Space liquefies and swirls (the vortex field, stirred by the fluid sim) while ice
-// crystals nucleate across it from the foot of the screen and grow as six-armed stars until they
-// meet (flight.js crystalAt, baked). Each crystal holds the world at its own tilt and slowly freezes
-// through from space to glacier, its arms bright, glints running along them, a sheen crossing its
-// facets and its grain boundaries lit prismatic. The ice covers the screen through the hold, then a
-// last sweep up the screen flashes each crystal clear onto the glacier, just as Racing arrives.
-vec2 flowBack(vec2 q, float amt, float t) {
-  vec2 p = q;
-  for (int i = 0; i < 4; i++) {
-    vec2 v = swirl(p, t * 0.8);
-    if (uSimOn > 0.5) v += texture(uSim, tUV(p)).xy * 0.006;
-    p -= v * amt * 22.0;
-  }
-  return p;
-}
-vec3 crystalLook(vec4 X, vec2 q, float through) {
-  vec2 tilt = (vec2(hash(vec2(X.z, 1.0)), hash(vec2(X.z, 2.0))) - 0.5) * 40.0;
-  vec2 lens = (q - uRegion.zw * 0.5) * 0.04 * (X.z - 0.5);
-  vec3 held = mix(texA(q + tilt + lens), texB(q + tilt * 0.4 + lens * 0.5), through);
-  // Ice deepens what it holds toward glacier blue, so it reads over the white glacier too.
-  vec3 ice = mix(held, vec3(luma(held)) * vec3(0.62, 0.8, 1.0) + vec3(0.04, 0.12, 0.24), 0.4 + 0.25 * through);
-  ice *= 0.78 + 0.34 * X.z;
-  ice += vec3(0.85, 0.95, 1.0) * X.x * 0.95;
-  return ice;
-}
-vec3 groundCrystal(vec2 q, vec2 px, float P) {
-  vec4 X = seamRaw(q);
-  float A = X.w, age = P - A;
-  // When the last sweep clears this crystal: from the foot of the screen to the top.
-  float C = 0.93 + 0.17 * (1.0 - q.y / uRegion.w) + 0.03 * X.z;
-  float gone = smoothstep(C, C + 0.04, P);
-  if (gone >= 1.0) return sceneGlacier(px);
-  float melt = smoothstep(-0.2, 0.0, age);
-  if (melt <= 0.0) return sceneCosmos(px);
-  vec3 col;
-  if (age < 0.0) {
-    vec2 lq = flowBack(q, melt, T);
-    col = texA(lq) + spectrum(length(lq - q) * 0.012 + T * 0.05) * 0.08 * melt;
-    col = mix(col, col * vec3(0.8, 0.92, 1.05) + vec3(0.02, 0.05, 0.08), melt * 0.5);
-  } else {
-    col = crystalLook(X, q, smoothstep(0.15, 0.6, age));
-    // Glints: tiny facets along the arms catching the light in turn.
-    float g = step(0.965, hash(floor(q * 0.45))) * pow(0.5 + 0.5 * sin(T * (5.0 + 9.0 * hash(floor(q * 0.45) + 3.0)) + X.z * 40.0), 10.0);
-    col += vec3(0.95, 0.98, 1.0) * g * (0.3 + 1.6 * X.x) * smoothstep(0.0, 0.05, age);
-    // A sheen crossing the facets, each crystal at its own angle.
-    float sh = sin(dot(q, vec2(0.0087, 0.005)) * (0.8 + X.z) - T * 1.1 + X.z * 9.0);
-    col += vec3(0.8, 0.92, 1.0) * pow(max(sh, 0.0), 14.0) * 0.22;
-  }
-  float front = exp(-abs(age) * 70.0);
-  col += vec3(0.75, 0.92, 1.0) * front * 0.85 + spectrum(age * 12.0 + X.z) * front * 0.25;
-  // Grain boundaries: lit prismatic, brightest as the crystals meet, staying lit while the ice holds.
-  float gb = X.y * step(0.0, age) * (0.45 + 0.55 * exp(-age * 12.0));
-  col += (spectrum(q.x * 0.004 + q.y * 0.003 + T * 0.08) * 0.35 + vec3(0.85, 0.97, 1.0) * 0.45) * gb;
-  // The last sweep: each crystal flashes as it clears.
-  col = mix(col, sceneGlacier(px), gone) + vec3(0.9, 0.97, 1.0) * exp(-abs(P - C - 0.02) * 55.0) * 0.6 * (1.0 - gone * 0.5);
-  return col;
-}
+// Science → Racing: dew, then frost, on a cold pane over Science (glsl/dew.js, shared with the click).
+vec3 groundDew(vec2 q, vec2 px, float P) { return dewMaterial(q, px, uRegion.zw, P, false, false).rgb; }
 
 // Racing → Outdoors. Three layers of sheets peel from the foot of the screen up (flight.js sheetAt):
 // the glacier's ice, then a topographic trail map, then tracing vellum, then the Outdoors page. Here
@@ -284,7 +229,7 @@ vec3 transitGround(int a, vec2 q, vec2 px) {
   gCardMix = 0.0;
   float P = transitP(uH);
   if (a == 0) return groundCubes(q, px, P);
-  if (a == 3) return groundCrystal(q, px, P);
+  if (a == 3) return groundDew(q, px, P);
   if (a == 2) return groundSheets(q, px, P);
   if (a == 4) return groundFilm(q, px, P);
   return groundInk(q, px, P);

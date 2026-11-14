@@ -74,43 +74,6 @@ float transitP(float p) { return -0.2 + 1.4 * clamp(p, 0.0, 1.0); }
 // A point's flight: 0 at home in the upper world, 1 landed in the lower one.
 float flightAt(float A, float jit, float P) { return clamp(0.5 + (P - A + (jit - 0.5) * 0.1) / 0.3, 0.0, 1.0); }
 
-// ---- Racing: ice crystals (crystal growth) ------------------------------------------------------
-// Nuclei on a jittered grid, each born on the transition's clock (by its height for a seam, the foot
-// first; by its distance from O for a click) and growing as a six-armed star, fastest along its
-// arms, until it meets its neighbours along grain boundaries (a Johnson–Mehl tessellation with
-// six-fold growth, after Reiter's snowflakes). A front can never outrun the birth schedule, and every
-// point is reached by its own cell's nucleus soon after that is born, so a seam's arrivals stay in
-// [0.2, 0.8] near its edges. Baked by transit.js: x how near an arm, y how near a grain boundary,
-// z the crystal's own number, w when the ice arrives (A).
-const float XCELL = 130.0;
-vec4 crystalAt(vec2 q, vec2 size, bool polar, vec2 O, float far) {
-  vec2 g = floor(q / XCELL);
-  float V = 0.9 * (polar ? far : size.y);
-  float best = 9.0, second = 9.0, id = 0.0, arm = 0.0;
-  for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) {
-    vec2 c = g + vec2(float(i), float(j));
-    vec2 n = (c + 0.15 + 0.7 * hash2(c + 11.3)) * XCELL;
-    float k = polar ? clamp(length(n - O) / far, 0.0, 1.0) : clamp(1.0 - n.y / size.y, 0.0, 1.0);
-    float born = polar ? k * 0.68 * (0.85 + 0.3 * hash(c + 3.7)) + 0.05 * hash(c + 9.1)
-                       : -0.08 + k * 0.5 * (0.85 + 0.3 * hash(c + 3.7)) + 0.05 * hash(c + 9.1);
-    vec2 v = q - n;
-    float r = length(v);
-    float th = atan(v.y, v.x) + hash(c + 5.5) * 1.0472;
-    float t = born + r / (V * (1.0 + 0.9 * pow(abs(cos(3.0 * th)), 6.0)));
-    if (t < best) {
-      second = best; best = t; id = hash(c + 7.7);
-      // Its arms: six spokes, needles at 60° along them, and a small hexagonal plate at the heart.
-      float d = mod(th + PI / 6.0, PI / 3.0) - PI / 6.0;
-      float along = r * cos(d), perp = r * abs(sin(d));
-      float spoke = exp(-perp / 1.3);
-      float needle = exp(-abs(fract((along - perp * 0.577) / 15.0) - 0.5) * 13.0) * step(perp, 0.32 * along) * exp(-perp / 26.0);
-      float plate = 1.0 - smoothstep(9.0, 11.0, along);
-      arm = max(max(spoke, needle * 0.75), plate * 0.6);
-    } else if (t < second) second = t;
-  }
-  return vec4(arm, 1.0 - clamp((second - best) / 0.004, 0.0, 1.0), id, best);
-}
-
 // ---- Science: a vortex -------------------------------------------------------------------------------
 // After the Burgers vortex, an exact solution of the Navier–Stokes equations: fluid drawn in toward
 // an axis spins faster as it closes in (it keeps its angular momentum) and is stretched along the
@@ -133,7 +96,7 @@ const float VX_SPIN = 2.5;      // a click's: how much faster the core turns tha
 const float VX_SINK = 6.0;      // a click's: how much faster it travels along the axis at the core than at the rim
 const float VX_TILT = 0.42;     // the orbits lean back so they read as ellipses
 const float VX_C0 = -0.15, VX_C1 = 0.5;       // the gathering's front: at the foot at VX_C0, climbing a screen in VX_C1
-const float VX_BASE0 = 0.78, VX_BASE1 = 0.4;  // the wind's base leaves the foot at VX_BASE0, reaching the top VX_BASE1 later
+const float VX_BASE0 = 0.78, VX_BASE1 = 0.35;  // the wind's base leaves the foot at VX_BASE0, reaching the top VX_BASE1 later
 // A cell's lean on a click's schedule: mostly a smooth field, so the page breaks along soft,
 // wandering edges rather than cell by cell. p: the cell's centre (CSS px); c: the cell.
 float vortexJit(vec2 p, vec2 c) { return clamp(0.5 + (noise(p * 0.009) - 0.5) * 1.8 + (hash(c + 0.37) - 0.5) * 0.06, 0.0, 1.0); }
@@ -260,12 +223,12 @@ vec3 vortexOrbit(vec2 home, vec2 dest, vec2 c, float u, float P, float t, vec2 S
   }
   return p;
 }
-// Science arrives blurred, and the vortex's tendrils sharpen it. Its wide base ring de-blurs the foot
-// of the screen while it stands there; once the gathering is done it lifts and climbs the screen, and
-// its ring of tendrils carries a clearing front, arched as the ring is, up the page. Nothing clears
+// Science arrives blurred. Once the gathering is done the vortex's base lifts and climbs the screen,
+// leaving a narrow clearing front immediately beneath it. A slight curve follows the base ring,
+// always below it so Science stays blurred throughout the vortex itself. Nothing clears
 // until VX_BLUR_WAIT after it is built, so the blur shows with no cubes about, and it then sharpens
 // over VX_BLUR_D.
-const float VX_BLUR_WAIT = 0.08, VX_BLUR_D = 0.14, VX_REACH_W = 0.12;
+const float VX_BLUR_WAIT = 0.08, VX_BLUR_D = 0.14, VX_REACH_W = 0.025;
 // The blur at q (CSS px on the screen S), amt 0 sharp .. 1 fully blurred: the lower world's snapshot
 // (tex: uTexB, mipmapped) read at a coarser level the blurrier, in five taps.
 vec3 vortexBlur(sampler2D tex, vec2 q, vec2 S, float amt) {
@@ -277,9 +240,22 @@ vec3 vortexBlur(sampler2D tex, vec2 q, vec2 S, float amt) {
          + textureLod(tex, uv + vec2(-0.4 * o.x, o.y), lod).rgb + textureLod(tex, uv - vec2(-0.4 * o.x, o.y), lod).rgb;
   return c / 6.0;
 }
-// The wind's base (screens up) at P, and how far above it its base ring reaches dx from the axis.
-float vortexBaseUp(float P) { return max(0.0, (P - VX_BASE0) / VX_BASE1); }
-float vortexReach(float dx, vec2 S) { float k = dx / (0.55 * S.x); return 0.08 + 0.25 * sqrt(max(1.0 - k * k, 0.0)); }
+// The visible lower edge of the tilted base ring, projected as in units.js flowAt/onScreen.
+// Solve both intersections of its projected ellipse and use the lower one; outside the silhouette,
+// continue from the side. This keeps the clearing underneath the tendrils, including perspective.
+float vortexClearY(float x, float P, vec2 S) {
+  vec2 band = vortexBand(P, S);
+  float R = vortexWide(band, S), a = 0.8 * R * cos(VX_TILT) / 1100.0;
+  // Match the flow's 700 px depth cap on very wide screens as well.
+  float cap = 700.0 / 1100.0, side = min(a, cap / a);
+  float k = min(abs(x - S.x * 0.5) / R, sqrt(1.0 - side * side) / (1.0 - a * side));
+  float d = sqrt(max(0.0, 1.0 - k * k * (1.0 - a * a)));
+  vec2 sn = (k * k * a + vec2(-d, d)) / (1.0 + k * k * a * a);
+  float clipped = sqrt(max(0.0, 1.0 - pow(k * (1.0 - cap), 2.0)));
+  if (a * clipped >= cap) sn.y = clipped;
+  vec2 y = S.y * 0.5 + (band.y - S.y * 0.5 + 0.8 * R * sn * sin(VX_TILT)) / (1.0 - min(a * sn, vec2(cap)));
+  return max(y.x, y.y) + 0.008 * S.y;
+}
 // The latest landing round q (lerp.js vortexPlanTexels' fourth channel, in uReach, on the cube grid
 // g), read smoothly across the cells.
 float vortexLandNear(sampler2D plan, vec2 q, vec4 g) {
@@ -294,7 +270,7 @@ float vortexLandNear(sampler2D plan, vec2 q, vec4 g) {
 float vortexSharp(vec2 q, float land, float P, vec2 S) {
   float t = (P - land - VX_BLUR_WAIT) / VX_BLUR_D;
   if (t <= 0.0) return 0.0;
-  float front = (vortexBaseUp(P) + vortexReach(q.x - 0.5 * S.x, S) + 0.04 * (noise(q * 0.006) - 0.5) - (1.0 - q.y / S.y)) / VX_REACH_W;
+  float front = ((q.y - vortexClearY(q.x, P, S)) / S.y + 0.004 * (noise(q * 0.006) - 0.5)) / VX_REACH_W;
   return smoothstep(0.0, 1.0, clamp(min(t, front), 0.0, 1.0));
 }
 // A click's cubes come out of the axis between the click and the cell they build, and spiral on away

@@ -105,6 +105,10 @@ html.gl .scene { opacity: 1; }
 .scene.is-front { z-index: 100; transition: none; opacity: 1; }
 .xp-wait--scene { position: fixed; z-index: 101; }
 html[data-xp-reveal] main > :not(.d-hero), html[data-xp-reveal] .contact, html[data-xp-reveal] .site-foot { opacity: 0; }
+/* During Racing's reveal the canvas supplies both ice and the live glacier. Content is above it
+   only inside a conservative fully-clear aperture, so there is no blank backdrop at the swap. */
+html[data-xp-reveal="ice"] main { position: relative; z-index: 101; clip-path: circle(var(--ice-radius, 0px) at var(--ice-x, 50%) var(--ice-y, 50%)); }
+
 main > *, .contact, .site-foot { transition: opacity 420ms var(--ease-out); }
 
 /* Titles are one span per letter (the builder's letters()). --in and --out (0..1) are a hero's
@@ -157,6 +161,22 @@ html.gl .band-art { opacity: 0; }
    of the screen while the hold passes, fading in and out with its progress (--p, 0..1), with a
    thin line for how far it has come. A dark frosted pill, so it reads on every world. */
 .seam-hold { position: relative; }
+/* Racing surfaces in place (home.js wraps it with its hold): the band waits at the top of the screen
+   under the transition, hidden, and its content condenses from frost to sharp as the transition ends
+   (--surface 0 → 1); then the page scrolls on. */
+.seam-wrap { position: relative; }
+.seam-wrap > .band--racing { position: sticky; top: 0; min-height: 100svh; padding-top: clamp(28px, 4vh, 48px); align-items: start; }
+.seam-wrap > .band--racing.is-held { visibility: hidden; }
+.js:not(.motion-paused) .seam-wrap > .band--racing > .band-inner > * { translate: none; transition: none; }
+.seam-wrap > .band--racing .band-head > * {
+  opacity: clamp(0, calc(var(--surface, 1) * 1.7 - .1), 1);
+  filter: blur(calc(max(0, 1 - var(--surface, 1) * 1.4) * 14px));
+}
+.seam-wrap > .band--racing .band-body {
+  opacity: clamp(0, calc(var(--surface, 1) * 2 - .9), 1);
+  filter: blur(calc(max(0, 1 - var(--surface, 1)) * 10px));
+}
+.seam-wrap > .band--racing .band-info { opacity: clamp(0, calc(var(--surface, 1) * 3 - 2), 1); }
 .seam-cap {
   position: sticky; top: calc(100svh - 74px); z-index: 2; width: max-content; max-width: calc(100vw - 32px); margin: 0 auto;
   padding: 9px 16px 8px; border-radius: 999px; background: rgb(14 14 18 / 0.58); color: #F4F2EE;
@@ -200,6 +220,11 @@ html.gl .band-art { opacity: 0; }
 .js:not(.motion-paused) .band > .band-inner > * { transition: opacity 700ms var(--ease-out), translate 900ms var(--ease-out); }
 .js:not(.motion-paused) .band > .band-inner > .band-body { transition-delay: 140ms; }
 .js:not(.motion-paused) .band:not(.is-in) > .band-inner > * { opacity: 0; translate: 0 32px; }
+
+/* Science enters with the clearing background; its heading starts at the top of the content,
+   and follows the scroll directly without the bands' delayed fade or extra translation. */
+.seam-hold + :is(.band--science, .band--racing) .band-inner { align-items: start; }
+.js:not(.motion-paused) .seam-hold + :is(.band--science, .band--racing) > .band-inner > * { opacity: 1; translate: none; transition: none; }
 
 /* About Me: the role, the threads and three things built. */
 .ab-band-role { font-size: clamp(1.5rem, 1rem + 1.6vw, 2.5rem); line-height: 1.15; letter-spacing: -0.02em; font-weight: var(--w-medium); }

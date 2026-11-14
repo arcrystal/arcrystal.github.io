@@ -113,7 +113,8 @@ def js_files(rel_dir):
     out = []
     for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, rel_dir)):
         dirnames[:] = sorted(d for d in dirnames if not d.startswith('.'))
-        out += [os.path.relpath(os.path.join(dirpath, f), ROOT) for f in sorted(filenames) if f.endswith('.js')]
+        # (Finder's duplicates, "name 2.js", are not the site's.)
+        out += [os.path.relpath(os.path.join(dirpath, f), ROOT) for f in sorted(filenames) if f.endswith('.js') and not re.search(r' \d+\.js$', f)]
     return out
 
 

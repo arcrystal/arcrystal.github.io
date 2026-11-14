@@ -7,6 +7,7 @@
 // perspective of a camera FOCAL px in front of the screen's centre.
 import { NOISE } from './common.js';
 import { FLIGHT, SEAM_TEX } from './flight.js';
+import { DEW } from '../dew-plan.js';
 
 const HEAD = /* glsl */ `#version 300 es
 precision highp float;
@@ -678,6 +679,231 @@ void main() {
   o = vec4(col, 1.0);
 }`;
 
+
+// ---- Science → Racing: fragments along field lines into Racing's card ---------------------------
+// When a piece of the frozen pane breaks away (dew-plan.js: the fracture front has run round it) it
+// comes apart into fragments, each moving, overdamped, along the electric field line through where it
+// was (the plan traced them: + on the main crack, − over Racing's card) and fusing into the card where
+// its line ends. frags: each fragment, its face the pane as it was (the ice snapshot, on uTexA here),
+// turning to lie along the field (the torque on its induced dipole), spinning about it so its face
+// flashes, its edges charged, a flare as it fuses. fieldlines: the field made visible, each line
+// glowing faintly as the field builds and brightly behind its fragment.
+const FRAG_HEAD = /* glsl */ `
+vec4 dd(int i) { return texelFetch(uReach, ivec2(i % 1024, i / 1024), 0); }
+int fragBase() { return int(dd(26).w); }
+// Point i (0..15) of fragment k's field line, screen px.
+vec2 fragPt(int base, int i) { vec4 t = dd(base + 3 + i / 2); return (i & 1) == 0 ? t.xy : t.zw; }
+// Where along its line at s (0..1), and the line's direction there (Catmull–Rom through the points).
+vec2 fragAt(int base, float s, out vec2 tang) {
+  float f = clamp(s, 0.0, 1.0) * 15.0;
+  int i = int(min(floor(f), 14.0));
+  float t = f - float(i);
+  vec2 p0 = fragPt(base, max(i - 1, 0)), p1 = fragPt(base, i), p2 = fragPt(base, i + 1), p3 = fragPt(base, min(i + 2, 15));
+  vec2 a = 2.0 * p1, b = p2 - p0, c = 2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3, d = -p0 + 3.0 * p1 - 3.0 * p2 + p3;
+  tang = b + 2.0 * c * t + 3.0 * d * t * t;
+  float l = length(tang);
+  tang = l > 1e-4 ? tang / l : vec2(1.0, 0.0);
+  return .5 * (a + b * t + c * t * t + d * t * t * t);
+}
+// How far along its line by its own clock u: slow from rest, quicker as the field strengthens.
+float fragS(float u) { return pow(clamp(u, 0.0, 1.0), 1.6); }
+`;
+const FRAGS_VS = VHEAD + FRAG_HEAD + /* glsl */ `
+out vec2 vUV;
+out vec3 vN;
+out vec3 vBary;
+out float vU;
+out float vSeed;
+void main() {
+  int fb = fragBase(), n = int(dd(fb).x);
+  if (gl_InstanceID >= n) { gl_Position = GONE; return; }
+  int base = fb + 2 + gl_InstanceID * 11;
+  vec4 F0 = dd(base), F1 = dd(base + 1), F2 = dd(base + 2);
+  float P = transitP(uH), u = (P - F1.z) / max(F1.w - F1.z, 1e-4);
+  if (u <= 0.0 || u >= 1.08) { gl_Position = GONE; return; }
+  vec2 WH = dd(0).xy, toS = uRegion.zw / WH;
+  int v = gl_VertexID;
+  vec2 c = (F0.xy + F0.zw + F1.xy) / 3.0, vert = v == 0 ? F0.xy : v == 1 ? F0.zw : F1.xy;
+  vec2 tang;
+  vec2 pos = fragAt(base, fragS(u), tang) * toS;
+  // Its shape as the ground drew it, then turned toward lying along the field (an axis: either way).
+  vec2 l = (vert - c) * F2.w * toS * (1.0 - .55 * smoothstep(.82, 1.05, u));
+  float target = atan(tang.y, tang.x) - F2.x;
+  target = mod(target + PI * .5, PI) - PI * .5;
+  float th = target * (1.0 - exp(-u / .12));
+  l = mat2(cos(th), sin(th), -sin(th), cos(th)) * l;
+  // Spinning about the field direction, lifted toward the camera mid-flight.
+  float roll = F2.z + F2.y * u;
+  vec2 T = tang, Nn = vec2(-T.y, T.x);
+  float a = dot(l, T), b = dot(l, Nn);
+  vec3 p3 = vec3(pos + T * a + Nn * b * cos(roll), b * sin(roll) + 60.0 * sin(PI * clamp(u, 0.0, 1.0)));
+  vN = vec3(-Nn * sin(roll), cos(roll));
+  vUV = tUV(vert * toS);
+  vBary = v == 0 ? vec3(1.0, 0.0, 0.0) : v == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
+  vU = u;
+  vSeed = float(gl_InstanceID);
+  gl_Position = project(p3);
+}`;
+const FRAGS_FS = FHEAD + NOISE + /* glsl */ `
+in vec2 vUV;
+in vec3 vN;
+in vec3 vBary;
+in float vU;
+in float vSeed;
+void main() {
+  vec3 n = normalize(vN);
+  if (n.z < 0.0) n = -n;
+  vec3 L = normalize(vec3(-0.45, 0.55, 0.7)), Hh = normalize(L + vec3(0.0, 0.0, 1.0));
+  float dif = max(dot(n, L), 0.0), spec = pow(max(dot(n, Hh), 0.0), 60.0), fres = pow(1.0 - abs(n.z), 3.0);
+  // Its edges, px in from them, charged: blue to violet, brighter as it nears the card.
+  float e = min(vBary.x, min(vBary.y, vBary.z)), px = e / max(fwidth(e), 1e-4);
+  vec3 charge = mix(vec3(0.4, 0.75, 1.0), vec3(0.85, 0.6, 1.0), hash(vec2(vSeed, 3.7)));
+  vec3 col = texture(uTexA, vUV).rgb * (0.72 + 0.35 * dif) + vec3(1.0, 0.97, 0.9) * (spec * 1.8 + fres * 0.3)
+    + charge * (exp(-px / 1.2) * (0.7 + 0.9 * vU) + exp(-px / 4.0) * 0.2);
+  // It fuses into the card: a flare, then gone.
+  float fuse = smoothstep(0.88, 1.0, vU) * (1.0 - smoothstep(1.0, 1.08, vU));
+  col += vec3(0.9, 0.96, 1.0) * fuse * 0.9;
+  float a = 1.0 - smoothstep(1.0, 1.08, vU);
+  o = vec4(min(col, vec3(1.8)) * a, a);
+}`;
+// The field lines: each fragment's line as a ribbon of 15 segments, its glow across it Gaussian.
+const FIELDLINES_VS = VHEAD + FRAG_HEAD + /* glsl */ `
+out float vAcross;
+out float vB;
+out vec3 vCol;
+void main() {
+  int fb = fragBase(), n = int(dd(fb).x);
+  if (gl_InstanceID >= n) { gl_Position = GONE; return; }
+  int base = fb + 2 + gl_InstanceID * 11;
+  vec4 F1 = dd(base + 1);
+  float P = transitP(uH), u = (P - F1.z) / max(F1.w - F1.z, 1e-4);
+  // The field builds a little before its fragment goes (P .05), and is gone just after it fuses.
+  float build = smoothstep(-0.05, 0.0, P - F1.z) * (1.0 - smoothstep(1.0, 1.25, u));
+  if (build <= 0.0) { gl_Position = GONE; return; }
+  vec2 WH = dd(0).xy, toS = uRegion.zw / WH;
+  int seg = gl_VertexID / 6;
+  vec2 k = QUAD[gl_VertexID % 6];
+  float sp = (float(seg) + k.x) / 15.0;
+  vec2 tang;
+  vec2 pos = fragAt(base, sp, tang) * toS;
+  float w = 5.0;
+  pos += vec2(-tang.y, tang.x) * (k.y - 0.5) * w;
+  // Bright just behind the fragment, faint elsewhere: the line it is riding, lit.
+  float head = fragS(u), behind = head - sp;
+  float lit = u > 0.0 ? smoothstep(0.0, 0.03, behind + 0.01) * (1.0 - smoothstep(0.0, 0.28, behind)) : 0.0;
+  vB = build * (0.025 + 0.7 * lit);
+  vAcross = (k.y - 0.5) * 2.0;
+  float h = hash(vec2(float(gl_InstanceID), 1.9));
+  vCol = mix(vec3(0.35, 0.7, 1.0), vec3(0.8, 0.55, 1.0), h);
+  gl_Position = project(vec3(pos, 0.0));
+}`;
+const FIELDLINES_FS = FHEAD + /* glsl */ `
+in float vAcross;
+in float vB;
+in vec3 vCol;
+void main() {
+  float g = exp(-vAcross * vAcross * 9.0) * 0.8 + exp(-vAcross * vAcross * 60.0) * 0.6;
+  o = vec4(vCol * g * vB, 0.0);
+}`;
+
+// ---- Science → Racing: stardust spiralling into its drops ---------------------------------------
+// Each grain belongs to a core (dew-plan.js grainAt, the same maths): it glitters where its gas was,
+// then falls with its shell of the cloud, r = r₀ cos²β (t/t_ff = (β + sin β cos β)/(π/2)), keeping its
+// angular momentum, θ = θ₀ + Ω tan β, so it spirals in, quickening, and is swallowed by the drop (whose
+// volume grows as the grains arrive). Drawn as a glinting head and the trail of where it has just been
+// (its own orbit, GRAIN_TRAIL of P back), in its gas's colour: together, each drop's whirlpool.
+const GRAIN_SEGS = 9, GRAIN_TRAIL = 0.016;
+const GRAINS_VS = VHEAD + /* glsl */ `
+out vec2 vQ;
+out vec3 vCol;
+out float vA;
+out float vHead;
+vec4 dd(int i) { return texelFetch(uReach, ivec2(i % 1024, i / 1024), 0); }
+float fallB(float tau) {
+  float tg = clamp(tau, 0.0, 1.0) * 1.5707963, b = tg * .8;
+  for (int i = 0; i < 4; i++) b = clamp(b - (b + .5 * sin(2.0 * b) - tg) / max(1.0 + cos(2.0 * b), .05), 0.0, 1.5707963);
+  return b;
+}
+// Its place (plan px) at P, its distance from the core, and the drop's radius then.
+vec2 grainAt(vec4 A, vec4 B, float u0, float th0, float w, float P, out float r, out float rd) {
+  float D = A.w - A.z, Rg = B.w, r0 = B.x + (Rg - B.x) * u0;
+  float ta = A.z + D * (.2 + .8 * u0), Tff = D * (.35 + .3 * u0);
+  float b = fallB((P - (ta - Tff)) / Tff);
+  r = r0 * cos(b) * cos(b);
+  rd = B.x * pow(clamp((P - A.z - .2 * D) / (.8 * D), 0.0, 1.0), 1.0 / 3.0);
+  float th = th0 + w * tan(min(b, 1.55));
+  return A.xy + r * vec2(cos(th), sin(th));
+}
+void main() {
+  vec4 gm = dd(16);
+  int n = int(gm.y), gi = gl_InstanceID;
+  if (gi >= n) { gl_Position = GONE; return; }
+  int e = int(dd(int(gm.x) + gi / 4)[gi & 3]);
+  int cb = int(gm.z) + e * 3;
+  vec4 A = dd(cb), B = dd(cb + 1), C = dd(cb + 2);
+  float P = transitP(uH);
+  if (P < A.z - .05 || P > A.w + .005) { gl_Position = GONE; return; }
+  float fi = float(gi);
+  float u0 = .12 + .88 * hash(vec2(fi, 1.3)), th0 = hash(vec2(fi, 3.9)) * TAU, w = B.z * (1.6 + .8 * hash(vec2(fi, 7.1)));
+  vec2 WH = dd(0).xy, toS = uRegion.zw / WH;
+  float zoom = 1.0 + .3 * pow(smoothstep(.1, 1.12, P), 1.3);
+  vec2 zc = uRegion.zw * vec2(.5, .52);
+  int seg = gl_VertexID / 6;
+  vec2 k = QUAD[gl_VertexID % 6];
+  float r, rd;
+  vec2 head = grainAt(A, B, u0, th0, w, P, r, rd);
+  float gone = smoothstep(rd + .3, rd - .6, r);
+  if (gone >= 1.0) { gl_Position = GONE; return; }
+  float wd = 1.0 + .6 * hash(vec2(fi, 9.2));
+  float tw = .55 + .45 * sin(uTime * (3.0 + 4.0 * hash(vec2(fi, 4.4))) + fi);
+  float on = smoothstep(A.z - .05, A.z - .02, P);
+  vec3 col = C.rgb * (.75 + .5 * hash(vec2(fi, 2.2)));
+  if (hash(vec2(fi, 5.5)) < .1) col = mix(col, vec3(1.0), .7);
+  vCol = col;
+  vec2 pos;
+  if (seg == 0) {
+    // Its head: a glint, twinkling while it waits, flaring as it is swallowed.
+    vec2 s0 = zc + (head * toS - zc) * zoom;
+    float sz = wd * (2.2 + 2.5 * gone);
+    pos = s0 + (k - .5) * 2.0 * sz;
+    vQ = (k - .5) * 2.0;
+    vHead = 1.0;
+    vA = on * (tw * .8 + .4 + gone * 2.5);
+  } else {
+    // Its trail: where it was, back along its orbit, tapering and fading.
+    float a0 = float(seg - 1) / ${GRAIN_SEGS - 1}.0, a1 = float(seg) / ${GRAIN_SEGS - 1}.0, a = mix(a0, a1, k.x);
+    float rr, rq, rb, rqb;
+    vec2 p = grainAt(A, B, u0, th0, w, P - a * ${GRAIN_TRAIL}, rr, rq);
+    vec2 pb = grainAt(A, B, u0, th0, w, P - a * ${GRAIN_TRAIL} - .0008, rb, rqb);
+    vec2 s = zc + (p * toS - zc) * zoom, sb = zc + (pb * toS - zc) * zoom;
+    vec2 t = s - sb;
+    float l = length(t);
+    t = l > 1e-3 ? t / l : vec2(1.0, 0.0);
+    pos = s + vec2(-t.y, t.x) * (k.y - .5) * wd * 3.2 * (1.0 - a * .7);
+    vQ = vec2(a, (k.y - .5) * 2.0);
+    vHead = 0.0;
+    // Only while it moves: a grain at rest has no trail.
+    vA = on * (1.0 - gone * .5) * smoothstep(.2, 1.5, l / .0008 * .0004) * 1.3;
+  }
+  gl_Position = project(vec3(pos, 0.0));
+}`;
+const GRAINS_FS = FHEAD + /* glsl */ `
+in vec2 vQ;
+in vec3 vCol;
+in float vA;
+in float vHead;
+void main() {
+  if (vHead > .5) {
+    float r2 = dot(vQ, vQ);
+    float g = exp(-r2 * 9.0) + exp(-r2 * 2.5) * .25 + (exp(-abs(vQ.x) * 30.0) + exp(-abs(vQ.y) * 30.0)) * exp(-r2 * 1.5) * .25;
+    o = vec4((vCol + vec3(.6)) * g * vA, 0.0);
+    return;
+  }
+  float y2 = vQ.y * vQ.y, across = exp(-y2 * 6.0) + exp(-y2 * 1.5) * .2;
+  float along = pow(1.0 - vQ.x, 1.6);
+  o = vec4(vCol * across * along * vA, 0.0);
+}`;
+
 // blend: 'opaque', 'over' (premultiplied) or 'add'. grid: which uniform holds the instance grid.
 export const UNIT_PROGRAMS = {
   cubes: { vs: CUBES_VS, fs: CUBES_FS, verts: 36, blend: 'over' },
@@ -687,6 +913,9 @@ export const UNIT_PROGRAMS = {
   sheets: { vs: SHEETS_VS, fs: SHEETS_FS, verts: 30 * 12 * 6, blend: 'opaque' },   // per layer, instances: rows × (cols + 1)
   glitter: { vs: GLITTER_VS, fs: GLITTER_FS, verts: 6, blend: 'add' },
   filaments: { vs: FILAMENTS_VS, fs: FILAMENTS_FS, verts: 16 * 6, blend: 'over' },
+  grains: { vs: GRAINS_VS, fs: GRAINS_FS, verts: GRAIN_SEGS * 6, blend: 'add' },   // instances: the stardust
+  frags: { vs: FRAGS_VS, fs: FRAGS_FS, verts: 3, blend: 'over' },                // instances: the pane's fragments
+  fieldlines: { vs: FIELDLINES_VS, fs: FIELDLINES_FS, verts: 15 * 6, blend: 'add' },   // instances: their field lines
 };
 
 // ---- The fluid: stable fluids on a coarse grid over the Science → Racing seam --------------------
@@ -769,14 +998,12 @@ precision highp float;
 uniform vec2 uSize;   // the strip, CSS px
 uniform vec2 uTexel;  // the texture, texels
 uniform int uPolar;   // 1: a click's, out from uO to uFar (CSS px); 0: a seam's, up from the foot
-uniform int uKind;    // 0: the branching reach; 1: ice crystals
 uniform vec2 uO;
 uniform float uFar;
 out vec4 o;
 ` + NOISE + FLIGHT + /* glsl */ `
 void main() {
   vec2 q = vec2(gl_FragCoord.x / uTexel.x, 1.0 - gl_FragCoord.y / uTexel.y) * uSize;
-  if (uKind == 1) { o = crystalAt(q, uSize, uPolar == 1, uO, uFar); return; }
   Reach r;
   if (uPolar == 1) r = reachPolar(q, uO, uFar, 0.0);
   else r = reachFoot(q, uSize, 0.0);

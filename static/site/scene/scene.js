@@ -13,10 +13,13 @@ import { createTransit } from './transit.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uGas'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
+// Science → Racing's pane is wet glass and frost, soft by nature: on big screens it draws at no more
+// than about 2.2 megapixels while its seam is in play.
+const DEW_PX = 2.2e6, DEW_PX_BIG = 1.85e6;
 const root = document.documentElement;
 
 let instance;
@@ -47,7 +50,7 @@ function createScene() {
   const hosts = new Set();
   let program = null, U = {}, ready = false, drewLast = false, transit = null;
   let effect = null, stopTick = null;
-  let cssW = 0, cssH = 0, dpr = 1, scale = 1, slow = 0, fast = 0;
+  let cssW = 0, cssH = 0, dpr = 1, scale = 1, slow = 0, fast = 0, iceDetail = 1, slowShare = 0;
   // The viewport, cached: reading innerWidth after the hosts have written styles would force a layout.
   let vpW = innerWidth, vpH = innerHeight;
   addEventListener('resize', () => { vpW = innerWidth; vpH = innerHeight; }, { passive: true });
@@ -80,11 +83,14 @@ function createScene() {
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uSim, 2);
         gl.uniform1i(U.uReach, 5);
+        gl.uniform1i(U.uIceAtlas, 6);
+        gl.uniform1i(U.uIceSpectrum, 7);
+        gl.uniform1i(U.uGas, 3);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         ready = true;
-        transit = createTransit(gl, { renderWorld, coarse });
+        transit = createTransit(gl, { renderWorld, renderPane, coarse });
         requestAnimationFrame(() => root.classList.add('gl'));
         resolve(true);
       };
@@ -92,7 +98,7 @@ function createScene() {
     });
   }
 
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; transit = null; root.classList.remove('gl'); });
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; effect?.abort?.(); transit?.dispose(); transit = null; root.classList.remove('gl'); });
   canvas.addEventListener('webglcontextrestored', () => { compile(); });
 
   // ---- input ---------------------------------------------------------------------------------
@@ -104,11 +110,14 @@ function createScene() {
   addEventListener('blur', () => { ptrTarget = 0; });
 
   // ---- drawing --------------------------------------------------------------------------------
+  let dewSeam = false;
   function resize() {
     const w = vpW, h = vpH;
     let d = Math.min(devicePixelRatio || 1, w < 900 ? 1.25 : 1.5) * scale;
     // A click's transition is all motion: on big screens it draws at no more than about 6 megapixels.
     if (effect) d = Math.min(d, Math.sqrt(EFFECT_PX / Math.max(1, w * h)));
+    // Very large screens (over 2.5 M CSS px) a little lower still: the dew is right at a frame there.
+    if (dewSeam) d = Math.min(d, Math.sqrt((w * h > 2.5e6 ? DEW_PX_BIG : DEW_PX) / Math.max(1, w * h)));
     if (w === cssW && h === cssH && d === dpr) return;
     cssW = w; cssH = h; dpr = d;
     canvas.width = Math.max(1, Math.round(w * d));
@@ -132,6 +141,10 @@ function createScene() {
     gl.uniform1f(U.uVel, paused ? 0 : (s.vel ?? 0));
     if (s.baked) { gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, s.baked); gl.activeTexture(gl.TEXTURE0); }
     gl.uniform1f(U.uBaked, s.baked ? 1 : 0);
+    const iceEffect = (s.mode === 2 || s.mode === 3) && s.a === 2 && !s.h;
+    const iceReady = iceEffect ? transit?.bindIce(cssW,cssH) : s.iceReady;
+    gl.uniform1f(U.uIceReady, iceReady ? 1 : 0);
+    gl.uniform1f(U.uIceDetail, iceDetail);
     const c = s.card;
     gl.uniform4f(U.uCard, c ? c[0] : 0, c ? c[1] : 0, c ? c[2] : 0, c ? c[3] : 0);
     gl.uniform1f(U.uCardR, s.cardR ?? 24);
@@ -144,13 +157,16 @@ function createScene() {
     const g = s.grid;
     gl.uniform4f(U.uGrid, g ? g[0] : 1, g ? g[1] : 1, g ? g[2] : 1, g ? g[3] : 1);
     gl.uniform1f(U.uSimOn, s.simOn ? 1 : 0);
+    if (iceEffect) { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (iceEffect) gl.disable(gl.BLEND);
     return true;
   }
 
   // A world over a region, into a snapshot (a transit's texture): the same shader, offset so its
   // pixels land where the region is on screen.
-  function renderWorld(style, fb, tw, th, region, vel) {
+  // noDrops: Science without its chrome drops (Science → Racing draws them live over the snapshot).
+  function renderWorld(style, fb, tw, th, region, vel, noDrops = false) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     gl.viewport(0, 0, tw, th);
     gl.disable(gl.SCISSOR_TEST);
@@ -164,7 +180,29 @@ function createScene() {
     gl.uniform1f(U.uVel, motion.paused ? 0 : (vel ?? 0));
     gl.uniform4f(U.uCard, 0, 0, 0, 0);
     gl.uniform1f(U.uCardMix, 0);
+    if (noDrops) gl.uniform1f(U.uNoDrops, 1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (noDrops) gl.uniform1f(U.uNoDrops, 0);
+  }
+
+  // The ground over a seam's region into a texture (a transit's still: Racing's frozen pane).
+  function renderPane(s, fb, tw, th) {
+    const [x, y, w] = s.region;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.viewport(0, 0, tw, th);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.useProgram(program);
+    gl.uniform2f(U.uRes, tw, th);
+    gl.uniform1f(U.uDpr, tw / Math.max(1, w));
+    gl.uniform2f(U.uOrigin, x, y);
+    draw(s);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform2f(U.uRes, canvas.width, canvas.height);
+    gl.uniform1f(U.uDpr, dpr);
+    gl.uniform2f(U.uOrigin, 0, 0);
+    gl.enable(gl.SCISSOR_TEST);
   }
 
   function tick(dt) {
@@ -181,6 +219,8 @@ function createScene() {
     }
     if (effect) effect.step(dt);
     if (!ready || gl.isContextLost()) return;
+    // Racing's dew is held to its pixel budget whether scrolled through or clicked into.
+    dewSeam = effect ? !!effect.racing : states.some(s => s.mode === 6 && s.a === STYLE_ID.cosmos && s.b === STYLE_ID.glass && s.p > 0 && s.p < 1);
     resize();
     const front = effect?.front ? effect.state() : null;
     const behind = !front && effect?.behind ? effect.state() : null;
@@ -194,7 +234,7 @@ function createScene() {
     gl.uniform2f(U.uPointer, ptrX, ptrY);
     gl.uniform1f(U.uPtrOn, ptrOn);
     gl.uniform2f(U.uView, cssW, cssH);
-    // Transits first draw their snapshots and step their fluid, off screen. With reduced motion the
+    // Transits first refresh their snapshots off screen. With reduced motion the
     // seams stay the plain, still ones.
     const now = performance.now();
     const info = transit && !paused ? { scale, now, time, vpW: cssW, vpH: cssH, ptr: { x: ptrX, y: ptrY, on: ptrOn } } : null;
@@ -230,22 +270,32 @@ function createScene() {
       if (drew && s.units) { transit.drawEffect(s, info); restoreMain(); }
       drewLast = drew || drewLast;
     }
-    adapt(dt);
+    adapt(dt, list.some(s => (s.a === 2 && (s.mode === 2 || s.mode === 3)) || (s.b === 2 && s.mode === 6)));
   }
 
   const drawGround = s => { gl.useProgram(program); return draw(s); };
   const restoreMain = () => gl.useProgram(program);
 
   // Dynamic resolution: drop the buffer scale when frames run long, recover when they are quick.
-  function adapt(dt) {
+  function adapt(dt, racing) {
     if (dt > 0.0205) { slow++; fast = 0; } else if (dt < 0.0178) { fast++; slow = Math.max(0, slow - 1); }
-    if (slow > 24 && scale > 0.5) { scale = Math.max(0.5, scale - 0.15); slow = 0; }
+    // Frames just over budget miss every other vsync: no run of slow frames, but half of them late.
+    // Their share over the last fifty or so counts too.
+    slowShare += ((dt > 0.0205 ? 1 : 0) - slowShare) * 0.02;
+    const behind = slow > 24 || slowShare > 0.15;
+    // Drop only fine fractures and secondary glints before reducing principal ice quality.
+    if (behind && racing && iceDetail > 0) { iceDetail = 0; slow = 0; slowShare = 0; }
+    else if (behind && scale > 0.5) { scale = Math.max(0.5, scale - 0.15); slow = 0; slowShare = 0; }
     // Still slow at half resolution: hand the pages back to their CSS art.
     if (slow > 90 && scale <= 0.5) giveUp();
+    // Quick again for a while: the resolution back first, then the fine detail.
     if (fast > 300 && scale < 1) { scale = Math.min(1, scale + 0.1); fast = 0; }
+    else if (fast > 300 && iceDetail < 1) { iceDetail = 1; fast = 0; }
   }
 
   function giveUp() {
+    effect?.abort?.();
+    transit?.dispose(); transit = null;
     ready = false;
     root.classList.remove('gl');
     root.classList.add('no-gl');
@@ -267,35 +317,55 @@ function createScene() {
     const vw = innerWidth, vh = innerHeight;
     const card = rect ? [rect.left, rect.top, rect.width, rect.height] : null;
     const at = point ? [point.x, point.y] : [vw / 2, vh / 2];
+    const racing = style === STYLE_ID.glass && !close && !fog;
+    let revealing = false, heroStarted = false, revealMain = null, revealRect = null, headingRect = null;
+    const heroReveal = () => { if (!heroStarted) { heroStarted=true; document.dispatchEvent(new CustomEvent('xp:reveal')); } };
     let e = 0, goal = 1, ms = close ? CLOSE_MS : fog ? FOG_MS : COVER_MS, done = null, dead = false, wait = null;
     const run = {
-      front: true, behind: false,
+      front: true, behind: false, racing,
       state() {
         const region = [0, 0, vpW, vpH];
         const h = fog ? 1 : 0;
-        if (run.front) return { region, mode: close ? 4 : 2, a: style, e, h, card, cardR, point: at };
+        if (run.front) return { region, mode: revealing ? 3 : close ? 4 : 2, a: style, e, h, card, cardR, point: at };
         return { region, mode: 3, a: style, e, h, point: at };
       },
       step(dt) {
         if (dead || e === goal) return;
         e = goal > e ? Math.min(goal, e + (dt * 1000) / ms) : Math.max(goal, e - (dt * 1000) / ms);
+        if (racing && revealing) {
+          const far=Math.hypot(Math.max(at[0],vw-at[0]),Math.max(at[1],vh-at[1]));
+          // Conservative boundary: the complete circular DOM aperture is already fully clear,
+          // including the shader's bounded spatial variation. No layout reads during playback.
+          const radius=Math.max(0,(.36*e-.086)/.18)*far;
+          revealMain?.style.setProperty('--ice-radius', `${radius}px`);
+          if (!heroStarted) {
+            const r=headingRect;
+            const radial=r ? Math.max(...[[r.left,r.top],[r.right,r.top],[r.left,r.bottom],[r.right,r.bottom]].map(p=>Math.hypot(p[0]-at[0],p[1]-at[1])/far)) : 1;
+            if (.36*e >= .18*radial+.086) heroReveal();
+          }
+        }
         if (e === goal) { const d = done; done = null; d?.(); }
       },
     };
     const to = (g, dur) => new Promise(r => { goal = g; ms = dur; if (e === g) r(); else done = r; });
     const end = () => {
+      if (dead) return;
       dead = true;
+      const pending = done; done = null; pending?.();
       wait?.remove();
+      for (const p of ['--ice-radius','--ice-x','--ice-y']) revealMain?.style.removeProperty(p);
       if (effect === run) { effect = null; canvas.classList.remove('is-front'); delete root.dataset.xpReveal; }
       sleepIfIdle();
     };
     const letGo = async () => {
       if (dead) return;
+      if (racing) { const pending=done; done=null; pending?.(); }
       run.front = true;
       await to(0, 200);
       end();
     };
-    if (effect) effect.cancel?.();
+    run.abort = end;
+    if (effect) effect.abort?.();
     effect = run;
     canvas.classList.add('is-front');
     wake();
@@ -303,25 +373,33 @@ function createScene() {
     return {
       covered,
       async reveal(info = {}) {
-        if (dead) return;
+        if (dead) { if (racing) heroReveal(); return; }
         await covered;
         if (dead) return;
         wait?.remove();
-        canvas.classList.remove('is-front');
-        document.dispatchEvent(new CustomEvent('xp:reveal'));
+        if (!racing) { canvas.classList.remove('is-front'); heroReveal(); }
         if (close) {
           run.front = false;
           end();
           await flipIn(info.card?.());
           return;
         }
-        root.dataset.xpReveal = '';
-        run.front = false; run.behind = true;
+        root.dataset.xpReveal = racing ? 'ice' : '';
+        if (racing) {
+          revealMain=document.querySelector('main');revealRect=revealMain?.getBoundingClientRect();
+          headingRect=document.querySelector('[data-hero] h1')?.getBoundingClientRect();
+          revealMain?.style.setProperty('--ice-x',`${at[0]-(revealRect?.left||0)}px`);
+          revealMain?.style.setProperty('--ice-y',`${at[1]-(revealRect?.top||0)}px`);
+          revealMain?.style.setProperty('--ice-radius','0px');
+        }
+        revealing = true;
+        run.front = racing; run.behind = !racing;
         e = 0;
         await to(1, fog ? FOG_MS : REVEAL_MS);
+        heroReveal();
         end();
       },
-      skip() { if (!dead) { e = goal; done?.(); done = null; } },
+      skip() { if (!dead) { if (revealing) heroReveal(); e = goal; done?.(); done = null; } },
       cancel() { letGo(); },
       fail() { letGo(); },
       slow() {
@@ -353,6 +431,8 @@ function createScene() {
     compiled: null,
     add(host) { hosts.add(host); wake(); return () => { hosts.delete(host); sleepIfIdle(); }; },
     open,
+    iceReady: () => !!transit?.iceReady(vpW,vpH),
+    iceStats: () => ({ ...transit?.iceStats(vpW,vpH), renderScale: scale, detail: iceDetail, fallback: !ready }),
     get pointer() { return { x: ptrX, y: ptrY, on: ptrOn }; },
   };
   // Compile once the page has painted.

@@ -1,0 +1,2 @@
+import { makeIcePlan, packIce } from './ice-plan.js';
+self.onmessage=({data:{key,token,W,H,phone,origin}})=>{try{const start=performance.now(),plan=makeIcePlan(W,H,{phone,origin}),packed=packIce(plan);packed.stats.prepareMs=performance.now()-start;self.postMessage({key,token,...packed},[packed.data.buffer,packed.atlas.buffer]);}catch(error){self.postMessage({key,token,error:String(error.stack||error)});}};

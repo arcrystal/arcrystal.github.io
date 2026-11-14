@@ -69,12 +69,19 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // as the next band's heading arrives. holdAt gives, for a hold whose page top is T and whose length
 // is H (CSS px, so H - vh of it is held), the strip's top on screen and the progress p.
 // pinTouch: phones and touch screens, where a long hold costs more thumb. by: a style's own (pin: a
-// scale on the pin; leadIn, leadOut).
+// scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6 }, glass: { leadOut: 0.06 }, folio: { pin: 1.25, leadOut: 0.06 }, darkroom: { pin: 1.25, leadOut: 0.06 }, ink: { pin: 1.2 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 1.25, leadOut: 0.06 }, darkroom: { pin: 1.25, leadOut: 0.06 }, ink: { pin: 1.2 } },
 };
-export const holdFor = style => ({ pin: 1, leadIn: HOLD.leadIn, leadOut: HOLD.leadOut, ...HOLD.by[style] });
+// Racing's band surfaces in place inside its transition (home.js wraps it with its hold): the hold
+// ends, and the band scrolls on, at the transition's very end.
+export const GLASS_RELEASE = 1.2;
+export const holdFor = (style, pin = HOLD.pin) => {
+  const h = { pin: 1, leadIn: HOLD.leadIn, leadOut: HOLD.leadOut, ...HOLD.by[style] };
+  if (style === 'glass') h.leadOut = 0;
+  return h;
+};
 export function holdAt(sy, T, H, vh, leadIn = HOLD.leadIn, leadOut = HOLD.leadOut) {
   const R = Math.max(1, H - vh), a = leadIn * vh, b = leadOut * vh;
   const y = sy < T ? T - sy : sy > T + R ? T + R - sy : 0;
@@ -82,6 +89,39 @@ export function holdAt(sy, T, H, vh, leadIn = HOLD.leadIn, leadOut = HOLD.leadOu
 }
 // Every transit starts slowly, giving time at the foot of the band above: the progress it plays at.
 export const holdEase = p => clamp01(p) ** 1.35;
+// Racing's hold paces its transition by stretch: how much scroll each part of P gets, relative. It
+// starts from rest, the nebulae and the stardust unhurried, the freezing a little brisker, and the
+// ending (the rift, the field lines, the card) slowest. glassEase maps the hold's raw progress to p
+// as holdEase does for the others; glassRaw inverts it (for the tools that seek a P).
+const GLASS_PACE = [[-0.2, 3.2], [-0.1, 1.25], [0.46, 1.25], [0.5, 1.0], [0.8, 1.0], [0.88, 2.4], [1.2, 2.4]];
+const GLASS_TABLE = (() => {
+  const N = 2048, Ps = new Float64Array(N + 1), raw = new Float64Array(N + 1);
+  const w = x => {
+    for (let i = 1; i < GLASS_PACE.length; i++) if (x <= GLASS_PACE[i][0]) {
+      const [a, wa] = GLASS_PACE[i - 1], [b, wb] = GLASS_PACE[i], t = (x - a) / (b - a);
+      return wa + (wb - wa) * t * t * (3 - 2 * t);
+    }
+    return GLASS_PACE[GLASS_PACE.length - 1][1];
+  };
+  for (let k = 0; k <= N; k++) {
+    Ps[k] = -0.2 + 1.4 * k / N;
+    if (k) raw[k] = raw[k - 1] + (w(Ps[k - 1]) + w(Ps[k])) / 2;
+  }
+  for (let k = 0; k <= N; k++) raw[k] /= raw[N];
+  return { Ps, raw, N };
+})();
+export function glassEase(r) {
+  const { Ps, raw, N } = GLASS_TABLE, x = clamp01(r);
+  let lo = 0, hi = N;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (raw[m] <= x) lo = m; else hi = m; }
+  const t = raw[hi] > raw[lo] ? (x - raw[lo]) / (raw[hi] - raw[lo]) : 0;
+  return (Ps[lo] + (Ps[hi] - Ps[lo]) * t + 0.2) / 1.4;
+}
+export function glassRaw(P) {
+  const { raw, N } = GLASS_TABLE, k = Math.max(0, Math.min(N, (P + 0.2) / 1.4 * N)), i = Math.min(N - 1, Math.floor(k));
+  return raw[i] + (raw[i + 1] - raw[i]) * (k - i);
+}
+export const easeFor = style => (style === 'glass' ? glassEase : holdEase);
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);
@@ -124,7 +164,7 @@ export const VORTEX = {
   byUp: 0.45, byIn: 0.55,
   // The wind's base leaves the foot at base0 and reaches the top base1 later. A built cell stays
   // blurred blurWait, then sharpens over blurD as the base ring's front (reachW deep) reaches it.
-  base0: 0.78, base1: 0.4, blurWait: 0.08, blurD: 0.14, reachW: 0.12,
+  base0: 0.78, base1: 0.35, blurWait: 0.08, blurD: 0.14, reachW: 0.025,
   in: 0.12, out: 0.2, v0: 0.08,
   swarms: 5, clump: 0.82, wave: 80, lzN: 32, lzT: 0.8, lzPx: 2.4,
 };
@@ -149,15 +189,28 @@ export function vortexBand(P, [, H]) {
   return [H * (1 - Math.min(top, 1.7)), base <= 0 ? H + 20 : H * (1 - base)];
 }
 export const vortexWide = ([top, base], [W]) => Math.min(W * 0.48, 150 + (base - top) * 0.5);
-// The wind's base (screens up) at P, how far above it its base ring reaches dx from the axis, and
-// how sharp a cell at q (CSS px) built at land is at P (0 blurred, 1 sharp): the later of its wait and
-// the ring's front. n (0..1): flight.js's noise on the front.
-export const vortexBaseUp = P => Math.max(0, (P - VORTEX.base0) / VORTEX.base1);
-export const vortexReach = (dx, [W]) => { const k = dx / (0.55 * W); return 0.08 + 0.25 * Math.sqrt(Math.max(1 - k * k, 0)); };
+// The visible lower edge of the base ring, including its tilt and perspective (units.js flowAt).
+// Solve the projected ellipse at x; outside its silhouette, continue from its side. The lower of
+// the front/back intersections stays below the whole ring as it rises past the screen centre.
+export function vortexClearY(x, P, S) {
+  const band = vortexBand(P, S), R = vortexWide(band, S);
+  const a = 0.8 * R * Math.cos(VORTEX.tilt) / 1100;
+  const cap = 700 / 1100, side = Math.min(a, cap / a);
+  const k = Math.min(Math.abs(x - S[0] * 0.5) / R, Math.sqrt(1 - side * side) / (1 - a * side));
+  const d = Math.sqrt(Math.max(0, 1 - k * k * (1 - a * a)));
+  const project = sign => {
+    let sn = (k * k * a + sign * d) / (1 + k * k * a * a);
+    const clipped = Math.sqrt(Math.max(0, 1 - (k * (1 - cap)) ** 2));
+    if (sign > 0 && a * clipped >= cap) sn = clipped;
+    return S[1] * 0.5 + (band[1] - S[1] * 0.5 + 0.8 * R * sn * Math.sin(VORTEX.tilt)) / (1 - Math.min(a * sn, cap));
+  };
+  return Math.max(project(-1), project(1)) + 0.008 * S[1];
+}
+// How sharp a cell is (0 blurred, 1 sharp): after its wait and just below the visible base.
 export function vortexSharp([qx, qy], land, P, S, n = 0.5) {
   const V = VORTEX, t = (P - land - V.blurWait) / V.blurD;
   if (t <= 0) return 0;
-  const front = (vortexBaseUp(P) + vortexReach(qx - 0.5 * S[0], S) + 0.04 * (n - 0.5) - (1 - qy / S[1])) / V.reachW;
+  const front = ((qy - vortexClearY(qx, P, S)) / S[1] + 0.004 * (n - 0.5)) / V.reachW;
   return smoothstep(Math.min(t, front));
 }
 // How much of the wind's widest a cube orbits at, at height y in the band: a trumpet, wide at the

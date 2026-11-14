@@ -10,7 +10,7 @@
 // Per frame this reads scrollY and writes only the header's ink (when the band under it changes)
 // and the crystal's state; everything else is measured on resize.
 import { onTick, clamp } from './lib/util.js';
-import { approach, smoothstep, HOLD, holdAt, holdFor, holdEase } from './lerp.js';
+import { approach, smoothstep, HOLD, holdAt, holdFor, easeFor, transitP } from './lerp.js';
 import { getScene, STYLE_ID } from './scene/scene.js';
 import { racePace } from './race-pace.js';
 import { skyline } from './skyline.js';
@@ -39,6 +39,7 @@ export function mount(main, ctx) {
   // ---- layout, measured on resize -------------------------------------------------------------
   let vw = 1, vh = 1, heroTop = 0, heroH = 0, headH = 64, crystal = [0, 0, 0], sections = [];
   const coarse = matchMedia('(pointer: coarse)');
+  const racingReduced = matchMedia('(prefers-reduced-motion: reduce)');
   // The holds (lerp.js HOLD): screens of scroll during which a seam's transit plays with the seam
   // held full screen. They are sized on a steady screen height, so a phone's toolbar sliding in and
   // out doesn't move the page.
@@ -50,7 +51,9 @@ export function mount(main, ctx) {
     const pin = coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin;
     // Some transitions take longer (lerp.js HOLD.by: the vortex into Science).
     holds.forEach(el => {
-      const h = `${Math.round(holdVh * (1 + pin * holdFor(el.dataset.to).pin))}px`;
+      // Racing's hold is wrapped with its band (setHolds): the band, held on screen, is its last screen.
+      const wrapped = el.parentElement?.classList.contains('seam-wrap');
+      const h = `${Math.round(holdVh * ((wrapped ? 0 : 1) + pin * holdFor(el.dataset.to).pin))}px`;
       if (el.style.height !== h) el.style.height = h;
     });
     const sy = scrollY;
@@ -64,10 +67,24 @@ export function mount(main, ctx) {
     }
     sections = bands.map((b, i) => {
       const r = b.getBoundingClientRect();
-      const hr = holds.get(i)?.getBoundingClientRect();
+      const hold = holds.get(i), hr = hold?.getBoundingClientRect();
+      const wrap = hold?.parentElement?.classList.contains('seam-wrap') ? hold.parentElement : null;
+      if (wrap) {
+        // Racing: the band sticks at the top of the screen through the hold, under the transition, and
+        // scrolls on once it ends. The hold runs from the wrapper's top for the spacer's height plus a
+        // screen, so the transition ends exactly as the band lets go; the band's place is where it then is.
+        const wt = wrap.getBoundingClientRect().top + sy, span = hold.offsetHeight;
+        const card = b.querySelector('.r-band-race'), cr = card?.getBoundingClientRect();
+        return { el: b, id: b.dataset.band, style: b.dataset.style, top: wt + span, h: b.offsetHeight, seam: 0,
+          hold: { top: wt, h: span + vh }, stick: { top: wt, span },
+          card: cr ? [cr.left, cr.top - r.top, cr.width, cr.height, parseFloat(getComputedStyle(card).borderTopLeftRadius) || 24] : null };
+      }
       return { el: b, id: b.dataset.band, style: b.dataset.style, top: r.top + sy, h: r.height, seam: 0,
         hold: hr ? { top: hr.top + sy, h: hr.height } : null };
     });
+    // Racing's card during its hold: the transition's fragments stream into it (scene/transit.js).
+    const held = sections.find(s => s.stick && s.card);
+    if (held) document.dispatchEvent(new CustomEvent('dew:card', { detail: held.card.slice(0, 4) }));
     // Without a hold (motion paused), each seam straddles the boundary on the band below it: tall
     // enough to read, never more than most of the shorter band beside it.
     sections.forEach((s, i) => {
@@ -321,14 +338,33 @@ export function mount(main, ctx) {
           const a = sections[i - 1], c = sections[i];
           if (!a || !c) return null;
           if (c.hold) {
-            const L = holdFor(c.style);
+            const L = holdFor(c.style, coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin);
             const { y, p: raw } = holdAt(scrollY, c.hold.top, c.hold.h, vh, L.leadIn, L.leadOut);
             if (y + vh <= 0 || y >= vh) return null;
-            const p = holdEase(raw);
+            const p = easeFor(c.style)(raw);
             const cap = captions.get(i);
             if (cap && Math.abs(cap.p - raw) > 0.002) { cap.p = raw; cap.el.style.setProperty('--p', raw.toFixed(3)); }
+            // Science's content enters the cleared foot while the vortex still fills the screen.
+            // Keep drawing the full clearing curve behind it until the transition finishes.
+            const science = c.style === 'cosmos' || c.style === 'glass';
+            let card = [0, y, vw, vh], cardR;
+            if (c.stick) {
+              // Racing surfaces in place: the caption goes as it begins; the band's content condenses as
+              // the transition ends (--surface, site.css); the shader crystallizes its card from the ice.
+              const P = transitP(p), sf = clamp((P - 1.02) / 0.16);
+              if (cap) cap.el.style.visibility = P > 0.96 ? 'hidden' : '';
+              if (c.surface !== sf) {
+                c.surface = sf;
+                c.el.style.setProperty('--surface', sf.toFixed(3));
+                c.el.classList.toggle('is-surfacing', sf > 0 && sf < 1);
+                c.el.classList.toggle('is-held', sf <= 0);
+              }
+              const bandY = scrollY < c.stick.top ? c.stick.top - scrollY : Math.min(0, c.stick.top + c.stick.span - scrollY);
+              if (c.card) { card = [c.card[0], c.card[1] + bandY, c.card[2], c.card[3]]; cardR = c.card[4]; }
+            } else if (science && cap) cap.el.style.visibility = c.top - scrollY < vh ? 'hidden' : '';
+            const clipY = science && raw < 1 ? Math.max(0, y) : y;
             // Drawn on the whole screen as if held; the strip's place on screen (clip) reveals it.
-            return { region: [0, 0, vw, vh], clip: [0, y, vw, vh], card: [0, y, vw, vh], mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
+            return { region: [0, 0, vw, vh], clip: [0, clipY, vw, vh], card, cardR, mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
               p, h: 1 - p, vel: clamp(vel, -3, 3) };
           }
           if (!c.seam) return null;
@@ -350,7 +386,7 @@ export function mount(main, ctx) {
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
   // Each hold names its transition while it plays, at the foot of the screen, with a thin line
   // for how far it has come: the process (glsl/flight.js) and where it is going.
-  const PROCESS = { cosmos: 'A vortex', glass: 'Crystal growth', folio: 'Layers of sheets', darkroom: 'Film, developed', ink: 'Branching ink' };
+  const PROCESS = { cosmos: 'A vortex', glass: 'Stardust, then frost', folio: 'Layers of sheets', darkroom: 'Film, developed', ink: 'Branching ink' };
   const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;
@@ -358,7 +394,7 @@ export function mount(main, ctx) {
     const before = anchor?.getBoundingClientRect().top ?? 0;
     if (on) {
       bands.forEach((b, i) => {
-        if (!i || bands[i - 1].dataset.style === b.dataset.style) return;
+        if (!i || bands[i - 1].dataset.style === b.dataset.style || (b.dataset.style === 'glass' && racingReduced.matches)) return;
         const el = document.createElement('div');
         el.className = 'seam-hold';
         el.dataset.to = b.dataset.style;
@@ -374,11 +410,29 @@ export function mount(main, ctx) {
           el.append(cap);
           captions.set(i, { el: cap, p: -1 });
         }
-        b.before(el);
+        if (b.dataset.style === 'glass') {
+          // Racing surfaces in place: its band waits on screen under the transition (sticky, held
+          // hidden), then scrolls on with the page.
+          const wrap = document.createElement('div');
+          wrap.className = 'seam-wrap';
+          b.before(wrap);
+          wrap.append(b, el);
+          b.classList.add('is-held');
+          b.style.setProperty('--surface', '0');
+        } else b.before(el);
         holds.set(i, el);
       });
     } else {
-      holds.forEach(el => el.remove());
+      holds.forEach(el => {
+        const wrap = el.parentElement?.classList.contains('seam-wrap') ? el.parentElement : null;
+        if (wrap) {
+          const b = wrap.querySelector('.band');
+          b.classList.remove('is-held', 'is-surfacing');
+          b.style.removeProperty('--surface');
+          wrap.before(b);
+          wrap.remove();
+        } else el.remove();
+      });
       holds.clear();
       captions.clear();
     }
@@ -386,6 +440,7 @@ export function mount(main, ctx) {
     if (anchor) scrollBy(0, anchor.getBoundingClientRect().top - before);
   }
   setHolds(wantHolds());
+  scope.on(racingReduced, 'change', () => { setHolds(false); setHolds(wantHolds()); });
   const mo = new MutationObserver(() => setHolds(wantHolds()));
   mo.observe(root, { attributes: true, attributeFilter: ['class'] });
   scope.add(() => { mo.disconnect(); setHolds(false); });

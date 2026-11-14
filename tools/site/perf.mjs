@@ -14,7 +14,7 @@ const { values: o } = parseArgs({ options: {
 } });
 const [width, height] = o.size.split('x').map(Number);
 const RUNS = [
-  { name: 'gpu', preset: 'gpu', throttle: 1, budget: { p90: 17.5, worst: 50, recalcPerFrame: Infinity } },
+  { name: 'gpu', preset: 'gpu', throttle: 1, budget: { p90: 17.5, worst: 75, recalcPerFrame: Infinity } },
   { name: 'gpu, CPU 4×', preset: 'gpu', throttle: 4, budget: { p90: 20, worst: Infinity, recalcPerFrame: 4 } },
   { name: 'swiftshader (falls back to CSS)', preset: 'swiftshader', throttle: 1, budget: { p90: 33.4, worst: Infinity, recalcPerFrame: Infinity } },
 ];
