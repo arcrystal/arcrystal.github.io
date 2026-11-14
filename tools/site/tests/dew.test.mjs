@@ -1,14 +1,19 @@
-// Stars, nebulae, stardust, drops, ice (Science → Racing): the nebulae and their physics, the stardust's
-// collapse, the drops, the freezing chain, the crystals and the rift, the optics, the break-apart and the
-// seam's timing.
+// Stars, remnants, gravity's spots, cold from the card, the vacuum (Science → Racing): the supernovae
+// and their spherical remnants, the gas's mirror, the Jeans clumps and their free fall, the stars'
+// beads, the front from Racing's card and each drop's freezing and splitting, the field the shards are
+// pulled along, the card's fuse clock, the optics, a click's freeze and burst, and the seam's timing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  makeDewPlan, packDew, tileLists, radiusAt, liveAt, extentOf, visibleFrom, coldAt, clearAt, clearStart, lensTrace, holdStartP, WATER, DEW, KIND,
-  SN, remnantFrac, remnantInverse, shellFrac, lightCurve, nucleationRate, nucleationDelay, makeFragments, FRAG, CORE, fallAngle, freeFall, grainAt, coreVolume,
-  NEB, isPlanetary, nebDensity, nebColour, nebFrame, nebulaRadius, shockAt, capHeight, chainSeeds, chainAt, frontAt, riftOpening, crackY,
+  makeDewPlan, packDew, spotLists, radiusAt, clearAt, clearStart, holdStartP, DEW, KIND, upOf,
+  CLICK, clickEcho, clickSpots, clickFreeze, clickFlight, clickOpen, clickPull,
+  SN, SHELL, remnantFrac, remnantInverse, lightCurve, nebDensity, nebulaRadius, shockAt, scienceDrops, hotOf,
+  SKY, skyStars, hashG, hash2G, tri, NEB_RGB, hash3G, noise3G, turb3G, fbm3G, sphereGas, gasAt,
+  SPOTS, jeansLength, freeFallTime, fallAngle, freeFall, supportAt,
+  FREEZE, FIELD, CLEAVE, cardDistance, frontSpeed, freezeTime, frontWave, pieceCount, ringsOf, aimShards,
 } from '../../../static/site/scene/dew-plan.js';
+import { PALETTE, lineRGB, rgb } from '../../../static/site/scene/palette.js';
 import { GIANTS, blackbody, lineColour } from '../../../static/site/scene/giants.js';
 import { HOLD, holdFor, holdAt, glassEase, glassRaw, transitP, GLASS_RELEASE } from '../../../static/site/lerp.js';
 
@@ -19,169 +24,221 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const statics = p => p.records.filter(r => r.science === undefined);
 const src = readFileSync(new URL('../../../static/site/scene/glsl/dew.js', import.meta.url), 'utf8');
 const units = readFileSync(new URL('../../../static/site/scene/glsl/units.js', import.meta.url), 'utf8');
-// Spearman's rank correlation.
+const kOf = p => Math.max(0.8, Math.min(1.5, p.H / 900));
 const ranks = a => { const o = a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]), r = new Array(a.length); o.forEach(([, i], k) => { r[i] = k; }); return r; };
 const spearman = (a, b) => { const ra = ranks(a), rb = ranks(b), n = a.length, m = (n - 1) / 2; let sab = 0, saa = 0, sbb = 0; for (let i = 0; i < n; i++) { sab += (ra[i] - m) * (rb[i] - m); saa += (ra[i] - m) ** 2; sbb += (rb[i] - m) ** 2; } return sab / Math.sqrt(saa * sbb); };
+const pk = p => { const d = packDew(p).data; return i => [...d.subarray(i * 4, i * 4 + 4)]; };
 
 test('plans reproduce exactly from the seed and the size', () => {
   const again = makeDewPlan(390, 844);
-  assert.equal(again.records.length, plans[1].records.length);
   assert.deepEqual(JSON.stringify(again.records), JSON.stringify(plans[1].records));
-  assert.deepEqual(JSON.stringify(again.cells.map(c => [c.c, c.t0, c.poly])), JSON.stringify(plans[1].cells.map(c => [c.c, c.t0, c.poly])));
+  assert.deepEqual(JSON.stringify(again.shards), JSON.stringify(plans[1].shards));
+  assert.deepEqual([...again.fuse.t], [...plans[1].fuse.t]);
   for (const p of plans) for (const r of p.records) for (const v of [r.c[0], r.c[1], r.V0, r.t0]) assert.ok(Number.isFinite(v));
 });
 
-test('nebulae: each whole, only the outer fringes of neighbours crossing; remnants from the hot giants, planetaries from the cool', () => {
+test('supernovae: spheres, each with room of its own (only the outer fringes of neighbours crossing), in an order that is not a sweep', () => {
   for (const p of plans) {
     const ev = p.events;
     assert.equal(ev.length, p.phone ? 4 : 7);
-    assert.equal(new Set(ev.map(e => e.type)).size, ev.length, 'every nebula a different kind');
     for (const e of ev) {
-      assert.equal(isPlanetary(e.type), GIANTS[e.giant].T < 5000, 'a supernova from a hot giant, a planetary from a cool one');
+      assert.equal(e.aspect, 1, 'a sphere');
       near(e.S[0], GIANTS[e.giant].x * p.W, 1e-9); near(e.S[1], GIANTS[e.giant].y * p.H, 1e-9);
+      near(e.hot, hotOf(GIANTS[e.giant].T), 1e-12);
+      assert.ok(e.t >= holdStartP(p.phone) + 0.01 && e.t <= SN.end + 1e-9, 'in its window');
+      near(nebulaRadius(e, e.t + e.span), e.Rmax, 1e-9, 'full size by cover');
     }
-    assert.equal(ev.filter(e => !isPlanetary(e.type)).length, p.phone ? 2 : 4);
+    assert.equal(new Set(ev.map(e => e.giant)).size, ev.length);
     for (let a = 0; a < ev.length; a++) for (let b = a + 1; b < ev.length; b++) {
-      // Each reaches at most Rmax × aspect (its long axis): their bodies (the inner four-fifths) never
-      // meet; at most the outer fringes cross.
-      const d = dist(ev[a].S, ev[b].S), Ra = ev[a].Rmax * ev[a].aspect, Rb = ev[b].Rmax * ev[b].aspect;
-      assert.ok(0.8 * (Ra + Rb) <= d, `bodies overlap (${p.W}: ${a}, ${b})`);
-      assert.ok(Ra + Rb <= 1.21 * d, `more than the fringes cross (${p.W}: ${a}, ${b})`);
+      const d = dist(ev[a].S, ev[b].S);
+      assert.ok(0.8 * (ev[a].Rmax + ev[b].Rmax) <= d, `bodies overlap (${p.W}: ${a}, ${b})`);
+      assert.ok(ev[a].Rmax + ev[b].Rmax <= 1.21 * d, `more than the fringes cross (${p.W}: ${a}, ${b})`);
     }
-    // The order of endings is not a sweep across or down the screen.
     const order = ev.map(e => e.t);
     assert.ok(Math.abs(spearman(order, ev.map(e => e.S[1]))) <= 0.4 + 1e-9 && Math.abs(spearman(order, ev.map(e => e.S[0]))) <= 0.4 + 1e-9, `a sweep (${p.W})`);
   }
+  // A blue progenitor is hot, a red one cool.
+  assert.ok(hotOf(30000) > 0.99 && hotOf(3400) < 0.01 && hotOf(9000) > hotOf(5000));
 });
 
-test('supernovae and shells: the Sedov–Taylor slope, the Ni→Co light curve, a planetary\'s steady shell', () => {
+test('remnants: free expansion then the Sedov–Taylor slope, the Ni→Co light curve, the shell limb-brightened', () => {
   const slope = (x, h = 1e-4) => Math.log(remnantFrac(x * (1 + h)) / remnantFrac(x)) / Math.log(1 + h);
   near(slope(1e-4), 1, 0.01, 'free expansion');
   near(slope(5), 0.4, 0.01, 'Sedov–Taylor');
   assert.ok(slope(1) > 0.4 && slope(1) < 0.45, 'well into the Sedov phase by the final radius');
-  for (let x = 0.001; x < 1; x += 0.001) { assert.ok(remnantFrac(x + 0.001) > remnantFrac(x)); assert.ok(shellFrac(x + 0.001) > shellFrac(x)); }
-  near(remnantFrac(1), 1, 1e-12); near(shellFrac(1), 1, 1e-12);
+  for (let x = 0.001; x < 1; x += 0.001) assert.ok(remnantFrac(x + 0.001) > remnantFrac(x));
+  near(remnantFrac(1), 1, 1e-12);
   for (const y of [0.1, 0.5, 0.9]) near(remnantFrac(remnantInverse(y)), y, 1e-9, 'inverse');
   near(SN.tauCo / SN.tauNi, 111.3 / 8.8, 1e-9, 'mean lives');
   const late = s => Math.log(lightCurve(s) / lightCurve(s + 0.001)) / 0.001;
   near(1 / late(0.15), SN.tauCo, SN.tauCo * 0.02, 'the cobalt tail');
-  for (const p of plans) for (const e of p.events) {
-    assert.ok(e.t >= holdStartP(p.phone) + 0.01 && e.t <= SN.end + 1e-9, 'in its window');
-    near(nebulaRadius(e, e.t + e.span), e.Rmax, 1e-9, 'full size by cover');
-    // The gas at a point is swept up once its nebula has reached it (or a neighbour's fringe, sooner).
-    for (const u of [0.2, 0.5, 0.9]) {
-      const q = [e.S[0] + Math.cos(e.angle + Math.PI / 2) * u * e.Rmax, e.S[1] + Math.sin(e.angle + Math.PI / 2) * u * e.Rmax];
-      let lo = e.t, hi = e.t + e.span;
-      for (let k = 0; k < 50; k++) { const m = (lo + hi) / 2; if (nebulaRadius(e, m) < u * e.Rmax) lo = m; else hi = m; }
-      assert.ok(shockAt(p, q) <= hi + 1e-6, 'swept up when reached');
-    }
+  // A soft breakout: it swells, never more than about its peak.
+  for (let s = 0; s < 0.004; s += 0.0002) assert.ok(lightCurve(s + 0.0002) >= lightCurve(s));
+  assert.ok(Math.max(...Array.from({ length: 200 }, (_, i) => lightCurve(i * 0.0005))) < 1.4);
+  // The column through the shell: brightest at the limb (ρ = the inner edge), dimmer through the middle.
+  const e = plans[0].events[0], at = r => nebDensity(e, [e.S[0] + r * e.Rmax, e.S[1]]);
+  assert.ok(at(SHELL.inner) > 1.5 * at(0.05), 'limb-brightened');
+  assert.equal(at(1.2), 0);
+  for (const p of plans) for (const e of p.events) for (const u of [0.2, 0.5, 0.9]) {
+    const q = [e.S[0] + u * e.Rmax, e.S[1]];
+    let lo = e.t, hi = e.t + e.span;
+    for (let k = 0; k < 50; k++) { const m = (lo + hi) / 2; if (nebulaRadius(e, m) < u * e.Rmax) lo = m; else hi = m; }
+    assert.ok(shockAt(p, q) <= hi + 1e-6, 'swept up when reached');
   }
-  for (let t = 0.001; t < 0.2; t += 0.005) assert.ok(nucleationRate(t + 0.005) >= nucleationRate(t));
-  for (let u = 0.05; u < 0.95; u += 0.05) assert.ok(nucleationDelay(u + 0.05) >= nucleationDelay(u));
 });
 
-test('stardust: each grain falls as a shell of a collapsing cloud, keeping its angular momentum, in an exact spiral', () => {
-  // r/r₀ = cos²β, t/t_ff = (β + sin β cos β)/(π/2).
-  for (let tau = 0; tau <= 1; tau += 0.05) { const b = fallAngle(tau); near((b + Math.sin(b) * Math.cos(b)) / (Math.PI / 2), tau, 1e-9, 'Kepler'); near(freeFall(tau), Math.cos(b) ** 2, 1e-12); }
-  const core = plans[0].cores[3], D = core.td - core.ts;
-  for (const u0 of [0.2, 0.6, 1]) {
-    // Angular momentum per mass, r² dθ/dt, the same all the way in (until the grain meets the drop).
-    const L = [];
-    const ta = core.ts + D * (0.2 + 0.8 * u0), Tff = D * (0.35 + 0.3 * u0);
-    for (let f = 0.1; f < 0.9; f += 0.1) {
-      const P = ta - Tff + f * Tff, h = 1e-7, a = grainAt(core, u0, 0.3, 1.7, P), b = grainAt(core, u0, 0.3, 1.7, P + h);
-      L.push(a[2] * a[2] * (b[3] - a[3]) / h);
-      assert.ok(b[2] <= a[2] + 1e-9, 'falls inward');
-    }
-    for (const l of L) near(l / L[0], 1, 1e-3, 'r² dθ/dt conserved');
-    // It reaches the middle as it arrives.
-    assert.ok(grainAt(core, u0, 0.3, 1.7, ta)[2] < 2e-3 * core.Rg, 'arrives');
-  }
-  // Arrivals spread evenly over the core's fall (uniform in r₀, the mass of a ρ ∝ r⁻² cloud): its drop's
-  // volume grows at a steady rate (Shu's inside-out collapse), and its drop in the plan follows it.
-  for (const P of [0.3, 0.5, 0.7].map(f => core.ts + 0.2 * D + f * 0.8 * D)) near(coreVolume(core, P) / core.r ** 3, (P - core.ts - 0.2 * D) / (0.8 * D), 1e-9, 'steady');
+test('the gas, mirrored: the shader\'s noise and remnant light, the same functions', () => {
+  // Hoskins' hash in 3D, each lattice value through a triangle wave: uniform, and the noise continuous.
+  const v = Array.from({ length: 20000 }, (_, i) => noise3G(i * 0.731, i * 0.377, i * 0.113));
+  assert.ok(v.every(x => x >= 0 && x <= 1));
+  for (let i = 0; i < 200; i++) { const x = i * 0.37, y = i * 0.21, z = i * 0.13; near(noise3G(x + 1e-5, y, z), noise3G(x, y, z), 1e-3, 'continuous'); }
+  const hv = Array.from({ length: 20000 }, (_, i) => tri(hash3G(i, i * 3 + 1, i * 7 + 2)));
+  for (const q of [0.25, 0.5, 0.75]) near(hv.filter(x => x < q).length / hv.length, q, 0.03, 'uniform');
+  assert.ok(turb3G(1.3, 2.2, 0.4) >= 0 && fbm3G(1.3, 2.2, 0.4) >= 0);
+  // The shader's are these (its source, as built).
+  assert.match(src, /float dewH3\(vec3 p\) \{ p = fract\(p \* \.1031\); p \+= dot\(p, p\.zyx \+ 31\.32\); return fract\(\(p\.x \+ p\.y\) \* p\.z\); \}/);
+  assert.match(src, /p = p \* 2\.07 \+ vec3\(1\.7, 9\.2, 4\.4\)/);
+  assert.match(src, /p = p \* 2\.03 \+ vec3\(5\.1, 2\.3, 7\.9\)/);
+  assert.match(src, /float front = cf \* \(\(\.03 \+ \.3 \* bf\) \* limb \+ 4\.8 \* wf \* \(\.35 \+ \.65 \* bf\)\)/);
+  assert.match(src, /float af = \.8 \+ \.1 \* \(2\.0 \* dewN3\(pf \/ max\(length\(pf\), 1e-3\) \* 3\.4 \+ o\) - 1\.0\);/);
+  // A remnant's light: its shell's and its ejecta's, zero beyond it, brighter toward its limb on the whole.
+  const e = plans[0].events[1], k = (r, a) => sphereGas([r * Math.cos(a), r * Math.sin(a)], 1, e.seed, e.hot)[0];
+  assert.equal(k(1.15, 0), 0);
+  const mean = r => Array.from({ length: 64 }, (_, i) => k(r, i * 0.098)).reduce((s, x) => s + x, 0) / 64;
+  assert.ok(mean(0.9) > mean(0.3), 'its shell brighter than its middle');
+  const g = gasAt(plans[0], e.S);
+  assert.ok(g.rho >= SPOTS.ism && g.gold >= 0 && g.teal >= 0);
+});
+
+test('gravity\'s spots: clumps about a Jeans length apart (∝ (c²/ρ)^½), the dense falling first, each drop its cell\'s gas', () => {
   for (const p of plans) {
+    const k = kOf(p), cl = p.clumps;
+    assert.ok(cl.length > (p.phone ? 60 : 250), `${cl.length} clumps (${p.W})`);
+    // Spacing: each clump's nearest neighbour about its Jeans length away (the Poisson disc's mean of
+    // the two, jittered), so the spacing falls as ρ^−½ where it is not clamped.
+    const pts = [];
+    for (const s of cl) {
+      let dn = Infinity, o = null;
+      for (const t of cl) if (t !== s) { const d = dist(s.c, t.c); if (d < dn) { dn = d; o = t; } }
+      assert.ok(dn >= 0.5 * (s.ell + o.ell) * 0.9 - 1e-9, 'no closer than their Jeans lengths allow');
+      near(s.ell, jeansLength(s.rho, k, s.c2), 1e-9);
+      if (s.ell > SPOTS.ellMin * k * 1.05 && s.ell < SPOTS.ellMax * k * 0.95) pts.push([Math.log(s.rho / s.c2), Math.log(dn)]);
+    }
+    const n = pts.length, mx = pts.reduce((a, q) => a + q[0], 0) / n, my = pts.reduce((a, q) => a + q[1], 0) / n;
+    const slope = pts.reduce((a, q) => a + (q[0] - mx) * (q[1] - my), 0) / pts.reduce((a, q) => a + (q[0] - mx) ** 2, 0);
+    assert.ok(slope < -0.3 && slope > -0.7, `spacing ∝ (c²/ρ)^½: slope ${slope.toFixed(2)} (${p.W})`);
+    // Free fall: the dense first; t_ff ∝ ρ^−½.
+    assert.ok(spearman(cl.map(s => s.rho), cl.map(s => s.tsnap - s.ts)) < -0.9, 'the dense fall quicker');
+    for (const s of cl) {
+      near(s.tsnap - s.ts, freeFallTime(s.rho), 1e-9);
+      assert.ok(s.tsnap < 0.5, 'every drop before the card appears');
+      // Its drop: its gathered gas's volume (Jeans mass), no larger than rMax of its Jeans length.
+      const r = Math.min(Math.cbrt(SPOTS.beta * s.mass / k ** 2) * k, SPOTS.rMax * s.ell);
+      near(s.r, Math.max(0.9, r), 1e-9);
+      assert.ok(Math.abs(Math.max(...s.col) - 1) < 1e-9 && Math.min(...s.col) >= 0);
+      // Its record: its volume arriving over the last fifth of its fall.
+      const rec = p.records[s.rec];
+      near(radiusAt(rec, s.tsnap), s.r, 1e-6); near(rec.t0, s.tsnap - 0.2 * (s.tsnap - s.ts), 1e-12);
+      assert.equal(radiusAt(rec, rec.t0), 0);
+    }
+    // Free fall's shell, r = r₀cos²β with t/t_ff = (β + sin β cos β)/(π/2).
+    for (let tau = 0; tau <= 1; tau += 0.05) { const b = fallAngle(tau); near((b + Math.sin(b) * Math.cos(b)) / (Math.PI / 2), tau, 1e-9); near(freeFall(tau), Math.cos(b) ** 2, 1e-12); }
+    // The tiles list every clump whose cell can reach them.
+    const sl = spotLists(p);
+    for (const s of cl) {
+      const R = s.R * 1.35 + 4;
+      for (const [x, y] of [[s.c[0] + R * 0.7, s.c[1]], [s.c[0], s.c[1] - R * 0.7], [s.c[0], s.c[1]]]) {
+        if (x < 0 || y < 0 || x >= p.W || y >= p.H) continue;
+        assert.ok(sl.lists[Math.floor(y / sl.T) * sl.cols + Math.floor(x / sl.T)].includes(s.rec), 'listed');
+      }
+    }
+    assert.ok(supportAt([10, 10], 1) > supportAt([10, 10], 0), 'hotter gas is held up more');
+  }
+  // The shader falls the same way.
+  assert.match(src, /b = clamp\(b - \(b \+ sin\(b\) \* cos\(b\) - tau \* PI \* \.5\) \/ max\(1\.0 \+ cos\(2\.0 \* b\), \.02\), 0\.0, PI \* \.5\);/);
+});
+
+test('cold from the card: a front out from it, each drop recalescing, freezing through in τ ∝ r², splitting along 60° planes into pieces that cover it', () => {
+  for (const p of plans) {
+    const k = kOf(p), card = p.cardRect;
+    near(p.vFreeze, frontSpeed(p.W, p.H, card), 1e-9);
+    // The front: f0 at the card's edge, f1 at the farthest corner, wavy by at most wobble.
+    for (let i = 0; i < 300; i++) {
+      const q = [(i * 0.618 % 1) * p.W, (i * 0.414 % 1) * p.H], d = cardDistance(q, card);
+      near(freezeTime(p, q), FREEZE.f0 + d / p.vFreeze + FREEZE.wobble * frontWave(q) * Math.min(1, d / 160), 1e-12);
+      assert.ok(Math.abs(freezeTime(p, q) - FREEZE.f0 - d / p.vFreeze) <= FREEZE.wobble + 1e-12);
+    }
+    near(Math.max(...[[0, 0], [p.W, 0], [0, p.H], [p.W, p.H]].map(q => FREEZE.f0 + cardDistance(q, card) / p.vFreeze)), FREEZE.f1, 1e-9);
+    assert.equal(cardDistance([card[0] + 3, card[1] + 3], card), 0);
     let checked = 0;
-    p.records.forEach(r => {
-      if (r.kind !== KIND.drop || r.core === undefined) return;
-      const c = p.cores[r.core];
-      for (const f of [0.3, 0.7]) { const P = c.ts + 0.2 * (c.td - c.ts) + f * 0.8 * (c.td - c.ts); if (P < r.end) { near(radiusAt(r, P) ** 3, coreVolume(c, P), 1e-6 * c.r ** 3 + 1e-9, 'the drop holds what has arrived'); checked++; } }
+    p.records.forEach((r, id) => {
+      if (!r.freeze) return;
+      const sci = r.science !== undefined, rr = sci ? Math.cbrt(r.V0) : radiusAt(r, 9), f = r.freeze;
+      near(f.tf, freezeTime(p, r.c), 1e-12);
+      near(f.tc - f.tf - FREEZE.cleave, Math.min(FREEZE.stefan * (rr / k) ** 2, FREEZE.through), 1e-12, 'Stefan: τ ∝ r²');
+      assert.equal(f.n, sci ? 6 : pieceCount(rr, k, !!r.sky));
+      const mine = p.shards.slice(f.first).filter(s => s.rec === id);
+      const rings = f.n === 1 ? [0, 1] : ringsOf(rr, k, sci);
+      assert.equal(mine.length, (sci ? 2 * f.n : f.n) * (rings.length - 1));
+      // Its cracks: of the six prism directions θ₀ + 60°k (a chrome drop's halved again).
+      for (const s of mine) {
+        if (f.n === 1) { near(s.a1 - s.a0, 2 * Math.PI, 1e-9); continue; }
+        const steps = (s.a0 - f.th0) / (Math.PI / (sci ? 6 : 3));
+        near(steps, Math.round(steps), 1e-9, 'on a prism plane');
+        assert.ok(s.t0 >= f.tc + FIELD.lag - 1e-12, 'pulled once split');
+      }
+      // The pieces cover it, once each.
+      for (let m = 0; m < 24; m++) {
+        const a = m * 2.399963, rad = rr * 0.97 * Math.sqrt((m + 0.5) / 24), q = [Math.cos(a) * rad, Math.sin(a) * rad];
+        const hits = mine.filter(s => { const ang = ((Math.atan2(q[1], q[0]) - s.a0) % (2 * Math.PI) + 4 * Math.PI) % (2 * Math.PI), rq = Math.hypot(...q); return ang < s.a1 - s.a0 && rq >= s.rin - 1e-9 && rq < s.r; });
+        assert.equal(hits.length, 1, `drop ${id} at ${m}`);
+      }
+      checked++;
     });
-    assert.ok(checked > 50, `${checked} checks`);
+    assert.ok(checked > 200, `${checked} drops`);
+    for (const [n, dirs] of Object.entries(CLEAVE)) assert.equal(dirs.length, +n === 1 ? 0 : +n);
   }
+  // The shader's front and cracks are the plan's.
+  assert.match(src, /float wave = \.6 \* sin\(qp\.x \* \.0061 \+ qp\.y \* \.0037\) \* sin\(qp\.y \* \.0053 - qp\.x \* \.0029\) \+ \.4 \* sin\(qp\.x \* \.0113 - qp\.y \* \.0071 \+ 1\.3\);/);
+  assert.match(units, /bool on = n > 5\.5 \? true : n > 4\.5 \? k < 5 : n > 3\.5 \? \(k != 2 && k != 5\) : n > 2\.5 \? \(k == 0 \|\| k == 2 \|\| k == 4\) : \(k == 0 \|\| k == 3\);/);
 });
 
-test('cores form where the nebula is dense, after it has swept up their gas, in its colours, of many sizes', () => {
+test('the vacuum: every shard along its field line into the card, the near first, all fused before dawn; the card\'s fuse clock', () => {
   for (const p of plans) {
-    const at = q => Math.max(...p.events.map(e => nebDensity(e, q)));
-    const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
-    const inCore = mean(p.cores.map(c => at(c.c)));
-    const random = (() => { let s = 11; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
-    const pts = []; while (pts.length < 3000) { const q = [random() * p.W, random() * p.H]; if (at(q) > 0.02) pts.push(at(q)); }
-    assert.ok(inCore > 1.3 * mean(pts), `cores ${inCore.toFixed(2)} vs ${mean(pts).toFixed(2)} (${p.W})`);
-    for (const c of p.cores) {
-      assert.ok(c.ts >= shockAt(p, c.c) + CORE.delay[0] - 1e-9 || c.td <= CORE.by + 1e-9, 'falls after its gas is swept up');
-      assert.ok(c.td <= CORE.by + 1e-9 && c.td < DEW.chain0, 'a drop before the freeze');
-      assert.ok(c.col.every(v => v >= 0 && v <= 1) && Math.max(...c.col) === 1, 'a colour of its nebula');
+    const card = p.cardRect, sh = p.shards;
+    for (const s of sh) {
+      assert.equal(s.path.length, FIELD.path);
+      assert.ok(cardDistance(s.path.at(-1), card) < 2, 'its line ends on the card');
+      assert.ok(cardDistance(s.path[0], card) >= cardDistance(s.path.at(-1), card));
+      assert.ok(s.t1 > s.t0 && s.t1 - s.t0 >= FIELD.fly[0] - 1e-12 && s.t1 - s.t0 <= FIELD.fly[1] + 1e-12);
+      assert.ok(s.t1 < 1.02, 'fused before the card gives its light back');
     }
-    // Sizes: many small, a few large (the power law).
-    const rs = p.cores.map(c => c.r).sort((a, b) => a - b);
-    assert.ok(rs[Math.floor(rs.length / 2)] < 0.35 * rs.at(-1), 'many small, a few large');
-  }
-});
-
-test('merging keeps volume at the volume-weighted centroid, and mixes colours by volume', () => {
-  for (const p of plans) {
-    const merged = p.records.filter(r => r.kind === KIND.merged);
-    assert.ok(merged.length > 20, `${merged.length} merges`);
-    for (const r of merged) {
-      const Va = r.ra ** 3, Vb = r.rb ** 3;
-      near(r.V0, Va + Vb, 1e-9 * r.V0, 'volume');
-      const cb = [(r.c[0] * (Va + Vb) - r.pa[0] * Va) / Vb, (r.c[1] * (Va + Vb) - r.pa[1] * Va) / Vb];
-      assert.ok(dist(r.pa, cb) <= r.ra + r.rb + 2.5, 'parents were in contact');
-      assert.ok(r.col.every(v => v >= -1e-9 && v <= 1 + 1e-9));
+    assert.ok(spearman(sh.map(s => cardDistance(s.c, card)), sh.map(s => s.t0)) > 0.6, 'near the card first (the front is wavy)');
+    // The field grid: emptied after the front, before dawn.
+    const f = p.field;
+    for (let j = 0; j < f.rows; j++) for (let i = 0; i < f.cols; i++) {
+      const g = f.grid[j * f.cols + i], q = [i * f.cell, j * f.cell];
+      near(Math.hypot(g[0], g[1]), 1, 1e-9);
+      assert.ok(g[3] >= freezeTime(p, q) + FIELD.evac - 1e-9 && g[3] <= 1.05, `emptied in time at ${q}`);
     }
+    // The fuse clock: each point lit by the first shard to reach it, in their colours.
+    const fu = p.fuse, t1min = Math.min(...sh.map(s => s.t1));
+    for (let i = 0; i < fu.t.length; i++) { assert.ok(fu.t[i] >= t1min - 1e-9); near(Math.max(fu.rgb[i * 3], fu.rgb[i * 3 + 1], fu.rgb[i * 3 + 2]), 1, 1e-9); }
+    // Aimed again when the card moves (dew-worker.js): as if planned with that card.
+    const moved = [card[0] + 30, card[1] + 24, card[2] - 10, card[3]];
+    const a = makeDewPlan(p.W, p.H, { phone: p.phone }); aimShards(a, moved);
+    const b = makeDewPlan(p.W, p.H, { phone: p.phone, card: moved });
+    assert.deepEqual(JSON.stringify(a.shards), JSON.stringify(b.shards));
+    assert.deepEqual([...a.fuse.t], [...b.fuse.t]);
+    // Packed: each record's freeze, each shard's eleven texels.
+    const cell = pk(p), h = cell(18);
+    assert.equal(h[2], sh.length);
+    p.records.forEach((r, id) => { const v = cell(h[0] + id); if (r.freeze) { near(v[0], r.freeze.tf, 1e-6); near(v[1], r.freeze.tc, 1e-6); assert.equal(v[3], r.freeze.n); } else assert.equal(v[0], 9); });
+    sh.forEach((s, i) => { const b0 = h[1] + i * 11, S1 = cell(b0 + 1), S2 = cell(b0 + 2), P7 = cell(b0 + 10); near(S1[1], s.t0, 1e-6); near(S1[2], s.t1, 1e-6); assert.equal(Math.floor(S2[3] + 1e-4), s.kind); near(P7[2], s.path[15][0], 1e-3); });
   }
 });
 
-test('the spatial lists hold every drop, its frost and its bridge that can touch a point (exhaustive check)', () => {
-  for (const p of plans) {
-    packDew(p);
-    const L = tileLists(p), T = DEW.tile;
-    const random = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
-    for (let n = 0; n < 2500; n++) {
-      const q = [random() * p.W, random() * p.H], P = -0.15 + random() * 1.0;
-      const e = Math.max(0, Math.min(DEW.epochs - 1, Math.floor((P - DEW.epoch0) / DEW.epochLen)));
-      const drops = new Set(L.drops[(e * L.rows + Math.min(L.rows - 1, Math.floor(q[1] / T))) * L.cols + Math.min(L.cols - 1, Math.floor(q[0] / T))]);
-      p.records.forEach((r, id) => {
-        if (r.science !== undefined || P < Math.max(r.t0, visibleFrom(r)) || P >= r.end) return;
-        // Long after it froze, only the bead itself is drawn (its halo and bridge have faded).
-        const reach = DEW.epoch0 + e * DEW.epochLen > r.tf + DEW.iceFade ? radiusAt(r, P) * 1.12 + 1.5 : Math.min(extentOf(p, r), radiusAt(r, P) * 2.25 + 1.5);
-        if (dist(q, r.c) < reach) assert.ok(drops.has(id), 'drop missing');
-      });
-    }
-  }
-});
-
-test('a drop is a lens: inverted, focal length R/(n − 1), blue bent more than red; its colour deepest at its middle', () => {
-  for (const th of [50, 62, 75].map(d => d * Math.PI / 180)) {
-    const n = WATER[1];
-    near(lensTrace(0, th, n).delta, 0, 1e-12);
-    let last = -1;
-    for (let s = 0; s <= 1; s += 0.01) { const d = lensTrace(s, th, n).delta; assert.ok(d > last - 1e-12); last = d; }
-    const s = 1e-4, Rc = 1 / Math.sin(th);
-    near(lensTrace(s, th, n).delta / s, (n - 1) / Rc, 1e-6, 'paraxial');
-    assert.ok(lensTrace(0.8, th, WATER[2]).delta > lensTrace(0.8, th, WATER[0]).delta, 'dispersion');
-    for (let k = 0; k <= 1; k += 0.05) assert.ok(n * Math.sin(lensTrace(k, Math.PI / 2 - 1e-9, n).gamma) < 1);
-    // The cap's depth (Beer–Lambert's path): R(1 − cos θc) at the middle, nothing at the rim.
-    near(capHeight(0, 10, th), 10 / Math.sin(th) * (1 - Math.cos(th)), 1e-9);
-    near(capHeight(10, 10, th), 0, 1e-9);
-  }
-  assert.match(src, /vec3 g = a - asin\(sa \/ DEW_WATER\);/);
-  assert.match(src, /col \*= pow\(max\(tint, vec3\(\.02\)\), vec3\(h\)\);/);
-});
-
-test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip comes in as Science; the slow ending is longer', () => {
+test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip comes in as Science; the dawn is the slowest', () => {
   assert.equal(GLASS_RELEASE, 1.2);
   for (const p of plans) {
     const pin = p.phone ? HOLD.pinTouch : HOLD.pin, L = holdFor('glass', pin), H = p.H * (1 + pin * L.pin), T = 4000;
@@ -191,14 +248,14 @@ test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip com
     const first = Math.min(...p.events.map(e => e.t));
     for (let sy = T - L.leadIn * p.H; sy < release; sy += 13) {
       const { y, p: raw } = holdAt(sy, T, H, p.H, L.leadIn, L.leadOut), P = transitP(glassEase(raw));
-      if (y > 0) assert.ok(P <= first - 0.022 + 1e-9, `a nebula while the strip comes in at ${p.W}, P=${P}`);
+      if (y > 0) assert.ok(P <= first - 0.022 + 1e-9, `a supernova while the strip comes in at ${p.W}, P=${P}`);
     }
   }
-  // From the rift on (P .88) the scroll moves slowest: over a third of the hold, and in screens more
-  // than the ending had before (a hold of 3.6 screens gave P .95 → 1.15 about .73 of a screen).
-  const share = 1 - glassRaw(0.88);
-  assert.ok(share > 1 / 3, `ending share ${share}`);
-  assert.ok((glassRaw(1.15) - glassRaw(0.95)) * HOLD.by.glass.pin > 0.85, 'longer than it was');
+  // The card's light given back as Racing's dawn (P 1.02 → 1.11) gets the most scroll; the gas gathering
+  // into its drops (.34 → .5) more than the supernovae.
+  const rate = P => glassRaw(P + 0.01) - glassRaw(P);
+  for (const P of [0, 0.2, 0.4, 0.6, 0.8, 0.9]) assert.ok(rate(P) < rate(1.04), `slower at the dawn than at ${P}`);
+  assert.ok(rate(0.4) > rate(0.15), 'the spots unhurried');
   for (let r = 0; r <= 1; r += 0.01) near(glassRaw(transitP(glassEase(r))), r, 1e-6, 'its inverse');
   const home = readFileSync(new URL('../../../static/site/home.js', import.meta.url), 'utf8');
   assert.match(home, /sf = clamp\(\(P - 1\.02\) \/ 0\.16\)/);
@@ -206,35 +263,40 @@ test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip com
   assert.match(src, /gCardMix = smoothstep\(1\.13, 1\.18, P\);/);
 });
 
-test('a click begins uncovered, swaps fully covered and ends clear; every piece clears ahead of the DOM aperture', () => {
+test('a click: the old page covered by the light before it changes, every shard home and the night everywhere by then, the dawn the DOM opens behind', () => {
+  // The light from the click covers every point well before the page changes (.84).
+  assert.ok(clickEcho(1) + 0.03 < 0.84 && clickEcho(0) > -0.2, 'covered in time');
+  for (let up = 0; up <= 1; up += 0.05) {
+    assert.ok(clickSpots(up) > clickEcho(up), 'the gas falls after the light has lit it');
+    assert.ok(clickFreeze(up) > clickSpots(up) + CLICK.kappa * SPOTS.tffMax, 'its drops formed before the cold');
+    assert.ok(clickFreeze(up + 0.05) > clickFreeze(up) && clickFlight(up + 0.05) >= clickFlight(up), 'out from the click');
+    assert.ok(clickOpen(up) < 0.84, `everything home and the night shown before the page changes (${up.toFixed(2)})`);
+  }
+  // A point sink's overdamped fall: r² falls steadily, r = r₀√(1 − u).
+  const O = [300, 200], home = [900, 650], r0 = dist(home, O);
+  for (let u = 0; u <= 1; u += 0.1) near(dist(clickPull(home, O, u), O) ** 2, r0 * r0 * (1 - u), 1e-6);
+  // The ring of dawn: the new page behind it, clear by 1.12 everywhere.
   for (const p of plans) for (const O of [[0, 0], [p.W / 2, p.H / 2], [p.W - 1, p.H - 1]]) {
-    const far = Math.hypot(Math.max(O[0], p.W - O[0]), Math.max(O[1], p.H - O[1]));
     for (let y = 0; y <= p.H; y += 73) for (let x = 0; x <= p.W; x += 79) {
       const q = [x, y];
-      assert.ok(coldAt(p, q, O) + 0.2 <= 0.84);
       assert.equal(clearAt(p, q, 0.84, O), 0);
       assert.equal(clearAt(p, q, 1.12, O), 1);
-    }
-    for (const c of p.cells) {
-      const start = 0.84 + 0.18 * Math.min(1, Math.max(0, (Math.hypot(c.centroid[0] - O[0], c.centroid[1] - O[1]) - c.radius) / far));
-      for (const v of [...c.poly, c.centroid]) assert.ok(start + 0.07 <= clearStart(p, v, O) + 0.08 + 0.0061, 'a piece over the open page');
+      assert.ok(upOf(p, q, O) <= 1 + 1e-9);
     }
   }
+  // scene.js's DOM aperture: within the fully clear ring (clear0 + clearUp·up + its wobble + clearD).
+  const scene = readFileSync(new URL('../../../static/site/scene/scene.js', import.meta.url), 'utf8');
+  assert.match(scene, /const radius=Math\.max\(0,\(\.36\*e-\.086\)\/\.18\)\*far;/);
+  assert.deepEqual({ ...DEW.click }, { clear0: 0.84, clearUp: 0.18, clearD: 0.08 });
+  // The shaders keep the click's clocks.
+  assert.match(src, /float dewClickEcho\(float up\) \{ return \$\{f\(CLICK\.echo\[0\]\)\} \+ \$\{f\(CLICK\.echo\[1\]\)\} \* up; \}/);
+  assert.match(src, /float dewClickFreeze\(float up\) \{ return \$\{f\(CLICK\.freeze\[0\]\)\} \+ \$\{f\(CLICK\.freeze\[1\]\)\} \* up; \}/);
+  assert.match(src, /float dewClearStart\(vec2 q\) \{ float up = dewUp\(q\); return \.84 \+ \.18 \* up \+ \.006 \* sin\(q\.x \* \.008\) \* sin\(q\.y \* \.007\) \* up; \}/);
+  assert.match(units, /float clickFreeze\(float up\) \{ return \$\{CLICK\.freeze\[0\]\.toFixed\(4\)\} \+ \$\{CLICK\.freeze\[1\]\.toFixed\(4\)\} \* up; \}/);
+  assert.match(units, /float clickFlight\(float up\) \{ return \$\{CLICK\.fly\[0\]\.toFixed\(4\)\} \+ \$\{CLICK\.fly\[1\]\.toFixed\(4\)\} \* up \* up; \}/);
+  assert.match(units, /float kk = sqrt\(max\(1\.0 - min\(u, 1\.0\), 0\.0\)\);/);
 });
 
-test('the shader keeps the plan\'s schedules', () => {
-  assert.match(src, /float dewCold\(vec2 q\) \{ return -\.18 \+ \.62 \* dewUp\(q\); \}/);
-  assert.match(src, /float dewClearStart\(vec2 q\) \{ float up = dewUp\(q\); return \.84 \+ \.18 \* up/);
-  assert.match(src, /\.84 \+ \.18 \* clamp\(\(length\(B\.xy \* toScreen - uPoint\) - B\.z \* toScreen\.y\) \/ far, 0\.0, 1\.0\)\)\) \/ \$\{f\(DEW\.fall\)\}\)/);
-  assert.deepEqual({ ...DEW.click }, { clear0: 0.84, clearUp: 0.18, clearD: 0.08, flash: 0.035 });
-  // The rift: a piece leaves the ground as it breaks away, the fragments take it from there.
-  assert.match(src, /if \(!click\) \{ if \(P >= dewData\(sb \+ i1 \* 5 \+ 3\)\.z\) r\.cov = 0\.0; return r; \}/);
-  assert.match(src, /float dewFront\(vec2 qp\) \{ return \$\{f\(DEW\.detach0 - DEW\.lead\)\} \+ \$\{f\(DEW\.detach1 - DEW\.detach0\)\} \* abs\(qp\.y - dewCrackY\(qp\.x\)\) \/ dewData\(24\)\.z; \}/);
-  // The grains, as the plan's grainAt.
-  assert.match(units, /float ta = A\.z \+ D \* \(\.2 \+ \.8 \* u0\), Tff = D \* \(\.35 \+ \.3 \* u0\);/);
-  assert.match(units, /float th = th0 \+ w \* tan\(min\(b, 1\.55\)\);/);
-  assert.match(units, /float P = transitP\(uH\), u = \(P - F1\.z\) \/ max\(F1\.w - F1\.z, 1e-4\);/);
-});
 test('supergiants: black-body colours from Planck and the CIE functions; nebulae glow in their lines', () => {
   const red = blackbody(3400), blue = blackbody(30000), sun = blackbody(5800);
   assert.ok(red[0] === 1 && red[2] < 0.35, `3400 K ${red}`);
@@ -244,92 +306,76 @@ test('supergiants: black-body colours from Planck and the CIE functions; nebulae
   assert.ok(ha[0] === 1 && ha[1] < 0.1 && ha[2] < 0.1, 'Hα is red');
   assert.ok(o3[1] === 1 && o3[0] < 0.1, '[O III] is green-teal');
   for (const g of GIANTS) assert.ok(g.x > 0 && g.x < 1 && g.y > 0 && g.y < 1 && g.T >= 3000 && g.T <= 40000);
-  // The Veil's strands: hydrogen red inside, oxygen out; the Ring's oxygen inside, hydrogen out.
-  const p = plans[0], veil = p.events.find(e => e.type === NEB.veil), ring = p.events.find(e => e.type === NEB.ring);
-  const along = (e, u) => [e.S[0] + Math.cos(e.angle) * u * e.Rmax * e.aspect, e.S[1] + Math.sin(e.angle) * u * e.Rmax * e.aspect];
-  near(nebFrame(veil, along(veil, 0.5))[0], 0.5, 1e-9);
-  assert.ok(nebColour(veil, along(veil, 0.92), 0.5)[0] === 1 && nebColour(veil, along(veil, 0.98), 0.9)[2] === 1, 'the Veil: red inside, blue out');
-  assert.ok(nebColour(ring, along(ring, 0.55), 0.5)[1] > nebColour(ring, along(ring, 0.55), 0.5)[0] && nebColour(ring, along(ring, 0.8), 0.5)[0] === 1, 'the Ring: green inside, red out');
 });
 
-test('the freezing chain: seeds round the frame\'s edges, each drop frozen by the first bridge to reach it or the front behind, the middle last', () => {
-  for (const p of plans) {
-    const vb = DEW.bridge * p.H / 900;
-    for (const sd of chainSeeds(p.W, p.H, p.phone)) assert.ok(Math.min(sd.p[0], p.W - sd.p[0], sd.p[1], p.H - sd.p[1]) < 0.06 * Math.max(p.W, p.H), 'a seed at an edge');
-    const live = statics(p).filter(r => r.end === Infinity && r.t0 < DEW.end);
-    let byBridge = 0;
-    for (const r of live) {
-      assert.ok(r.tf <= DEW.freezeBy + 1e-9, 'every drop frozen by freezeBy');
-      assert.ok(r.tf <= chainAt(p, r.c) + 0.012 + DEW.dt + 1e-9, 'frozen once the front has passed');
-      if (r.parent === undefined || r.parent < 0) continue;
-      const o = p.records[r.parent];
-      assert.ok(o.tf <= r.tf + 1e-9, 'a drop froze before the one that froze it');
-      const gap = dist(r.c, o.c) - radiusAt(o, o.tf) - radiusAt(r, r.tf);
-      assert.ok(gap <= DEW.bridgeMax + 1e-6, `bridge too long: ${gap.toFixed(1)}`);
-      assert.ok(r.tf + DEW.dt + 1e-9 >= o.tf + Math.max(0, gap - 3) / vb, 'frozen before the bridge could arrive');
-      byBridge++;
+test('Science\'s stars: the plan\'s are the sky\'s; each condenses into a bead, and the beads turn to snow', () => {
+  // The hash, worked in float32 as the GPU does: glsl/common.js hash and hash2 (Hoskins), here at a few
+  // points worked by hand in double precision (they agree to float32's few last bits).
+  const ref = (x, y) => { const fr = v => v - Math.floor(v); let a = fr(x * 0.1031), b = fr(y * 0.1031), c = a; const d = a * (b + 33.33) + b * (c + 33.33) + c * (a + 33.33); a += d; b += d; c += d; return fr((a + b) * c); };
+  for (const [x, y] of [[3, 7], [40, 12], [101.2, 33.1], [9, 9]]) { const e = Math.abs(hashG(x, y) - ref(x, y)); assert.ok(Math.min(e, 1 - e) < 0.01, `hash at ${x}, ${y}`); }
+  assert.ok(hash2G(5, 6).every(v => v >= 0 && v < 1));
+  // tri keeps a uniform draw uniform, and is continuous where the hash wraps.
+  near(tri(0), tri(1), 1e-12); near(tri(0.5), 1, 1e-12);
+  const u = Array.from({ length: 20000 }, (_, i) => tri(((i * 0.6180339887) % 1)));
+  for (const q of [0.25, 0.5, 0.75]) near(u.filter(v => v < q).length / u.length, q, 0.02, 'uniform');
+  for (const [W, H] of screens) {
+    const stars = skyStars(W, H);
+    // Each layer as dense as its threshold says (a star in 1 − cut of its cells), placed in its cell.
+    for (let l = 0; l < 3; l++) {
+      const sc = 46 - 12 * l, n = stars.filter(s => s.l === l).length, want = (W / sc) * (H / sc) * (1 - (0.86 - 0.05 * l));
+      assert.ok(Math.abs(n - want) < Math.max(12, want * 0.3), `layer ${l}: ${n} stars, about ${want.toFixed(0)}`);
     }
-    assert.ok(byBridge > live.length * 0.6, `${byBridge} of ${live.length} frozen by bridges`);
-    assert.ok(chainAt(p, [p.W / 2, p.H / 2]) > chainAt(p, [p.W * 0.02, p.H / 2]), 'the middle freezes after the edge');
-  }
-});
-
-test('crystals: seeds spaced apart, of several habits and none alike, in their drops\' colours; their cells tile the screen; the main crack runs the width', () => {
-  for (const p of plans) {
-    const cells = p.cells;
-    for (let a = 0; a < cells.length; a++) for (let b = a + 1; b < cells.length; b++) assert.ok(dist(cells[a].seed, cells[b].seed) > p.spacing * 0.6, 'seeds apart');
-    let area = 0;
-    for (const c of cells) c.poly.forEach((v, k) => { const w = c.poly[(k + 1) % c.poly.length]; area += (v[0] * w[1] - w[0] * v[1]) / 2; });
-    near(Math.abs(area), p.W * p.H, p.W * p.H * 1e-6, 'cells tile the screen');
-    assert.ok(new Set(cells.map(c => c.habit)).size >= 3, 'several habits');
-    assert.equal(new Set(cells.map(c => c.hseed.toFixed(9))).size, cells.length, 'every crystal its own');
-    // Most are dendrites, the finest; plates rarer.
-    assert.ok(cells.filter(c => c.habit <= 1).length > cells.length * 0.4, 'mostly dendrites');
-    // A crystal grown from a drop takes its colour.
-    for (const c of cells.filter(c => c.r > 0)) assert.ok(c.col.every(v => v >= 0 && v <= 1));
-    for (const c of cells) near(c.tc, chainAt(p, c.seed), 0.0041, 'grows as the freeze reaches it');
-    assert.ok(p.crack[0][0] < 2 && p.crack.at(-1)[0] > p.W - 2, 'the crack runs the width');
-    for (const v of p.crack) assert.ok(Math.abs(v[1] - p.H / 2) < p.H * 0.3, 'kept near the middle');
-  }
-});
-
-test('the rift: an elliptical opening, a fracture front running out from the crack, pieces breaking away behind it', () => {
-  for (const p of plans) {
-    const mid = riftOpening(p, p.W / 2, DEW.riftWide), x = p.W * 0.8;
-    near(mid, DEW.riftWidth * p.H, 1e-9);
-    near(riftOpening(p, x, DEW.riftWide) / mid, Math.sqrt(1 - ((x - p.W / 2) / (0.53 * p.W)) ** 2), 1e-9, 'elliptical');
-    assert.equal(riftOpening(p, p.W / 2, DEW.riftOpen), 0);
-    for (const c of p.cells) {
-      assert.ok(c.detach >= DEW.detach0 - 1e-9 && c.detach <= DEW.detach1 + 0.005);
-      for (const v of c.poly) assert.ok(frontAt(p, v) <= c.detach + 1e-9, 'breaks away once the front has passed its corners');
+    for (const s of stars) {
+      assert.ok(s.t >= SKY.c0 && s.t <= SKY.c0 + SKY.span && s.tint >= 0 && s.tint <= 1);
+      assert.ok(s.c[0] >= 0 && s.c[0] < W && s.c[1] >= 0 && s.c[1] < H);
     }
-    // Rings outward from the crack go later on the whole.
-    const byRing = new Map();
-    for (const c of p.cells) { const a = byRing.get(c.ring) ?? []; a.push(c.detach); byRing.set(c.ring, a); }
-    const means = [...byRing.keys()].sort((a, b) => a - b).map(k => byRing.get(k).reduce((s, v) => s + v, 0) / byRing.get(k).length);
-    for (let k = 1; k < Math.min(4, means.length); k++) assert.ok(means[k] > means[k - 1], 'outward from the crack');
-    near(crackY(p, p.crack[1][0]), p.crack[1][1], 1e-9);
+    // When each condenses is not a sweep down (or across) the screen.
+    assert.ok(Math.abs(spearman(stars.map(s => s.t), stars.map(s => s.c[1]))) < 0.15 && Math.abs(spearman(stars.map(s => s.t), stars.map(s => s.c[0]))) < 0.15, 'random, not a sweep');
   }
+  for (const p of plans) {
+    const stars = skyStars(p.W, p.H), beads = p.records.filter(r => r.sky);
+    // Nearly every star becomes a bead (one over a clump's drop falls into it); before the card
+    // appears; brighter stars, larger beads; pale water.
+    assert.ok(beads.length >= stars.length * 0.8, `${beads.length} beads of ${stars.length} stars`);
+    for (const r of beads) {
+      near(r.t0, r.sky.t, 1e-12);
+      assert.ok(r.tg < FREEZE.f0, 'condensed before the card appears');
+      near(radiusAt(r, 9), SKY.r[r.sky.l] * (0.85 + 0.3 * (r.sky.b - 0.76) / 0.24), 1e-9, 'its size by its star');
+      assert.ok(Math.min(...r.col) > 0.5, 'pale: a star\'s light in clear water');
+      assert.ok(p.clumps.every(s => dist(s.c, r.c) >= s.r + radiusAt(r, 9) + 1 - 1e-9), 'not inside a clump\'s drop');
+      // It freezes whole and leaves as one point of light.
+      assert.equal(r.freeze.n, 1);
+    }
+    // Packed: a bead's kind code marks it a star (+ 32), its star's data in its third texel.
+    const cell = pk(p), recBase = cell(2)[0], k = p.records.indexOf(beads[0]);
+    assert.ok(Math.floor(cell(recBase + k * 5)[3] / 1000) >= 32);
+    near(cell(recBase + k * 5 + 2)[3], beads[0].sky.t, 1e-6);
+  }
+  const cosmos = readFileSync(new URL('../../../static/site/scene/glsl/cosmos.js', import.meta.url), 'utf8');
+  assert.match(cosmos, /float b = tri\(hash\(id \+ fl \* 3\.1\)\);/);
+  assert.match(cosmos, /tri\(hash\(id \+ vec2\(fl \* 7\.7, 23\.0\)\)\)/);
+  assert.match(cosmos, /\(tri\(hash2\(id \+ fl \* 17\.0\)\) - 0\.5\) \* 0\.8/);
+  assert.match(cosmos, /\$\{SKY\.c0\.toFixed\(4\)\} \+ \$\{SKY\.span\.toFixed\(4\)\}/);
+  assert.match(units, /bool star = code >= 32\.0/);
 });
 
-test('the break-apart: fragments tile each piece, leave as it breaks away, are vacuumed along the field and fuse into the card', () => {
-  for (const p of plans) {
-    const c = p.card, byCell = new Map();
-    for (const f of p.frags) {
-      const area = Math.abs((f.tri[1][0] - f.tri[0][0]) * (f.tri[2][1] - f.tri[0][1]) - (f.tri[2][0] - f.tri[0][0]) * (f.tri[1][1] - f.tri[0][1])) / 2;
-      byCell.set(f.cell, (byCell.get(f.cell) ?? 0) + area);
-      near(f.t0, p.cells[f.cell].detach, 1e-12, 'leaves as its piece breaks away');
-      assert.ok(f.t1 > f.t0 && f.t1 <= GLASS_RELEASE - 0.05, 'fuses well before the hold lets go');
-      const end = f.path.at(-1);
-      assert.ok(end[0] >= c[0] - 1 && end[0] <= c[0] + c[2] + 1 && end[1] >= c[1] - 1 && end[1] <= c[1] + c[3] + 1, 'its line ends on the card');
-      assert.equal(f.path.length, FRAG.path);
-    }
-    p.cells.forEach((cell, i) => {
-      let area = 0;
-      cell.poly.forEach((v, k) => { const w = cell.poly[(k + 1) % cell.poly.length]; area += (v[0] * w[1] - w[0] * v[1]) / 2; });
-      assert.ok(Math.abs((byCell.get(i) ?? 0) - Math.abs(area)) <= Math.abs(area) * 0.03 + 20, `fragments tile piece ${i}`);
-    });
+test('Science\'s palette: one source for the page, the sky, the nebulae and the ice', () => {
+  const css = PALETTE.css;
+  const styles = JSON.parse(readFileSync(new URL('../../../static/site/styles.json', import.meta.url), 'utf8')).styles.cosmos.colors;
+  for (const k of ['bg', 'surface', 'ink', 'mute', 'accent', 'accent2', 'accent3']) assert.equal(styles[k].toUpperCase(), css[k].toUpperCase(), `styles.json ${k}`);
+  const sheet = readFileSync(new URL('../../../static/site/styles/cosmos.css', import.meta.url), 'utf8');
+  const tok = { 'c-bg': 'bg', 'c-surface': 'surface', 'c-fg': 'ink', 'c-fg-mute': 'mute', 'c-fg-soft': 'soft', 'c-accent': 'accent', 'c-accent-2': 'accent2', 'c-accent-3': 'accent3' };
+  for (const [t, k] of Object.entries(tok)) assert.match(sheet, new RegExp(`--${t}: ${css[k]};`, 'i'), `cosmos.css --${t}`);
+  assert.equal(sheet.match(/--c-haze: (#[0-9A-F]{6});/i)?.[1].toUpperCase(), PALETTE.sky.body.toUpperCase());
+  assert.deepEqual(NEB_RGB, lineRGB(PALETTE));
+  // The nebulae's colours keep to two families, gold to amber and teal to sky blue, and the pale.
+  const hsv = h => { const [r, g, b] = rgb(h), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let hue = 0; if (d) hue = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [(hue * 60 + 360) % 360, mx ? d / mx : 0]; };
+  for (const [k, h] of Object.entries(PALETTE.neb)) {
+    const [hue, sat] = hsv(h);
+    assert.ok(sat < 0.25 || (hue >= 22 && hue <= 50) || (hue >= 165 && hue <= 205), `${k} ${h}: hue ${hue.toFixed(0)}°`);
   }
-  const p = plans[0], k = Math.floor(p.frags.length / 3);
-  assert.deepEqual(makeFragments(p, p.card)[k].path, p.frags[k].path, 'deterministic');
+  // Nothing of the old violet and magenta left in Science's own style.
+  const old = /#22E6FF|#FF3DCB|#B9A6FF|#A29FC9|#ECE9FF|91 59 255|185 166 255|185,166,255|34,230,255|34, 230, 255|255, 61, 203/i;
+  for (const rel of ['static/site/styles/cosmos.css', 'science/page/page.css', 'science/page/sims/stage.js', 'science/page/sims/trappist.js', 'science/page/sims/phyllotaxis.js', 'science/page/sims/voyager.js', 'science/page/sims/taalas.js', 'science/page/sims/supermountains.js', 'static/site/scene/glsl/cosmos.js'])
+    assert.doesNotMatch(readFileSync(new URL(`../../../${rel}`, import.meta.url), 'utf8'), old, rel);
 });

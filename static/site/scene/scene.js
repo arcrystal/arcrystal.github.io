@@ -13,7 +13,7 @@ import { createTransit } from './transit.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uGas'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -86,6 +86,9 @@ function createScene() {
         gl.uniform1i(U.uIceAtlas, 6);
         gl.uniform1i(U.uIceSpectrum, 7);
         gl.uniform1i(U.uGas, 3);
+        gl.uniform1i(U.uTerrain, 4);
+        gl.uniform1i(U.uTerrainDetail, 6);
+        gl.uniform1i(U.uPlate, 7);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -144,6 +147,7 @@ function createScene() {
     const iceEffect = (s.mode === 2 || s.mode === 3) && s.a === 2 && !s.h;
     const iceReady = iceEffect ? transit?.bindIce(cssW,cssH) : s.iceReady;
     gl.uniform1f(U.uIceReady, iceReady ? 1 : 0);
+    gl.uniform1f(U.uPlateOn, transit?.plateReady() ? 1 : 0);
     gl.uniform1f(U.uIceDetail, iceDetail);
     const c = s.card;
     gl.uniform4f(U.uCard, c ? c[0] : 0, c ? c[1] : 0, c ? c[2] : 0, c ? c[3] : 0);
@@ -165,7 +169,8 @@ function createScene() {
 
   // A world over a region, into a snapshot (a transit's texture): the same shader, offset so its
   // pixels land where the region is on screen.
-  // noDrops: Science without its chrome drops (Science → Racing draws them live over the snapshot).
+  // noDrops: Science → Racing's progress P, for Science without its chrome drops (it draws them live
+  // over the snapshot) and without the stars that have condensed by P (they are its drops).
   function renderWorld(style, fb, tw, th, region, vel, noDrops = false) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     gl.viewport(0, 0, tw, th);
@@ -180,9 +185,10 @@ function createScene() {
     gl.uniform1f(U.uVel, motion.paused ? 0 : (vel ?? 0));
     gl.uniform4f(U.uCard, 0, 0, 0, 0);
     gl.uniform1f(U.uCardMix, 0);
-    if (noDrops) gl.uniform1f(U.uNoDrops, 1);
+    const sky = typeof noDrops === 'number';
+    if (sky) { gl.uniform1f(U.uNoDrops, 1); gl.uniform1f(U.uSkyP, noDrops + 10); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (noDrops) gl.uniform1f(U.uNoDrops, 0);
+    if (sky) { gl.uniform1f(U.uNoDrops, 0); gl.uniform1f(U.uSkyP, 0); }
   }
 
   // The ground over a seam's region into a texture (a transit's still: Racing's frozen pane).
@@ -220,7 +226,8 @@ function createScene() {
     if (effect) effect.step(dt);
     if (!ready || gl.isContextLost()) return;
     // Racing's dew is held to its pixel budget whether scrolled through or clicked into.
-    dewSeam = effect ? !!effect.racing : states.some(s => s.mode === 6 && s.a === STYLE_ID.cosmos && s.b === STYLE_ID.glass && s.p > 0 && s.p < 1);
+    // (So does the White Mountains' seam, Racing → Outdoors: a raymarch at every point.)
+    dewSeam = effect ? !!effect.racing : states.some(s => s.mode === 6 && s.p > 0 && s.p < 1 && ((s.a === STYLE_ID.cosmos && s.b === STYLE_ID.glass) || (s.a === STYLE_ID.glass && s.b === STYLE_ID.folio)));
     resize();
     const front = effect?.front ? effect.state() : null;
     const behind = !front && effect?.behind ? effect.state() : null;
@@ -248,8 +255,10 @@ function createScene() {
           const c = s.card, O = s.mode === 2 ? (c ? [c[0] + c[2] / 2, c[1] + c[3] / 2] : [cssW / 2, cssH / 2]) : (s.point || [cssW / 2, cssH / 2]);
           const far = Math.hypot(Math.max(O[0], cssW - O[0]), Math.max(O[1], cssH - O[1])) * 1.02;
           s.baked = transit.bakeEffect(s.a, O, far, cssW, cssH);
-          // Science's cover is built by cubes, drawn over it (transit.js drawEffect).
+          // Science's cover is built by cubes, drawn over it (transit.js drawEffect); Racing's has its
+          // drops and shards, about the click.
           if (s.mode === 2 && s.a === STYLE_ID.cosmos) { s.origin = O; s.units = transit.prepareEffect(s, info); }
+          if (s.mode === 2 && s.a === STYLE_ID.glass) { s.origin = s.point || O; s.units = transit.prepareEffect(s, info); }
         }
       }
       transit.sweep(now);

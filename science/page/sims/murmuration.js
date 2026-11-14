@@ -90,15 +90,15 @@ export function mount(el, { reducedMotion = false, compact = false } = {}) {
     if (dt > 0) step(Math.min(dt, 1 / 30), ptr);
     else if (reducedMotion && !ctx.__settled) { for (let s = 0; s < 120; s++) step(1 / 60, { on: false }); ctx.__settled = true; }
     const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#1C1638'); sky.addColorStop(0.55, '#7A4A6A'); sky.addColorStop(0.85, '#D98A6A'); sky.addColorStop(1, '#F2B184');
+    sky.addColorStop(0, '#0E2130'); sky.addColorStop(0.5, '#3E5A68'); sky.addColorStop(0.82, '#D2915C'); sky.addColorStop(1, '#F2B978');
     ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = 'rgba(14, 10, 22, 0.88)';
+    ctx.fillStyle = 'rgba(6, 12, 18, 0.88)';
     for (let i = 0; i < n; i++) {
       const sp = Math.hypot(vx[i], vy[i]) || 1;
       ctx.fillRect(xs[i] - (vx[i] / sp) * 1.2, ys[i] - (vy[i] / sp) * 1.2, 2.2, 2);
     }
     // A treeline at the bottom of the frame.
-    ctx.fillStyle = '#120C18';
+    ctx.fillStyle = '#08111A';
     ctx.beginPath(); ctx.moveTo(0, h);
     for (let x = 0; x <= w; x += 12) ctx.lineTo(x, h - 18 - 10 * Math.abs(Math.sin(x * 0.05)) - 6 * Math.sin(x * 0.013));
     ctx.lineTo(w, h); ctx.fill();

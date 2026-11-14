@@ -73,7 +73,7 @@ html[data-scrolled] body:not([data-page="home"]) .site-header {
   box-decoration-break: clone; -webkit-box-decoration-break: clone;
   transition: background-size 380ms var(--ease-out), color 380ms;
 }
-.ph[data-to="cosmos"] { --ph: #C9BCFF; }
+.ph[data-to="cosmos"] { --ph: #A9E6E0; }
 .ph[data-to="glass"] { --ph: #A8DAFF; }
 .ph[data-to="folio"] { --ph: #DCC08A; }
 .ph[data-to="darkroom"] { --ph: #F2A49C; }
@@ -267,11 +267,11 @@ html.gl .band-art { opacity: 0; }
 /* The experiments' stills, until each one runs (Science page and its band). */
 .sx-still--orbits { background:
   radial-gradient(circle at 50% 46%, #FFD9B8 0 1.4%, #FF7A4A 2.4%, rgb(255 122 74 / 0.25) 5%, transparent 9%),
-  radial-gradient(circle at 50% 46%, transparent 0 9.5%, rgb(185 166 255 / 0.3) 9.7% 9.9%, transparent 10.1% 13%, rgb(185 166 255 / 0.25) 13.2% 13.4%, transparent 13.6% 17.5%, rgb(185 166 255 / 0.22) 17.7% 17.9%, transparent 18.1% 21.5%, rgb(34 230 255 / 0.4) 21.7% 21.9%, transparent 22.1% 26%, rgb(34 230 255 / 0.4) 26.2% 26.4%, transparent 26.6% 30%, rgb(34 230 255 / 0.4) 30.2% 30.4%, transparent 30.6% 36%, rgb(185 166 255 / 0.2) 36.2% 36.4%, transparent 36.6%); }
-.sx-still--seeds { background: repeating-conic-gradient(from 0deg at 50% 50%, rgb(255 210 120 / 0.5) 0 2deg, transparent 2deg 9.3deg), radial-gradient(circle, transparent 0 4%, #05060F 42%); }
-.sx-still--wing { background: linear-gradient(115deg, #0B2D7A, #1E6BFF 30%, #22E6FF 46%, #7B4BFF 62%, #0B1A44); }
-.sx-still--flock { background: linear-gradient(#2A1B3E, #C26A5A 70%, #F2B184); }
-.sx-still--readout { background: repeating-linear-gradient(to bottom, rgb(34 230 255 / 0.05) 0 1px, transparent 1px 4px); }
+  radial-gradient(circle at 50% 46%, transparent 0 9.5%, rgb(241 220 174 / 0.3) 9.7% 9.9%, transparent 10.1% 13%, rgb(241 220 174 / 0.25) 13.2% 13.4%, transparent 13.6% 17.5%, rgb(241 220 174 / 0.22) 17.7% 17.9%, transparent 18.1% 21.5%, rgb(63 220 210 / 0.4) 21.7% 21.9%, transparent 22.1% 26%, rgb(63 220 210 / 0.4) 26.2% 26.4%, transparent 26.6% 30%, rgb(63 220 210 / 0.4) 30.2% 30.4%, transparent 30.6% 36%, rgb(241 220 174 / 0.2) 36.2% 36.4%, transparent 36.6%); }
+.sx-still--seeds { background: repeating-conic-gradient(from 0deg at 50% 50%, rgb(255 210 120 / 0.5) 0 2deg, transparent 2deg 9.3deg), radial-gradient(circle, transparent 0 4%, #04080F 42%); }
+.sx-still--wing { background: linear-gradient(115deg, #0B2D7A, #1E6BFF 30%, #3FD8F0 46%, #1E5BD8 62%, #0B1A44); }
+.sx-still--flock { background: linear-gradient(#0E2130, #3E5A68 50%, #D2915C 82%, #F2B978); }
+.sx-still--readout { background: repeating-linear-gradient(to bottom, rgb(63 220 210 / 0.05) 0 1px, transparent 1px 4px); }
 .sx-sim canvas, .sx-band-sim canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* Racing: the Birkie at race pace, and the numbers. */

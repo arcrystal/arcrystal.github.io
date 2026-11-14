@@ -230,7 +230,7 @@ vec3 transitGround(int a, vec2 q, vec2 px) {
   float P = transitP(uH);
   if (a == 0) return groundCubes(q, px, P);
   if (a == 3) return groundDew(q, px, P);
-  if (a == 2) return groundSheets(q, px, P);
+  if (a == 2) return groundPeaks(q, px, P);
   if (a == 4) return groundFilm(q, px, P);
   return groundInk(q, px, P);
 }

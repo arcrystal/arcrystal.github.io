@@ -2,6 +2,7 @@
 // y down (px), the same space as getBoundingClientRect, so rectangles pass straight through.
 export const HEADER = /* glsl */ `#version 300 es
 precision highp float;
+precision highp sampler2D;
 
 uniform vec2 uRes;        // drawing buffer, device px
 uniform float uDpr;       // device px per CSS px

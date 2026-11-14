@@ -6,7 +6,7 @@
 // the first large animals and the Cambrian explosion. Between them, the "Boring Billion". The
 // timing is from the paper; the shapes are schematic. A correlation the authors propose to test,
 // not a proven cause.
-import { stage, COLORS, MONO } from './stage.js';
+import { stage, COLORS, MONO, rgba } from './stage.js';
 
 // Millions of years ago.
 export const SPAN = [2500, 0];
@@ -65,7 +65,7 @@ export function mount(el, { reducedMotion = false } = {}) {
     const ma = hover ?? (reducedMotion ? 560 : SPAN[0] - ((t * 95) % (SPAN[0] + 300)));
     const ground = h * 0.56, sea = h * 0.74;
     // The Boring Billion.
-    ctx.fillStyle = 'rgba(185,166,255,0.06)';
+    ctx.fillStyle = rgba(COLORS.accent3, 0.06);
     ctx.fillRect(xOf(BORING.from, w), 34, xOf(BORING.to, w) - xOf(BORING.from, w), sea - 34);
     ctx.font = MONO; ctx.fillStyle = COLORS.mute;
     ctx.fillText(BORING.label.toUpperCase(), xOf(BORING.from, w) + 8, 50);
@@ -81,20 +81,20 @@ export function mount(el, { reducedMotion = false } = {}) {
       }
       ctx.lineTo(x1, ground); ctx.closePath();
       const g = ctx.createLinearGradient(0, 70, 0, ground);
-      g.addColorStop(0, 'rgba(236,233,255,0.9)'); g.addColorStop(0.25, 'rgba(185,166,255,0.55)'); g.addColorStop(1, 'rgba(91,59,255,0.25)');
+      g.addColorStop(0, rgba(COLORS.ink, 0.9)); g.addColorStop(0.25, rgba(COLORS.accent3, 0.5)); g.addColorStop(1, rgba(COLORS.haze, 0.35));
       ctx.fillStyle = g; ctx.fill();
       ctx.font = MONO; ctx.fillStyle = COLORS.ink;
       ctx.fillText(e.name.toUpperCase(), xOf(e.from, w), ground + 16);
     }
     // The ground and the sea, with phosphorus and iron washing in while the ranges wear away.
     ctx.strokeStyle = COLORS.rule; ctx.beginPath(); ctx.moveTo(pad, ground); ctx.lineTo(w - pad, ground); ctx.stroke();
-    ctx.fillStyle = 'rgba(34,230,255,0.08)'; ctx.fillRect(pad, sea, w - pad * 2, h - sea - 26);
+    ctx.fillStyle = rgba(COLORS.accent, 0.08); ctx.fillRect(pad, sea, w - pad * 2, h - sea - 26);
     const flux = nutrients(ma), xm = xOf(ma, w);
     for (const gr of grains) {
       const k = (gr.s + t * 0.35) % 1;
       if (gr.r > flux) continue;
       const x = xm - 40 + gr.r * 80 + Math.sin(k * 9 + gr.r * 20) * 6, y = ground + 4 + k * (sea - ground + 26);
-      ctx.fillStyle = gr.r < flux * 0.5 ? COLORS.gold : COLORS.cyan;
+      ctx.fillStyle = gr.r < flux * 0.5 ? COLORS.accent2 : COLORS.accent;
       ctx.globalAlpha = 0.85 * (1 - k * 0.6);
       ctx.fillRect(x, y, 2, 2);
     }
@@ -102,13 +102,13 @@ export function mount(el, { reducedMotion = false } = {}) {
     // Life's milestones.
     for (const ev of EVENTS) {
       const x = xOf(ev.at, w), on = ma <= ev.at;
-      ctx.strokeStyle = on ? COLORS.magenta : COLORS.rule;
+      ctx.strokeStyle = on ? COLORS.accent3 : COLORS.rule;
       ctx.beginPath(); ctx.moveTo(x, sea); ctx.lineTo(x, sea - 26 - (ev.at === 530 ? 16 : 0)); ctx.stroke();
-      ctx.fillStyle = on ? COLORS.magenta : COLORS.mute;
+      ctx.fillStyle = on ? COLORS.accent3 : COLORS.mute;
       ctx.beginPath(); ctx.arc(x, sea, on ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
     }
     // The time line, its scale, and what is happening at ma.
-    ctx.strokeStyle = COLORS.cyan; ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = COLORS.accent; ctx.globalAlpha = 0.7;
     ctx.beginPath(); ctx.moveTo(xm, 34); ctx.lineTo(xm, h - 26); ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.font = MONO; ctx.fillStyle = COLORS.mute;

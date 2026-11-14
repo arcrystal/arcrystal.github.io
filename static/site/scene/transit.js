@@ -15,10 +15,12 @@
 // grids coarsen on touch screens and when the scene's resolution has dropped; reduced motion keeps
 // the scene's plain seams.
 import { createDewResources } from './dew-resources.js';
+import { createTerrainResources } from './terrain-resources.js';
+import { makeLead } from './lead-plan.js';
 import { VERTEX } from './glsl/index.js';
 import { UNIT_PROGRAMS, REACH_BAKE } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
-import { DEW, FRAG } from './dew-plan.js';
+import { SPOTS, FREEZE, CLICK } from './dew-plan.js';
 
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
 // bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach. plan: its
@@ -26,8 +28,8 @@ import { DEW, FRAG } from './dew-plan.js';
 // lower world's snapshot is mipmapped, to be read blurred; mipsA: the upper world's too.
 const KINDS = {
   '0-3': { id: 'cubes', units: ['cubes:back', 'flow', 'cubes:front'], plan: true, mips: true },   // About Me → Science: a vortex
-  '3-2': { id: 'dew', units: ['grains', 'fieldlines', 'frags'], mips: true, mipsA: true },   // Science → Racing: nebulae, stardust, drops, gems, field lines into the card
-  '2-4': { id: 'sheets', units: ['sheets', 'glitter'] },             // Racing → Outdoors: peeling sheets
+  '3-2': { id: 'dew', units: ['fieldlines', 'drops', 'shards'], mips: true, mipsA: true },   // Science → Racing: remnants, gravity's spots, cold from the card, the vacuum
+  '2-4': { id: 'peaks', units: [] },                                 // Racing → Outdoors: paint into the White Mountains into art glass
   '4-5': { id: 'film', units: ['film'] },                            // Outdoors → Photography: film, developed
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
 };
@@ -43,6 +45,7 @@ function layerGrid(k, w, h) {
 
 export function createTransit(gl, { renderWorld, renderPane, coarse }) {
   const dew = createDewResources(gl, coarse);
+  const terrain = createTerrainResources(gl, coarse);
   // Where Racing's card sits during its hold (home.js measures it and says so): its fragments' field
   // lines end there. Read from the page too, in case that was said before this was listening.
   document.addEventListener('dew:card', e => { if (Array.isArray(e.detail)) dew.request(innerWidth, innerHeight, e.detail); });
@@ -170,17 +173,16 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     snap.tex.forEach(t => gl.deleteTexture(t));
     snap.fb.forEach(f => gl.deleteFramebuffer(f));
     if (snap.reach) { gl.deleteTexture(snap.reach.t); gl.deleteFramebuffer(snap.reach.fb); }
-    if (snap.ice) { gl.deleteTexture(snap.ice.t); gl.deleteFramebuffer(snap.ice.fb); }
     if (snap.gas) { gl.deleteTexture(snap.gas.t); gl.deleteFramebuffer(snap.gas.fb); }
   }
   // Racing's lit gas (glsl/dew.js dewGasField): soft, so drawn at a fraction of the screen's resolution
   // each frame it changes, into its own texture, for the ground to sample (on unit 3). Once the nebulae
   // have drained (P GAS_STILL) it no longer changes: drawn there once and kept, for the drops and gems
   // to see through.
-  const GAS_STILL = 0.55;
+  const GAS_STILL = SPOTS.still;
   const gasOn = P => P > -0.12 && P < 1.0;
   function gasPass(snap, s, w, h, P) {
-    const sc = w * h > 2.5e6 ? 0.3 : w * h > 0.6e6 ? 0.45 : 0.7, tw = Math.max(1, Math.round(w * sc)), th = Math.max(1, Math.round(h * sc));
+    const sc = w * h > 2.5e6 ? 0.32 : w * h > 0.6e6 ? 0.6 : 0.75, tw = Math.max(1, Math.round(w * sc)), th = Math.max(1, Math.round(h * sc));
     let fresh = false;
     if (!snap.gas || snap.gas.tw !== tw || snap.gas.th !== th) {
       if (snap.gas) { gl.deleteTexture(snap.gas.t); gl.deleteFramebuffer(snap.gas.fb); }
@@ -195,20 +197,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     snap.gas.still = still;
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
     renderPane({ ...s, mode: 9, h: still ? (GAS_STILL + 0.2) / 1.4 : s.p ?? 0, e: 0, clip: null }, snap.gas.fb, tw, th);
-  }
-  // The gems as they were at P = DEW.still, still (no push, no squeeze, no shake): the fragments'
-  // faces (glsl/units.js frags). Rendered once per size, the first time the seam passes that point;
-  // the same every time, so scrolling back and forth is exact.
-  function iceSnap(snap, s, w, h) {
-    const key = `${w} ${h}`;
-    if (snap.ice?.key === key) return snap.ice.t;
-    if (snap.ice) { gl.deleteTexture(snap.ice.t); gl.deleteFramebuffer(snap.ice.fb); }
-    const sc = Math.min(1, Math.max(0.45, 1100 / w));
-    const tw = Math.max(1, Math.round(w * sc)), th = Math.max(1, Math.round(h * sc));
-    const t = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
-    snap.ice = { key, t, fb: target(t) };
-    renderPane({ ...s, mode: 8, h: (DEW.still + 0.2) / 1.4, e: 1, iceReady: true, clip: null }, snap.ice.fb, tw, th);
-    return t;
   }
   // The seam's reach, baked once for its size (flight.js SEAM_TEX): about a texel per CSS px, a
   // little coarser on big screens.
@@ -300,6 +288,28 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     return t;
   }
 
+  // A click into Outdoors: when its lead reaches each joint of the window's came (lead-plan.js), once
+  // per click (from the plate, once it is in; until then the cover spreads straight out).
+  let lead = null;
+  function leadTexture(O, far, w, h) {
+    const plate = terrain.plateData();
+    if (!plate) return null;
+    const key = `${Math.round(O[0])} ${Math.round(O[1])} ${Math.round(w)} ${Math.round(h)}`;
+    if (lead?.key === key) return lead.t;
+    const p = makeLead(plate.km, plate.n, O, far, w, h);
+    if (lead) gl.deleteTexture(lead.t);
+    const t = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, p.w, p.h, 0, gl.RGBA, gl.FLOAT, p.data);
+    for (const q of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, q, gl.NEAREST);
+    for (const q of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, q, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    lead = { key, t };
+    return t;
+  }
+
   // Plans: a seam's choreography worked out ahead in lerp.js, as float texels its shaders read from
   // uReach. Each kind's entry gives, for the screen (w, h) and its cube grid g, a key and the texture
   // (width, height, data), made once per key. The vortex: a texel a cell (the cell its cube lands on,
@@ -333,21 +343,72 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     const w = innerWidth, h = innerHeight;
     planTexture('cubes', w, h, grid('cubes', w, h, { scale: 1 }));
     dew.request(w, h, heldCard());
+    terrain.request(w, h);
   });
 
   let frame = 0;
   const effectSnap = { tex: [], fb: [], reach: null };
+  // A click into Racing (glsl/dew.js dewClick draws the ground): before the frame, the plan bound and
+  // the remnants' gas drawn (once a size, still: the click shows it grown); after it, the drops, the
+  // shards and their lines on the click's clocks. False until the plan and the programs are in.
+  const clickGas = {};
+  function prepareDewClick(s, f) {
+    const w = f.vpW, h = f.vpH;
+    if (!programs.drops || !programs.shards || !programs.fieldlines || !renderPane || !dew.bind(w, h)) return false;
+    gasPass(clickGas, { ...s, region: [0, 0, w, h] }, w, h, SPOTS.still);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, clickGas.gas.t);
+    gl.activeTexture(gl.TEXTURE0);
+    return true;
+  }
+  function drawDewClick(s, f) {
+    const w = f.vpW, h = f.vpH, st = dew.stats(w, h) ?? {};
+    const P = -0.2 + 1.04 * (s.e ?? 0);
+    gl.disable(gl.SCISSOR_TEST);
+    dew.bind(w, h);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, clickGas.gas?.t ?? null);
+    gl.activeTexture(gl.TEXTURE0);
+    for (const name of ['fieldlines', 'drops', 'shards']) {
+      const count = name === 'drops' ? (P > -0.1 && P < CLICK.freeze[0] + CLICK.freeze[1] + CLICK.split + 0.01 ? st.records ?? 0 : 0) : (P > CLICK.freeze[0] && P < 0.86 ? st.shards ?? 0 : 0);
+      if (!count) continue;
+      const { p, U } = programs[name], def = UNIT_PROGRAMS[name];
+      gl.useProgram(p);
+      gl.uniform4f(U.uRegion, 0, 0, w, h);
+      gl.uniform2f(U.uView, w, h);
+      gl.uniform1f(U.uTime, f.time);
+      gl.uniform1f(U.uH, (P + 0.2) / 1.4);
+      gl.uniform1f(U.uVel, 0);
+      gl.uniform4f(U.uGrid, 1, 1, 1, 1);
+      gl.uniform1i(U.uFirst, 0);
+      gl.uniform1f(U.uClick, 1);
+      gl.uniform2f(U.uO, ...(s.origin ?? s.point ?? [w / 2, h / 2]));
+      gl.uniform1i(U.uTexA, 0);
+      gl.uniform1i(U.uTexB, 1);
+      gl.uniform1i(U.uReach, 5);
+      if (U.uGas) gl.uniform1i(U.uGas, 3);
+      gl.enable(gl.BLEND);
+      if (def.blend === 'add') gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, count);
+    }
+    gl.disable(gl.BLEND);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.enable(gl.SCISSOR_TEST);
+  }
   return {
     // Racing's plan (names kept from the ice transition this replaced; scene.js and the tools use them).
     iceReady: (w, h) => dew.ready(w, h),
+    // Outdoors' plate (its world's heights), on unit 7 once it has arrived.
+    plateReady: () => terrain.plateReady(),
     bindIce: (w, h) => dew.bind(w, h),
     iceStats: (w, h) => dew.stats(w, h),
-    dispose() { dew.dispose(); snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); },
+    dispose() { dew.dispose(); terrain.dispose(); snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
     // What a click's cover reads (opens.js), made once per click from its origin O and far corner:
     // the maze (house), the ink's reach; null for processes computed on the fly, or
     // while the bake program is still compiling (the effect then computes what it can live).
     bakeEffect(style, O, far, w, h) {
       if (style === 0) return mazeTexture(O, w, h);
+      if (style === 4) return leadTexture(O, far, w, h);
       if (style !== 1) return null;
       if (!programs.bake) return null;
       bake(effectSnap, style, w, h, [Math.round(O[0]), Math.round(O[1]), Math.round(far)], 'reach');
@@ -372,20 +433,20 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       // Which snapshots this frame rendered: both when fresh, else the one whose turn it is.
       const drew = [snap.fresh, snap.fresh];
       if (snap.fresh) {
-        renderWorld(s.a, snap.fb[0], tw, th, s.region, s.vel, K.id === 'dew');
+        renderWorld(s.a, snap.fb[0], tw, th, s.region, s.vel, K.id === 'dew' ? transitP(s.p ?? 0) : false);
         renderWorld(s.b, snap.fb[1], tw, th, s.region, s.vel);
         snap.fresh = false;
       } else if (K.id === 'dew') {
-        // The pane is mostly wet glass and frost: a snapshot every other frame (each world at 15 Hz)
-        // is plenty, and once the dawn has hidden Science everywhere (P .88) only Racing's. While the
-        // page is held still (the region unchanged), the worlds only drift: every fourth frame.
+        // The scroll reads only Science's snapshot (the drops' lenses, then its sky once the cloud
+        // veils it), and only from the drops' condensing until the cloud has closed (P .33 to .86): at
+        // 15 Hz then, half that while the page is held still (the region unchanged). Racing is drawn
+        // live (glsl/dew.js dewWinter).
         snap.tick = (snap.tick ?? 0) + 1;
-        const at = s.region.join(' '), still = snap.at === at;
+        const at = s.region.join(' '), still = snap.at === at, P = transitP(s.p ?? 0);
         snap.at = at;
-        if (snap.tick % (still ? 4 : 2) === 0) {
-          snap.flip = transitP(s.p ?? 0) < 0.88 ? snap.flip ^ 1 : 1;
-          renderWorld(snap.flip ? s.b : s.a, snap.fb[snap.flip], tw, th, s.region, s.vel, !snap.flip);
-          drew[snap.flip] = true;
+        if (P > 0.33 && P < 0.86 && snap.tick % (still ? 8 : 4) === 0) {
+          renderWorld(s.a, snap.fb[0], tw, th, s.region, s.vel, P);
+          drew[0] = true;
         }
       } else {
         snap.flip ^= 1;
@@ -418,31 +479,31 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       const reach = K.plan ? planTexture(K.id, w, h, ground) : snap.reach?.t ?? null;
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, reach);
       gl.activeTexture(gl.TEXTURE0);
-      const iceReady = K.id === 'dew' && snap.planMode && dew.bind(w, h);
-      // Racing's fragments need the frozen pane once the rift is near; their field lines show a little before.
-      const P = transitP(s.p ?? 0);
-      const fragsOn = K.id === 'dew' && iceReady && renderPane && P > DEW.detach0 - 0.07 && P < DEW.detach1 + FRAG.maxFly + 0.03;
-      const ice = fragsOn ? iceSnap(snap, s, w, h) : null;
-      const nFrags = fragsOn ? (dew.stats(w, h)?.frags ?? 0) : 0;
-      // The stardust, while it falls.
-      const nGrains = K.id === 'dew' && iceReady && P > 0 && P < 0.5 ? (dew.stats(w, h)?.grains ?? 0) : 0;
+      // (Outdoors' mountains: their heightfield, on unit 4, in the same flag.)
+      const iceReady = K.id === 'dew' ? snap.planMode && dew.bind(w, h) : K.id === 'peaks' ? terrain.bind(w, h) : false;
+      // The drops from the first until the last has split, the shards and their lines until the last has
+      // fused (the drops' lenses read Science's snapshot, unit 0, and its gas, unit 3).
+      const P = transitP(s.p ?? 0), st = K.id === 'dew' && iceReady && renderPane ? dew.stats(w, h) : null;
+      const nRecords = st && P > 0.15 && P < FREEZE.f1 + 0.05 ? st.records ?? 0 : 0;
+      const nShards = st && P > FREEZE.f0 - 0.01 && P < 1.1 ? st.shards ?? 0 : 0;
       // The gas, while it shows: drawn now (it needs the plan, bound above), sampled by the ground.
       const gas = K.id === 'dew' && iceReady && renderPane && gasOn(P);
       if (gas) { gasPass(snap, s, w, h, P); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, snap.gas.t); gl.activeTexture(gl.TEXTURE0); }
       const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn, iceReady });
-      if (gas) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); }
-      if (!drew || !K.units.length) return drew;
+      const unbindGas = () => { if (gas) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); } };
+      if (K.id === 'peaks') terrain.unbind();
+      if (!drew || !K.units.length) { unbindGas(); return drew; }
       // The units keep the ground's scissor: while the strip scrolls in or out, they stay in it.
       for (const unit of K.units) {
         // name:pass, where a kind draws in passes (Science's cubes: behind the wind, then in front).
         const [name, pass] = unit.split(':');
-        if ((name === 'frags' || name === 'fieldlines') && (!ice || !nFrags)) continue;
-        if (name === 'grains' && !nGrains) continue;
+        const snow = name === 'drops' || name === 'shards' || name === 'fieldlines';
+        if (snow && !(name === 'drops' ? nRecords : nShards)) continue;
         const prog = programs[name], def = UNIT_PROGRAMS[name];
-        const g = name === 'sheets' || name === 'film' || name === 'frags' || name === 'fieldlines' || name === 'grains' ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
+        const g = name === 'sheets' || name === 'film' || snow ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
         // The vortex carries its cubes the whole height of the screen, one a cell. The sheets draw a
         // layer at a time, the lowest first.
-        const [first, count] = name === 'sheets' ? [0, 1] : name === 'frags' || name === 'fieldlines' ? [0, nFrags] : name === 'grains' ? [0, nGrains] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
+        const [first, count] = name === 'sheets' ? [0, 1] : snow ? [0, name === 'drops' ? nRecords : nShards] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
           : name === 'cubes' || name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;
@@ -459,8 +520,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uReach, 5);
-        // The fragments' faces: the frozen pane, on unit 3 (the scene's shader leaves it free).
-        if (name === 'frags') { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, ice); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(U.uTexA, 3); }
+        if (U.uGas) gl.uniform1i(U.uGas, 3);
         if (def.blend === 'opaque') gl.disable(gl.BLEND);
         else {
           gl.enable(gl.BLEND);
@@ -475,7 +535,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
         } else gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, count);
       }
       gl.disable(gl.BLEND);
-      if (ice) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); }
+      unbindGas();
       restore();
       return true;
     },
@@ -484,6 +544,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     // ground). Before the frame: Science's world into a snapshot for the cubes' faces, and the grid
     // the cover and the cubes share (s.grid). False until the programs are in.
     prepareEffect(s, f) {
+      if (s.a === 2) return prepareDewClick(s, f);
       if (!programs.cubes || !programs.streaks) return false;
       const w = f.vpW, h = f.vpH;
       const ts = (coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
@@ -498,6 +559,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     },
     // After the cover: the streamlines, then the cubes, on the whole screen.
     drawEffect(s, f) {
+      if (s.a === 2) { drawDewClick(s, f); return; }
       const snap = snaps.get('click');
       if (!snap || !s.grid) return;
       const w = f.vpW, h = f.vpH;
@@ -521,8 +583,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
         gl.uniform1i(U.uTexA, 0);
         gl.uniform1i(U.uTexB, 1);
         gl.uniform1i(U.uReach, 5);
-        // The fragments' faces: the frozen pane, on unit 3 (the scene's shader leaves it free).
-        if (name === 'frags') { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, ice); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(U.uTexA, 3); }
         if (def.blend === 'opaque') gl.disable(gl.BLEND);
         else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
         gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, g[0] * g[1]);

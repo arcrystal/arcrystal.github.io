@@ -1,6 +1,7 @@
 // The canvas every Science experiment draws on: sized to its figure (device pixels capped at 1.5),
 // animated only while the figure is on screen and the tab is visible, frozen on one frame under
 // reduced motion, and gone without a trace on destroy().
+import { PALETTE } from '../../../static/site/scene/palette.js';
 export function stage(el, draw, { reducedMotion = false, onPointer } = {}) {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
@@ -63,5 +64,8 @@ export function stage(el, draw, { reducedMotion = false, onPointer } = {}) {
   };
 }
 
-export const COLORS = { ink: '#ECE9FF', mute: '#A29FC9', cyan: '#22E6FF', magenta: '#FF3DCB', violet: '#B9A6FF', gold: '#FFC46B', rule: 'rgba(185,166,255,0.22)' };
+// Science's palette (scene/palette.js): teal and gold, a cream third, on the navy night.
+const PC = PALETTE.css;
+export const rgba = (hex, a) => `rgba(${[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(', ')}, ${a})`;
+export const COLORS = { ink: PC.ink, mute: PC.mute, soft: PC.soft, accent: PC.accent, accent2: PC.accent2, accent3: PC.accent3, haze: PALETTE.sky.body, bg: PC.bg, rule: rgba(PC.mute, 0.28) };
 export const MONO = '500 11px "JetBrains Mono", ui-monospace, monospace';

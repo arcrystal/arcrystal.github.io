@@ -5,12 +5,11 @@
 // colour (one follows the pointer and merges with the rest); and the instruments: brackets that
 // track the larger drops, a faint coordinate grid and a slow scan.
 import { GIANTS_GLSL } from '../giants.js';
+import { paletteGLSL } from '../palette.js';
+import { SKY } from '../dew-plan.js';
 export const COSMOS = /* glsl */ `
 ${GIANTS_GLSL}
-const vec3 COS_BG = vec3(0.020, 0.024, 0.059);
-const vec3 COS_CYAN = vec3(0.133, 0.902, 1.0);
-const vec3 COS_MAG = vec3(1.0, 0.239, 0.796);
-const vec3 COS_VIOLET = vec3(0.357, 0.231, 1.0);
+${paletteGLSL()}
 
 vec3 cosmosSky(vec2 px) {
   vec2 uv = px / R;
@@ -18,28 +17,43 @@ vec3 cosmosSky(vec2 px) {
   float n1 = fbm(q * 1.6 + vec2(T * 0.006, 0.0));
   float n2 = fbm(q * 3.1 - vec2(0.0, T * 0.004) + n1);
   float cloud = smoothstep(0.42, 0.9, n2) * smoothstep(1.15, 0.1, length((uv - vec2(0.72, 0.3)) * vec2(1.0, 1.4)));
-  vec3 col = COS_BG + COS_VIOLET * cloud * 0.48 + vec3(0.9, 0.3, 0.7) * cloud * cloud * 0.3;
-  // The nebula's core: a warm, bright heart where the cloud is thickest.
-  col += vec3(1.0, 0.62, 0.86) * pow(cloud, 3.0) * 0.22;
-  float teal = smoothstep(0.5, 0.95, fbm3(q * 2.2 + 7.0)) * smoothstep(0.9, 0.0, length(uv - vec2(0.15, 0.85)));
-  col += COS_CYAN * teal * 0.12;
-  col *= 1.0 - 0.5 * smoothstep(0.55, 0.8, fbm3(q * 5.0 + 3.0)) * cloud;
+  // Thin haze where the cloud is thin, its dense filaments in the palette's other colour, a bright heart.
+  vec3 col = COS_BG + mix(SKY_BODY, SKY_DENSE, smoothstep(0.45, 0.95, cloud)) * cloud + SKY_CORE * pow(cloud, 3.0);
+  float far = smoothstep(0.5, 0.95, fbm3(q * 2.2 + 7.0)) * smoothstep(0.9, 0.0, length(uv - vec2(0.15, 0.85)));
+  col += SKY_FAR * far;
+  // Dust lanes across the cloud, dimming and tinting what is behind them.
+  col *= mix(vec3(1.0), SKY_DUST, smoothstep(0.55, 0.8, fbm3(q * 5.0 + 3.0)) * cloud);
   return col;
 }
 
+// Science → Racing: its progress (+ 10) while it photographs Science, 0 otherwise; and the same while
+// glsl/dew.js draws Science live (gSkyP, -9 otherwise). Each star condenses into a drop at its own time
+// (dew-plan.js skyStars, the same hash): its light gathers, brightening, and it is gone from the sky.
+// The pointer's parallax eases off first, so the stars are where the plan has them. (Each hash is read
+// through a triangle wave, uniform still but continuous where it wraps, so the GPU's last bits never
+// move a star far from the plan's; any the plan has not are gone by the end.)
+float tri(float h) { return 1.0 - abs(2.0 * h - 1.0); }
+vec2 tri(vec2 h) { return 1.0 - abs(2.0 * h - 1.0); }
+uniform float uSkyP;
+float gSkyP = -9.0;
 vec3 cosmosStars(vec2 px) {
   vec3 c = vec3(0.0);
+  float sp = uSkyP > 0.0 ? uSkyP - 10.0 : gSkyP;
+  float par = uPtrOn * (1.0 - smoothstep(-0.2, 0.2, sp));
   for (int l = 0; l < 3; l++) {
     float fl = float(l);
     float sc = 46.0 - fl * 12.0;
-    vec2 p = (px + (PTR - R * 0.5) * (0.004 + fl * 0.006) * uPtrOn) / sc;
+    vec2 p = (px + (PTR - R * 0.5) * (0.004 + fl * 0.006) * par) / sc;
     vec2 id = floor(p), f = fract(p) - 0.5;
-    float b = hash(id + fl * 3.1);
+    float b = tri(hash(id + fl * 3.1));
     if (b < 0.86 - fl * 0.05) continue;
-    float d = length(f - (hash2(id + fl * 17.0) - 0.5) * 0.8) * sc;
+    float pc = ${SKY.c0.toFixed(4)} + ${SKY.span.toFixed(4)} * tri(hash(id + vec2(fl * 7.7, 23.0)));
+    float gone = max(smoothstep(pc - 0.002, pc + 0.008, sp), smoothstep(${(SKY.c0 + SKY.span + 0.004).toFixed(4)}, ${(SKY.c0 + SKY.span + 0.02).toFixed(4)}, sp));
+    if (gone >= 1.0) continue;
+    float d = length(f - (tri(hash2(id + fl * 17.0)) - 0.5) * 0.8) * sc;
     float tw = 0.65 + 0.35 * sin(T * (1.2 + b * 3.0) + b * 40.0);
-    vec3 tint = mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.86, 0.75), hash(id + 9.0));
-    c += tint * exp(-d * d / (0.9 + fl * 0.6)) * (0.5 + fl * 0.35) * tw;
+    vec3 tint = mix(STAR_COOL, STAR_WARM, tri(hash(id + 9.0)));
+    c += tint * exp(-d * d / (0.9 + fl * 0.6)) * (0.5 + fl * 0.35) * tw * (1.0 + 1.6 * smoothstep(pc - 0.02, pc, sp)) * (1.0 - gone);
   }
   return c;
 }
@@ -70,9 +84,9 @@ vec3 cosmosGiants(vec2 px) {
 // What the chrome reflects: the nebula overhead, a black horizon, a cyan rim light from the right.
 vec3 spaceEnv(vec3 r) {
   float y = -r.y;
-  vec3 c = mix(vec3(0.03, 0.03, 0.08), vec3(0.42, 0.33, 0.95), smoothstep(-0.2, 0.9, y));
-  c += vec3(0.95, 0.5, 0.85) * smoothstep(0.55, 0.95, y) * 0.5;
-  c += COS_CYAN * pow(max(r.x, 0.0), 6.0) * 0.8;
+  vec3 c = mix(ENV_LOW, ENV_HIGH, smoothstep(-0.2, 0.9, y));
+  c += ENV_TOP * smoothstep(0.55, 0.95, y) * 0.5;
+  c += ENV_RIM * pow(max(r.x, 0.0), 6.0) * 0.8;
   return mix(c, vec3(0.01), exp(-pow((y + 0.05) / 0.08, 2.0)) * 0.7);
 }
 
@@ -84,8 +98,14 @@ vec4 gDrop[6] = vec4[6](vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4
                         vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0));
 float gDropScale[6] = float[6](1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
 float gWet = 0.0;   // cosmosField: how far the drop field at this point has turned to water
+// Science → Racing's scroll: how far each drop has frozen toward bursting (0 → 1), the field's share of
+// it at this point and the drop that leads there (glsl/dew.js dewChromeIce draws the frost and cracks).
+float gDropIce[6] = float[6](0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+float gIce = 0.0;
+int gIceDrop = 0;
 uniform float uNoDrops;   // 1 while Science → Racing snapshots Science without its drops (dew.js adds them live)
 vec3 dewDropWater(vec2 G, float F, vec2 px);   // glsl/dew.js
+vec3 dewChromeIce(vec3 face, vec2 px);         // glsl/dew.js
 
 vec3 cosmosDrop(int i) {
   float t = T * 0.16;
@@ -101,7 +121,7 @@ vec3 cosmosDrop(int i) {
 }
 
 float cosmosField(vec2 px, out vec2 grad) {
-  float F = 0.0, wet = 0.0;
+  float F = 0.0, wet = 0.0, ice = 0.0, kMax = 0.0;
   grad = vec2(0.0);
   for (int i = 0; i < 6; i++) {
     vec3 b = cosmosDrop(i);
@@ -110,9 +130,12 @@ float cosmosField(vec2 px, out vec2 grad) {
     float k = b.z * b.z / d2;
     F += k;
     wet += k * gDrop[i].w;
+    ice += k * gDropIce[i];
+    if (k > kMax) { kMax = k; gIceDrop = i; }
     grad += -2.0 * k / d2 * d;
   }
   gWet = wet / max(F, 1e-6);
+  gIce = ice / max(F, 1e-6);
   return F;
 }
 
@@ -120,7 +143,7 @@ float cosmosField(vec2 px, out vec2 grad) {
 vec3 cosmosMetal(vec3 n) {
   vec3 r = reflect(vec3(0.0, 0.0, -1.0), n);
   float fres = pow(1.0 - n.z, 1.6);
-  return spaceEnv(r) * 1.1 + spectrum(fres * 1.2 + n.x * 0.4 + T * 0.02) * fres * 0.5
+  return spaceEnv(r) * 1.1 + cosFilm(fres * 1.2 + n.x * 0.4 + T * 0.02) * fres * 0.95
     + pow(max(dot(r, normalize(vec3(-0.4, -0.7, 0.6))), 0.0), 40.0) * 0.9;
 }
 
@@ -130,12 +153,13 @@ vec3 cosmosDrops(vec3 col, vec2 px) {
   float F = cosmosField(px, G);
   float w = fwidth(F) + 1e-4;
   float inside = smoothstep(1.0 - w, 1.0 + w, F);
-  col += COS_VIOLET * smoothstep(0.35, 1.0, F) * 0.12 * (1.0 - inside);
+  col += COS_GLOW * smoothstep(0.35, 1.0, F) * 0.12 * (1.0 - inside);
   if (inside > 0.0) {
     float flat_ = 1.0 - 0.7 * smoothstep(1.3, 3.2, F);
     vec3 n = normalize(vec3(-G * 70.0 * flat_, 1.0));
     vec3 face = gWet >= 1.0 ? dewDropWater(G, F, px) : cosmosMetal(n);
     if (gWet > 0.0 && gWet < 1.0) face = mix(face, dewDropWater(G, F, px), gWet);
+    if (gIce > 0.0) face = dewChromeIce(face, px);
     col = mix(col, face, inside);
   }
   return col;
@@ -147,12 +171,13 @@ vec3 sceneCosmos(vec2 px) {
   float F = uNoDrops > 0.5 ? 0.0 : cosmosField(px, G);
   float w = fwidth(F) + 1e-4;
   float inside = smoothstep(1.0 - w, 1.0 + w, F);
-  col += COS_VIOLET * smoothstep(0.35, 1.0, F) * 0.12 * (1.0 - inside);
+  col += COS_GLOW * smoothstep(0.35, 1.0, F) * 0.12 * (1.0 - inside);
   if (inside > 0.0) {
     float flat_ = 1.0 - 0.7 * smoothstep(1.3, 3.2, F);
     vec3 n = normalize(vec3(-G * 70.0 * flat_, 1.0));
     vec3 face = cosmosMetal(n);
     if (gWet > 0.0) face = mix(face, dewDropWater(G, F, px), gWet);
+    if (gIce > 0.0) face = dewChromeIce(face, px);
     col = mix(col, face, inside);
   }
   // Brackets track the three larger drops.
@@ -161,10 +186,10 @@ vec3 sceneCosmos(vec2 px) {
     vec2 ad = abs(px - b.xy);
     float half_ = b.z * 1.45;
     float onEdge = smoothstep(1.2, 0.0, abs(max(ad.x, ad.y) - half_));
-    col += COS_CYAN * onEdge * step(half_ - 14.0, min(ad.x, ad.y)) * 0.6;
+    col += COS_ACCENT * onEdge * step(half_ - 14.0, min(ad.x, ad.y)) * 0.6;
   }
   vec2 g = abs(fract(px / 96.0) - 0.5) * 96.0;
-  col += COS_CYAN * smoothstep(0.9, 0.0, min(g.x, g.y)) * 0.035 * smoothstep(0.0, 0.5, px.x / R.x);
+  col += COS_ACCENT * smoothstep(0.9, 0.0, min(g.x, g.y)) * 0.035 * smoothstep(0.0, 0.5, px.x / R.x);
   // Now and then a meteor: a thin streak with a cyan head, every 11 s, somewhere new each time.
   float mk = floor(T / 11.0), mt = fract(T / 11.0) * 11.0;
   if (mt < 0.9) {
@@ -174,10 +199,10 @@ vec3 sceneCosmos(vec2 px) {
     vec2 rel = px - head;
     float along = dot(rel, -md), across = abs(dot(rel, vec2(-md.y, md.x)));
     float trail = smoothstep(260.0, 0.0, along) * step(0.0, along) * exp(-across * across / 1.6);
-    col += (COS_CYAN * 0.6 + vec3(0.8)) * (trail * 0.7 + exp(-dot(rel, rel) / 10.0)) * sin(PI * mt / 0.9);
+    col += (COS_ACCENT * 0.6 + vec3(0.8)) * (trail * 0.7 + exp(-dot(rel, rel) / 10.0)) * sin(PI * mt / 0.9);
   }
   float sy = mod(T * 60.0, R.y * 1.6) - R.y * 0.3;
-  col += COS_CYAN * exp(-pow((px.y - sy) / 30.0, 2.0)) * 0.03;
+  col += COS_ACCENT * exp(-pow((px.y - sy) / 30.0, 2.0)) * 0.03;
   vec2 uv = px / R;
   return col * (1.0 - 0.3 * pow(length(uv - 0.5) * 1.2, 2.0));
 }

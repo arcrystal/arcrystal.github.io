@@ -4,7 +4,7 @@
 // Nvidia's H200 manages about 230 on the same model (the company's figures; independent tests
 // measured 14,000 to 16,000). The catch: it runs only that model. Here the same 1,000-token answer
 // is written at both speeds, in real time.
-import { stage, COLORS, MONO } from './stage.js';
+import { stage, COLORS, MONO, rgba } from './stage.js';
 
 export const HC1 = { name: 'Taalas HC1', model: 'Llama 3.1 8B', rate: 17000, process: 'TSMC 6 nm', dieMm2: 815, transistors: 53e9, weights: '3- and 6-bit', modelToChipMonths: 2 };
 export const GPU = { name: 'Nvidia H200', model: 'Llama 3.1 8B', rate: 230 };
@@ -32,7 +32,7 @@ export function mount(el, { reducedMotion = false } = {}) {
     ctx.fillText(`${chip.name.toUpperCase()} · ${chip.rate.toLocaleString('en-US')} TOKENS/S`, x, y + 12);
     for (let i = 0; i < ANSWER; i++) {
       const cx = x + (i % cols) * cw, cy = y + 22 + Math.floor(i / cols) * ch;
-      ctx.fillStyle = i < done ? color : 'rgba(185,166,255,0.12)';
+      ctx.fillStyle = i < done ? color : rgba(COLORS.mute, 0.14);
       ctx.fillRect(cx, cy, cw - 1.5, ch - 1.5);
     }
     const t = Math.min(s, secondsFor(chip.rate));
@@ -44,8 +44,8 @@ export function mount(el, { reducedMotion = false } = {}) {
     ctx.clearRect(0, 0, w, h);
     const s = reducedMotion ? secondsFor(GPU.rate) : t % cycle;
     const half = (h - 40) / 2;
-    lane(ctx, 16, 8, w - 32, half, HC1, s, COLORS.cyan);
-    lane(ctx, 16, 8 + half, w - 32, half, GPU, s, COLORS.violet);
+    lane(ctx, 16, 8, w - 32, half, HC1, s, COLORS.accent);
+    lane(ctx, 16, 8 + half, w - 32, half, GPU, s, COLORS.accent2);
     ctx.font = MONO; ctx.fillStyle = COLORS.mute;
     ctx.fillText(`${Math.round(speedup())}× faster for one user · ${HC1.process} · ${HC1.dieMm2} mm² · ${HC1.transistors / 1e9}B transistors · runs only ${HC1.model}`, 16, h - 10);
   }

@@ -406,7 +406,7 @@ def letters(text):
 
 
 # The facets' colours in the crystal's stand-in, by style; facet k shows destination k.
-FACETS = {'house': ('#FFFFFF', '#BDB7AC'), 'cosmos': ('#1B1745', '#22E6FF'), 'glass': ('#F4F9FC', '#7DBBF0'),
+FACETS = {'house': ('#FFFFFF', '#BDB7AC'), 'cosmos': ('#0F2A36', '#3FDCD2'), 'glass': ('#F4F9FC', '#7DBBF0'),
           'folio': ('#0F1913', '#CDA562'), 'darkroom': ('#0B0A09', '#C7302A'), 'ink': ('#F3EEE3', '#8E877C')}
 
 

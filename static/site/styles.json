@@ -59,14 +59,14 @@
       "name": "Liquid Cosmos",
       "scheme": "dark",
       "colors": {
-        "bg": "#05060F",
-        "surface": "#0D0F22",
-        "ink": "#ECE9FF",
-        "mute": "#A29FC9",
-        "accent": "#22E6FF",
-        "accent2": "#FF3DCB",
-        "accent3": "#B9A6FF",
-        "rule": "#B9A6FF38"
+        "bg": "#04080F",
+        "surface": "#0B1621",
+        "ink": "#EAF3F3",
+        "mute": "#95ABB2",
+        "accent": "#3FDCD2",
+        "accent2": "#F5B451",
+        "accent3": "#F1DCAE",
+        "rule": "#95ABB247"
       },
       "scene": 3
     },

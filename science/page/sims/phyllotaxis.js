@@ -3,7 +3,7 @@
 // of spirals appear, 34 one way and 55 the other (one arm of each is picked out). A slider moves α;
 // a fraction of a degree away, the head breaks into straight spokes and gaps. Beside it a fern grows
 // out of four simple affine maps (Barnsley's fern), a frond made of smaller fronds.
-import { stage, COLORS, MONO } from './stage.js';
+import { stage, COLORS, MONO, rgba } from './stage.js';
 
 export const GOLDEN_ANGLE = 180 * (3 - Math.sqrt(5));
 export const seedAt = (n, angleDeg, c = 1) => {
@@ -63,17 +63,17 @@ export function mount(el, { reducedMotion = false, compact = false } = {}) {
       const [x, y] = seedAt(n, angle, c);
       const arm34 = golden && n % 34 === 7, arm55 = golden && n % 55 === 12;
       const size = 1.2 + 2.2 * Math.sqrt(n / N);
-      ctx.fillStyle = arm34 ? COLORS.cyan : arm55 ? COLORS.magenta : `rgba(255, ${190 + (n % 7) * 6}, ${90 + (n % 5) * 10}, ${0.55 + 0.4 * (1 - n / N)})`;
+      ctx.fillStyle = arm34 ? COLORS.accent : arm55 ? COLORS.accent2 : `rgba(${226 + (n % 7) * 3}, ${214 + (n % 5) * 4}, ${184 + (n % 3) * 6}, ${0.4 + 0.35 * (1 - n / N)})`;
       ctx.beginPath(); ctx.arc(cx + x, cy + y, size, 0, Math.PI * 2); ctx.fill();
     }
     // The fern, to the right.
     const fx = w * 0.82, fy = h * 0.92, fs = Math.min(h * 0.082, w * 0.05);
-    ctx.fillStyle = 'rgba(126, 214, 160, 0.55)';
+    ctx.fillStyle = rgba(COLORS.accent, 0.5);
     for (const [x, y] of fern) ctx.fillRect(fx + x * fs, fy - y * fs, 1, 1);
     ctx.font = MONO; ctx.fillStyle = COLORS.mute;
     if (golden) {
-      ctx.fillStyle = COLORS.cyan; ctx.fillText('34 spirals', 14, h - 30);
-      ctx.fillStyle = COLORS.magenta; ctx.fillText('55 spirals', 14, h - 14);
+      ctx.fillStyle = COLORS.accent; ctx.fillText('34 spirals', 14, h - 30);
+      ctx.fillStyle = COLORS.accent2; ctx.fillText('55 spirals', 14, h - 14);
     } else {
       ctx.fillText(`${angle.toFixed(3)}° — off the golden angle by ${Math.abs(angle - GOLDEN_ANGLE).toFixed(3)}°`, 14, h - 14);
     }

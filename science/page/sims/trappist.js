@@ -4,7 +4,7 @@
 // side would record: each planet that crosses the star dims it by the share of its face it covers.
 // Orbits are to scale with each other; the star and planets are drawn far larger than life, and the
 // starting positions are illustrative.
-import { stage, COLORS, MONO } from './stage.js';
+import { stage, COLORS, MONO, rgba } from './stage.js';
 
 // Period in days, radius in Earth radii, semi-major axis in AU (Agol et al. 2021, table 2 and 6).
 export const PLANETS = [
@@ -57,10 +57,10 @@ export function mount(el, { reducedMotion = false, compact = false } = {}) {
     ctx.beginPath();
     ctx.arc(cx, cy, PLANETS[6 - 1].a * scale + 8, 0, Math.PI * 2);
     ctx.arc(cx, cy, PLANETS[3].a * scale - 8, 0, Math.PI * 2, true);
-    ctx.fillStyle = 'rgba(34, 230, 255, 0.06)';
+    ctx.fillStyle = rgba(COLORS.accent, 0.06);
     ctx.fill('evenodd');
     // The line of sight toward us, down the screen.
-    ctx.strokeStyle = 'rgba(255, 61, 203, 0.25)';
+    ctx.strokeStyle = rgba(COLORS.accent2, 0.25);
     ctx.setLineDash([3, 5]);
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, h - plotH - 6); ctx.stroke();
     ctx.setLineDash([]);
@@ -73,7 +73,7 @@ export function mount(el, { reducedMotion = false, compact = false } = {}) {
     let flux = 1;
     PLANETS.forEach((p, i) => {
       const r = p.a * scale;
-      ctx.strokeStyle = p.habitable ? 'rgba(34, 230, 255, 0.35)' : COLORS.rule;
+      ctx.strokeStyle = p.habitable ? rgba(COLORS.accent, 0.35) : COLORS.rule;
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
       // Phase 0.25 puts the planet on the near side, in front of the star.
@@ -84,11 +84,11 @@ export function mount(el, { reducedMotion = false, compact = false } = {}) {
       const inFront = Math.sin(ang) > 0 ? Math.max(0, 1 - Math.abs(x - cx) / (starR + pr)) : 0;
       flux -= transitDepth(p.radius) * Math.min(1, inFront * 1.6);
       const metal = ctx.createRadialGradient(x - pr * 0.4, y - pr * 0.4, 0, x, y, pr);
-      metal.addColorStop(0, '#FFFFFF'); metal.addColorStop(0.35, p.habitable ? '#9FEFFF' : '#C9CCE6'); metal.addColorStop(0.8, '#3A3570'); metal.addColorStop(1, '#22E6FF');
+      metal.addColorStop(0, '#FFFFFF'); metal.addColorStop(0.35, p.habitable ? '#A6F0EA' : '#C9D6DA'); metal.addColorStop(0.8, '#1E3A48'); metal.addColorStop(1, COLORS.accent);
       ctx.fillStyle = metal;
       ctx.beginPath(); ctx.arc(x, y, pr, 0, Math.PI * 2); ctx.fill();
       if (!compact || i % 2 === 0) {
-        ctx.font = MONO; ctx.fillStyle = p.habitable ? COLORS.cyan : COLORS.mute;
+        ctx.font = MONO; ctx.fillStyle = p.habitable ? COLORS.accent : COLORS.mute;
         ctx.fillText(p.id, x + pr + 4, y - pr - 2);
       }
     });
@@ -103,7 +103,7 @@ export function mount(el, { reducedMotion = false, compact = false } = {}) {
     ctx.fillText('starlight', left, top + 13);
     ctx.fillText('−1%', left, bottom);
     const y = f => top + 18 + (1 - f) * 100 * (bottom - top - 22);
-    ctx.strokeStyle = COLORS.cyan; ctx.lineWidth = 1.6;
+    ctx.strokeStyle = COLORS.accent; ctx.lineWidth = 1.6;
     ctx.beginPath();
     const now = days;
     curve.forEach(([d, f], k) => {

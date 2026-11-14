@@ -386,7 +386,7 @@ export function mount(main, ctx) {
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
   // Each hold names its transition while it plays, at the foot of the screen, with a thin line
   // for how far it has come: the process (glsl/flight.js) and where it is going.
-  const PROCESS = { cosmos: 'A vortex', glass: 'Stardust, then frost', folio: 'Layers of sheets', darkroom: 'Film, developed', ink: 'Branching ink' };
+  const PROCESS = { cosmos: 'A vortex', glass: 'Stardust, then frost', folio: 'The mountains rise', darkroom: 'Film, developed', ink: 'Branching ink' };
   const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;

@@ -5,7 +5,7 @@
 //   1 Chess                      ink: a branching reach of soft fingers
 //   2 Racing                     dew, then frost: condensation spreading from the click, frozen from it
 //   3 Science                    a vortex at the click whose cubes fly out and build the page
-//   4 Outdoors                   sheets unrolling, gilt rolls travelling across brick-laid panes
+//   4 Outdoors                   molten lead running out along the window's came, then the light
 //   5 Photography                a camera iris, then the print developing (halftone, dither, tone)
 // uH = 1: fog (fbm), for steps through history. A click's reach, crystals or maze are baked once
 // per click by transit.js (uBaked, in uReach); without them the cover computes what it can.
@@ -96,31 +96,71 @@ vec4 vortexCover(vec2 px, vec2 O, float E) {
   return vec4(COS_BG * veil + glow, veil);
 }
 
-// ---- 4: sheets -------------------------------------------------------------------------------------
-// Brick-laid panes over the screen, five rows. Each unrolls from its top edge down, laying the
-// folio's plate as a gilt roll travels across it, one corner leading; the panes go in rings from the
-// click. x: how far laid (1 = this point is covered); rgb: the roll, if it is here.
-vec4 sheetUnroll(vec2 px, vec2 O, float far, float E, out float laid) {
-  vec4 g = vec4(0.0, 5.0, 0.0, R.y / 5.0);
-  g.z = R.x / max(3.0, floor(R.x / g.w + 0.5));
-  g.x = R.x / g.z;
-  ivec2 c = paneCell(px, g);
-  vec2 ctr = paneCentre(c, g);
-  float A = 0.7 * clamp(length(ctr - O) / far, 0.0, 1.0) + 0.06 * hash(vec2(c) + 0.61);
-  float lp = clamp((E - A) / 0.26, 0.0, 1.0);
-  float L = g.w, Rr = L * 0.08;
-  float s = clamp((ctr.y + L * 0.5 - px.y) / L, 0.0, 1.0), w = clamp((px.x - ctr.x) / g.z + 0.5, 0.0, 1.0);
-  float f = clamp(1.0 - lp * 1.5 + 0.5 * mix(w, 1.0 - w, step(0.5, hash(vec2(c) + 2.9))), 0.0, 1.0);
-  laid = lp >= 1.0 ? 1.0 : step(f, s);
-  // The roll: a cylinder lying across the pane at f, its gilt underside lit by the lantern.
-  float t = (f - s) * L / (2.0 * Rr);
-  if (lp <= 0.0 || lp >= 1.0 || t < 0.0 || t > 1.0) return vec4(0.0);
-  float an = PI * t;
-  vec3 n = normalize(vec3(0.0, cos(an), sin(an)));
-  float dif = max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0);
-  float spec = pow(max(dot(n, normalize(vec3(0.2, -0.3, 1.0))), 0.0), 40.0);
-  vec3 gold = mix(vec3(0.3, 0.2, 0.08), vec3(1.0, 0.8, 0.45), 0.25 + 0.75 * dif) + vec3(1.0, 0.94, 0.8) * spec;
-  return vec4(gold, 1.0);
+// ---- 4: lead runs, light follows ------------------------------------------------------------------
+// Outdoors' window (glsl/folio.js) is leaded from the click: molten lead runs out along its came, round
+// its corners (lead-plan.js works out, in uReach, when it reaches each joint; between joints by
+// inverse-distance weighting; without the plan, straight out from the click), its tip white-hot,
+// cooling behind it to bronze, while the old page dims under it into the window's dark glass. Then (reveal) the last light passes outward from the click through the glass, each
+// pane flaring as it takes it, and the window settles into its night: sceneFolio, exactly.
+const vec3 FG_UNLIT = vec3(.005, .008, .01);
+float leadTime(vec2 xz, vec2 px, vec2 O, float far) {
+  float radial = .02 + .85 * length(px - O) / far;
+  if (uBaked < 0.5) return radial;
+  vec4 hd = texelFetch(uReach, ivec2(0), 0);
+  vec2 m = (xz - vec2(FG_S * .5)) / FG_M, uv = fract(m);
+  ivec2 c = ivec2(floor(m)) - ivec2(hd.xy);
+  if (c.x < 0 || c.y < 0 || c.x >= int(hd.z) - 1 || c.y >= int(hd.w) - 1) return radial;
+  vec2 bl = texelFetch(uReach, ivec2(c.x, 1 + c.y), 0).xy;
+  vec4 Tq = vec4(bl.x, texelFetch(uReach, ivec2(c.x, 2 + c.y), 0).x, bl.y, texelFetch(uReach, ivec2(c.x + 1, 1 + c.y), 0).y);
+  vec2 Pq[4] = vec2[4](vec2(.5, 0.0), vec2(.5, 1.0), vec2(0.0, .5), vec2(1.0, .5));
+  float ws = 0.0, ts = 0.0;
+  for (int k = 0; k < 4; k++) {
+    if (Tq[k] < 0.0) continue;
+    float d = length(uv - Pq[k]) + .02, w = 1.0 / (d * d * d * d);
+    ws += w; ts += w * Tq[k];
+  }
+  return ws > 0.0 ? ts / ws : radial;
+}
+float leadVignette(vec2 px) { vec2 uv = px / R; return 1.0 - .5 * pow(length((uv - vec2(.5, .48)) * vec2(1.0, 1.15)), 2.4); }
+vec4 leadCover(vec2 px, vec2 O, float far, float E) {
+  vec2 xz = fgMap(px);
+  float sd[FG_NB], solder = 1e3;
+  for (int k = 0; k < FG_NB; k++) sd[k] = 1.0;
+  if (uPlateOn > .5) fgLeading(xz, sd, solder);
+  float Tl = leadTime(xz, px, O, far), age = E - Tl, run = step(0.0, age);
+  // (Where the lead has not come, its line is not there yet: each band keeps its side.)
+  if (run < .5) { for (int k = 0; k < FG_NB; k++) sd[k] = sd[k] < 0.0 ? min(sd[k], -1.0) : max(sd[k], 1.0); solder = 1e3; }
+  float kpx = fgSpan() / R.y, mpx = FG_M / kpx, came = 1e3;
+  for (int k = 0; k < FG_NB; k++) came = min(came, abs(sd[k]));
+  float w = clamp(mpx * .09, 1.1, 2.2), dl = came * mpx;
+  float cm = smoothstep(w + .8, w - .8, dl) * run;
+  // Under the growing leading the old page dims into the window's dark glass, as dusk falls, a little
+  // sooner near the click.
+  float Tf = .28 + .3 * length(px - O) / far;
+  float set = smoothstep(Tf, Tf + .38, E);
+  vec3 col = fgShade(px, xz, sd, solder, 1.0, 0.0, 0.0, FG_UNLIT) * leadVignette(px);
+  float a = max(set, cm);
+  vec3 o = fgDisp(col) * a;
+  // The molten lead: white at its tip, orange behind, cooling to bronze; a glow about it.
+  float heat = exp(-max(age, 0.0) / .05) * run;
+  vec3 hot = mix(vec3(1.0, .96, .82), vec3(1.0, .5, .14), smoothstep(.0, .025, age)) * heat;
+  float halo = exp(-dl / (w * 2.5)) * heat * .7;
+  o = mix(o, hot, cm * min(heat * 1.4, 1.0));
+  o += vec3(1.0, .55, .18) * halo * (1.0 - cm);
+  // The iron touches down at the click: a bead of molten lead, from which it all runs.
+  float bead = smoothstep(.0, .03, E) * (1.0 - smoothstep(.12, .3, E)), br = length(px - O);
+  float bc = smoothstep(9.0, 6.0, br) * bead, bg = exp(-br / 26.0) * bead * .8;
+  o = mix(o, vec3(1.0, .93, .78), bc) + vec3(1.0, .5, .15) * bg * (1.0 - bc);
+  return vec4(o, max(max(a, bc), max(cm * heat, max(halo, bg) * .8)));
+}
+vec3 leadReveal(vec2 px, float e) {
+  vec2 xz = fgMap(px), O = uPoint;
+  float far = farCorner(O) * 1.02;
+  float sd[FG_NB], solder = 1e3;
+  for (int k = 0; k < FG_NB; k++) sd[k] = 1.0;
+  if (uPlateOn > .5) fgLeading(xz, sd, solder);
+  float q = clamp((e * 1.4 - .95 * length(px - O) / far) / .45, 0.0, 1.0);
+  return fgDisp(fgShade(px, xz, sd, solder, 1.0, 8.0 * q, 48.5 * q, FG_UNLIT) * leadVignette(px));
 }
 
 // ---- fog -------------------------------------------------------------------------------------------
@@ -152,15 +192,7 @@ vec4 cover(int s, vec2 px, float e) {
   }
   if (s == 2) return dewMaterial(px, px, R, -.2 + 1.04 * e, true, false);
   if (s == 3) return vortexCover(px, O, E);
-  if (s == 4) {
-    float laid;
-    vec4 roll = sheetUnroll(px, O, far, E, laid);
-    vec3 col = sceneOf(4, px) * laid;
-    float a = laid;
-    col = mix(col, roll.rgb, roll.a);
-    a = max(a, roll.a);
-    return vec4(col, a);
-  }
+  if (s == 4) return leadCover(px, O, far, E);
   // 5: the iris closes on the click as the light inside warms and overexposes.
   float open = 1.0 - smoothstep(0.0, 1.0, e);
   vec3 light = mix(vec3(1.0, 0.85, 0.6), vec3(1.0, 0.55, 0.3), e);
@@ -172,6 +204,7 @@ vec4 cover(int s, vec2 px, float e) {
 }
 
 vec3 reveal(int s, vec2 px, float e) {
+  if (s == 4 && uH < 0.5) return leadReveal(px, e);
   vec3 scene = sceneOf(s, px);
   if (uH > 0.5) {
     float c = 1.0 - smoothstep(fogField(px) - 0.02, fogField(px) + 0.14, e * 1.3 - 0.15);
@@ -198,17 +231,6 @@ vec3 reveal(int s, vec2 px, float e) {
   if (s == 2) return scene; // Racing's reveal is a translucent front overlay (MAIN).
   // 3: the vortex has spent itself building the page; nothing is left to let go.
   if (s == 3) return scene;
-  if (s == 4) {
-    // The panes' gilt seams catch the light once more, then fade.
-    vec4 g = vec4(0.0, 5.0, 0.0, R.y / 5.0);
-    g.z = R.x / max(3.0, floor(R.x / g.w + 0.5));
-    g.x = R.x / g.z;
-    ivec2 c = paneCell(px, g);
-    vec2 l = px - (paneCentre(c, g) - g.zw * 0.5);
-    float edge = min(min(l.x, g.z - l.x), min(l.y, g.w - l.y));
-    float sweep = exp(-pow((px.x + px.y * 0.6) / (R.x + R.y * 0.6) - e * 1.4 + 0.2, 2.0) * 60.0);
-    return scene + BRASS * smoothstep(1.5, 0.0, edge) * (1.0 - e) * 0.6 + vec3(1.0, 0.9, 0.7) * sweep * smoothstep(3.0, 0.0, edge) * 0.5;
-  }
   // 5: the iris opens from the click onto the darkroom, which develops as it goes.
   float open = smoothstep(0.0, 0.85, e);
   vec3 light = mix(DR_RED * 1.4, EMBER, 0.25);

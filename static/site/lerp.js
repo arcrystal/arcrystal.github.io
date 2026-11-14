@@ -72,7 +72,7 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 1.25, leadOut: 0.06 }, darkroom: { pin: 1.25, leadOut: 0.06 }, ink: { pin: 1.2 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 1.25, leadOut: 0.06 }, ink: { pin: 1.2 } },
 };
 // Racing's band surfaces in place inside its transition (home.js wraps it with its hold): the hold
 // ends, and the band scrolls on, at the transition's very end.
@@ -90,38 +90,44 @@ export function holdAt(sy, T, H, vh, leadIn = HOLD.leadIn, leadOut = HOLD.leadOu
 // Every transit starts slowly, giving time at the foot of the band above: the progress it plays at.
 export const holdEase = p => clamp01(p) ** 1.35;
 // Racing's hold paces its transition by stretch: how much scroll each part of P gets, relative. It
-// starts from rest, the nebulae and the stardust unhurried, the freezing a little brisker, and the
-// ending (the rift, the field lines, the card) slowest. glassEase maps the hold's raw progress to p
-// as holdEase does for the others; glassRaw inverts it (for the tools that seek a P).
-const GLASS_PACE = [[-0.2, 3.2], [-0.1, 1.25], [0.46, 1.25], [0.5, 1.0], [0.8, 1.0], [0.88, 2.4], [1.2, 2.4]];
-const GLASS_TABLE = (() => {
+// starts from rest, the supernovae unhurried, the gas gathering into its drops slower still, the freeze
+// and the vacuum steady, and the ending (the card giving its light back as Racing's dawn) slowest.
+// glassEase maps the hold's raw progress to p as holdEase does for the others; glassRaw inverts it (for
+// the tools that seek a P).
+const GLASS_PACE = [[-0.2, 3.2], [-0.1, 1.15], [0.28, 1.15], [0.34, 1.6], [0.5, 1.6], [0.56, 1.45], [0.84, 1.45], [0.92, 1.3], [0.98, 2.0], [1.12, 2.0], [1.2, 1.7]];
+// Outdoors' hold, likewise: the strip coming in unhurried, the paint landing and moulding the land at
+// an even pace, the dive and the flight a little quicker, and the leading and the light coming through
+// the glass slowest of all. folioEase and folioRaw as glassEase and glassRaw.
+const FOLIO_PACE = [[-0.2, 6.0], [-0.08, 1.2], [0.15, 1.2], [0.3, 1.0], [0.44, 0.85], [0.76, 0.95], [0.94, 1.5], [1.1, 1.9], [1.2, 1.7]];
+// A pace table: P sampled finely, the raw progress at each the running sum of the stretch.
+function paceTable(PACE) {
   const N = 2048, Ps = new Float64Array(N + 1), raw = new Float64Array(N + 1);
   const w = x => {
-    for (let i = 1; i < GLASS_PACE.length; i++) if (x <= GLASS_PACE[i][0]) {
-      const [a, wa] = GLASS_PACE[i - 1], [b, wb] = GLASS_PACE[i], t = (x - a) / (b - a);
+    for (let i = 1; i < PACE.length; i++) if (x <= PACE[i][0]) {
+      const [a, wa] = PACE[i - 1], [b, wb] = PACE[i], t = (x - a) / (b - a);
       return wa + (wb - wa) * t * t * (3 - 2 * t);
     }
-    return GLASS_PACE[GLASS_PACE.length - 1][1];
+    return PACE[PACE.length - 1][1];
   };
   for (let k = 0; k <= N; k++) {
     Ps[k] = -0.2 + 1.4 * k / N;
     if (k) raw[k] = raw[k - 1] + (w(Ps[k - 1]) + w(Ps[k])) / 2;
   }
   for (let k = 0; k <= N; k++) raw[k] /= raw[N];
-  return { Ps, raw, N };
-})();
-export function glassEase(r) {
-  const { Ps, raw, N } = GLASS_TABLE, x = clamp01(r);
-  let lo = 0, hi = N;
-  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (raw[m] <= x) lo = m; else hi = m; }
-  const t = raw[hi] > raw[lo] ? (x - raw[lo]) / (raw[hi] - raw[lo]) : 0;
-  return (Ps[lo] + (Ps[hi] - Ps[lo]) * t + 0.2) / 1.4;
+  const ease = r => {
+    const x = clamp01(r);
+    let lo = 0, hi = N;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (raw[m] <= x) lo = m; else hi = m; }
+    const t = raw[hi] > raw[lo] ? (x - raw[lo]) / (raw[hi] - raw[lo]) : 0;
+    return (Ps[lo] + (Ps[hi] - Ps[lo]) * t + 0.2) / 1.4;
+  };
+  const inverse = P => { const k = Math.max(0, Math.min(N, (P + 0.2) / 1.4 * N)), i = Math.min(N - 1, Math.floor(k)); return raw[i] + (raw[i + 1] - raw[i]) * (k - i); };
+  return { ease, inverse };
 }
-export function glassRaw(P) {
-  const { raw, N } = GLASS_TABLE, k = Math.max(0, Math.min(N, (P + 0.2) / 1.4 * N)), i = Math.min(N - 1, Math.floor(k));
-  return raw[i] + (raw[i + 1] - raw[i]) * (k - i);
-}
-export const easeFor = style => (style === 'glass' ? glassEase : holdEase);
+const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE);
+export const glassEase = GLASS_TABLE.ease, glassRaw = GLASS_TABLE.inverse;
+export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;
+export const easeFor = style => (style === 'glass' ? glassEase : style === 'folio' ? folioEase : holdEase);
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);
