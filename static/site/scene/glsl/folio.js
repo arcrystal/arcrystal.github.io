@@ -69,6 +69,12 @@ const vec3 EMBER = vec3(0.910, 0.706, 0.396);
 
 uniform sampler2D uPlate;
 uniform float uPlateOn;
+// Who holds the lantern (glsl/moment.js): 0 the world (idle, or the pointer); 1 a lantern at gLampAt of
+// gain gLampK and radius gLampR (px); 2 a light gLampK everywhere (to bake what the lantern adds).
+// gDusk: how far the dusk outside has deepened (0 the world's own).
+int gLampMode = 0;
+vec2 gLampAt = vec2(0.0);
+float gLampK = 1.0, gLampR = 420.0, gDusk = 0.0;
 const float FG_S = ${f(TERRAIN.size)}, FG_M = ${f(GLASS.module)}, FG_KM = ${f(FT)};
 const int FG_NB = ${NB};
 const float FG_T[${NB}] = float[${NB}](${GLASS.bands.map(b => f(b)).join(', ')});
@@ -126,6 +132,8 @@ vec3 fgOutside(vec2 p) {
   vec3 col = mix(vec3(.046, .028, .016), vec3(.012, .028, .035), smoothstep(-.03, .14, hz - u.y));
   col = mix(col, vec3(.005, .013, .018), smoothstep(.2, .7, hz - u.y));
   col = mix(col, vec3(.011, .014, .011), smoothstep(.0, .1, u.y - hz));
+  // (Deepening, the last warm light going and the blue coming on.)
+  col *= mix(vec3(1.0), vec3(.42, .6, 1.12), gDusk);
   // The far trees: soft dark masses along the glow.
   float trees = smoothstep(.42, .72, fbm3(vec2(p.x / 210.0, u.y * 3.2) + 4.0)) * smoothstep(.3, .0, abs(u.y - hz + .05));
   col *= 1.0 - .6 * trees;
@@ -155,6 +163,8 @@ vec3 fgShade(vec2 px, vec2 xz, float sd[FG_NB], float solder, float lead, float 
   vec2 lamp = mix(idle, PTR, uPtrOn);
   // (Left to itself, with no pointer to carry it, it is turned low.)
   float light = exp(-pow(length(px - lamp) / 420.0, 2.0)) * mix(.35, 1.0, uPtrOn);
+  if (gLampMode == 1) { lamp = gLampAt; light = exp(-pow(length(px - lamp) / gLampR, 2.0)) * gLampK; }
+  else if (gLampMode == 2) { lamp = px + vec2(-40.0, -60.0); light = gLampK; }
   // The glass: which sheet (summit square, tarn jewel, or the band's), refracting what is outside.
   vec3 tint = FG_TINT[band];
   float opal = FG_OPAL[band], gain = FG_GLOW[band], irid = band == 6 ? .6 : 0.0, glow = 0.0, edge = came * FG_M;
@@ -228,8 +238,8 @@ vec3 fgShade(vec2 px, vec2 xz, float sd[FG_NB], float solder, float lead, float 
   col = mix(col, vec3(.03, .028, .024) + vec3(.9, .82, .65) * pow(light, 2.0) * .3, sol);
   return col;
 }
-// The world, at rest: the window lit, every summit glowing.
-vec3 sceneFolio(vec2 px) {
+// The world, at rest: the window lit, every summit glowing. Linear, and as displayed.
+vec3 sceneFolioLin(vec2 px) {
   vec2 xz = fgMap(px);
   float sd[FG_NB], solder = 1e3;
   for (int k = 0; k < FG_NB; k++) sd[k] = 1.0;
@@ -237,6 +247,7 @@ vec3 sceneFolio(vec2 px) {
   vec3 col = fgShade(px, xz, sd, solder, 1.0, 8.0, 48.0, vec3(0.0));
   vec2 uv = px / R;
   col *= 1.0 - .5 * pow(length((uv - vec2(.5, .48)) * vec2(1.0, 1.15)), 2.4);
-  return fgDisp(col);
+  return col;
 }
+vec3 sceneFolio(vec2 px) { return fgDisp(sceneFolioLin(px)); }
 `;

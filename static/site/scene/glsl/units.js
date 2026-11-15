@@ -607,83 +607,6 @@ void main() {
   gl_Position = vec4(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0, 0.0, 1.0);
 }`;
 
-// ---- Outdoors → Photography: film strips ---------------------------------------------------------
-// One instance per strip (flight.js film): the part pulled off the table, from its pulled end to where
-// it leaves the table, laid along a rising helix that heads back over the table and up, twisting about
-// itself and rippling, so the strips coil up the screen like film off a reel. Glossy celluloid: the
-// negative on its face (sprocket holes cut through), the dull base behind.
-const FILM_VS = VHEAD + /* glsl */ `
-const int NL = 120;
-out vec2 vQ;
-out vec3 vN;
-out vec3 vP;
-out float vNeg;
-float gRh, gRise, gTw, gE;
-vec3 gL;
-// The film's centre line d px along it from where it leaves the table, and its frame there.
-void filmFrame(float d, out vec3 c, out vec3 T, out vec3 B) {
-  float a = d / gRh;
-  c = gL + vec3(gE * gRh * sin(a), -d * gRise, gRh * (1.0 - cos(a)) * 0.9);
-  T = normalize(vec3(gE * cos(a), -gRise, sin(a) * 0.9));
-  vec3 b0 = normalize(vec3(0.0, 1.0, 0.0) - T * T.y);
-  B = rotAxis(b0, T, gTw * d);
-}
-void main() {
-  vec2 S = uRegion.zw;
-  vec4 g = filmGrid(S);
-  int r = gl_InstanceID;
-  if (r >= int(g.y)) { gl_Position = GONE; return; }
-  float P = transitP(uH), A = filmA(r, g, S), u = filmU(A, P);
-  if (u <= 0.0 || u >= 1.0) { gl_Position = GONE; return; }
-  float side = filmSide(r), pulled = filmPulled(u, S.x);
-  float r1 = hash(vec2(float(r), 1.1)), r2 = hash(vec2(float(r), 2.2)), r3 = hash(vec2(float(r), 3.3));
-  gRh = 130.0 + 150.0 * r1; gRise = 0.26 + 0.2 * r2; gTw = (r3 - 0.5) * 0.012; gE = -side;
-  float y0 = (float(r) + 0.5) * g.w, h = g.w;
-  float lift = min(pulled, S.x);
-  gL = vec3(side > 0.0 ? lift : S.x - lift, y0, 0.0);
-  int seg = gl_VertexID / 6;
-  vec2 k = QUAD[gl_VertexID % 6];
-  // Along the strip from its pulled end (l), across it (v).
-  float l = (float(seg) + k.x) / float(NL) * lift;
-  float v = k.y - 0.5;
-  float d = pulled - l;
-  vec3 c, T, B;
-  filmFrame(d, c, T, B);
-  vec3 N = normalize(cross(T, B));
-  c += N * 7.0 * sin(d * 0.028 - uTime * 3.0 + r1 * 6.3) * smoothstep(0.0, 120.0, d);
-  vec3 Pp = c + B * v * h;
-  vQ = vec2(side > 0.0 ? l : S.x - l, y0 + v * h);
-  vN = N;
-  vP = Pp;
-  vNeg = filmNeg(A, P);
-  gl_Position = project(Pp);
-}`;
-
-const FILM_FS = FHEAD + NOISE + FLIGHT + /* glsl */ `
-in vec2 vQ;
-in vec3 vN;
-in vec3 vP;
-in float vNeg;
-void main() {
-  vec2 S = uRegion.zw;
-  vec4 g = filmGrid(S);
-  vec4 f = filmLook(texture(uTexA, tUV(vQ)).rgb, vQ, g.w, max(vNeg, 0.999));
-  if (f.a > 0.5) discard;
-  vec3 n = normalize(vN);
-  vec3 V = normalize(vec3(uView * 0.5 - uRegion.xy, 1100.0) - vP);
-  bool front = dot(n, V) > 0.0;
-  if (!front) n = -n;
-  vec3 lamp = normalize(vec3(0.3, -0.6, 0.74));
-  vec3 H = normalize(lamp + V);
-  float dif = max(dot(n, lamp), 0.0);
-  float spec = pow(max(dot(n, H), 0.0), 90.0);
-  float fres = pow(1.0 - abs(dot(n, V)), 4.0);
-  vec3 base = front ? f.rgb : vec3(0.16, 0.1, 0.07) + f.rgb * 0.12;
-  vec3 col = base * (0.45 + 0.6 * dif) + vec3(1.0, 0.93, 0.85) * (spec * 0.9 + fres * 0.25) + DR_RED * 0.12 * (1.0 - dif);
-  o = vec4(col, 1.0);
-}`;
-
-
 // ---- Science → Racing: the drops, cold from the card, the vacuum ------------------------------------
 // The clumps' drops and the stars' beads (the plan's records); each freezing as the front from Racing's
 // card reaches it and splitting into shards; the shards pulled along the field into the card, the
@@ -1086,7 +1009,6 @@ export const UNIT_PROGRAMS = {
   cubes: { vs: CUBES_VS, fs: CUBES_FS, verts: 36, blend: 'over' },
   streaks: { vs: STREAKS_VS, fs: STREAKS_FS, verts: 18 * 6, blend: 'over' },
   flow: { vs: FLOW_VS, fs: STREAKS_FS, verts: 22 * 6, blend: 'over' },
-  film: { vs: FILM_VS, fs: FILM_FS, verts: 120 * 6, blend: 'opaque' },   // instances: the rows of film
   sheets: { vs: SHEETS_VS, fs: SHEETS_FS, verts: 30 * 12 * 6, blend: 'opaque' },   // per layer, instances: rows × (cols + 1)
   glitter: { vs: GLITTER_VS, fs: GLITTER_FS, verts: 6, blend: 'add' },
   filaments: { vs: FILAMENTS_VS, fs: FILAMENTS_FS, verts: 16 * 6, blend: 'over' },

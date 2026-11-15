@@ -6,7 +6,7 @@
 //   2 Racing                     dew, then frost: condensation spreading from the click, frozen from it
 //   3 Science                    a vortex at the click whose cubes fly out and build the page
 //   4 Outdoors                   molten lead running out along the window's came, then the light
-//   5 Photography                a camera iris, then the print developing (halftone, dither, tone)
+//   5 Photography                a light's sweep remembered, the shutter; the page developing
 // uH = 1: fog (fbm), for steps through history. A click's reach, crystals or maze are baked once
 // per click by transit.js (uBaked, in uReach); without them the cover computes what it can.
 export const OPENS = /* glsl */ `
@@ -193,18 +193,13 @@ vec4 cover(int s, vec2 px, float e) {
   if (s == 2) return dewMaterial(px, px, R, -.2 + 1.04 * e, true, false);
   if (s == 3) return vortexCover(px, O, E);
   if (s == 4) return leadCover(px, O, far, E);
-  // 5: the iris closes on the click as the light inside warms and overexposes.
-  float open = 1.0 - smoothstep(0.0, 1.0, e);
-  vec3 light = mix(vec3(1.0, 0.85, 0.6), vec3(1.0, 0.55, 0.3), e);
-  vec4 I = irisAt(px, O, far, open, light);
-  float r = length(px - O), a = open * far * 1.15;
-  vec3 warm = sunset(e * 0.6) * pow(e, 3.0) * exp(-r / (a + 30.0)) * 0.6;
-  vec3 col = I.rgb * (1.0 - I.a) + warm * I.a + starburst(px, O, far, smoothstep(0.85, 1.0, e), light);
-  return vec4(col, 1.0 - I.a);
+  // 5: a light from the click sweeps the page, remembered; the curtain ends it (glsl/moment.js).
+  return momentCover(px, O, far, E);
 }
 
 vec3 reveal(int s, vec2 px, float e) {
   if (s == 4 && uH < 0.5) return leadReveal(px, e);
+  if (s == 5 && uH < 0.5) return momentReveal(px, e);
   vec3 scene = sceneOf(s, px);
   if (uH > 0.5) {
     float c = 1.0 - smoothstep(fogField(px) - 0.02, fogField(px) + 0.14, e * 1.3 - 0.15);
@@ -231,13 +226,8 @@ vec3 reveal(int s, vec2 px, float e) {
   if (s == 2) return scene; // Racing's reveal is a translucent front overlay (MAIN).
   // 3: the vortex has spent itself building the page; nothing is left to let go.
   if (s == 3) return scene;
-  // 5: the iris opens from the click onto the darkroom, which develops as it goes.
-  float open = smoothstep(0.0, 0.85, e);
-  vec3 light = mix(DR_RED * 1.4, EMBER, 0.25);
-  vec4 I = irisAt(px, O, far, open, light);
-  float r = length(px - O), a = open * far * 1.15;
-  vec3 inside = develop(scene, px, smoothstep(0.1, 1.0, e)) + DR_RED * 0.4 * exp(-r / (a * 0.7 + 30.0)) * (1.0 - e) + bokeh(px, sin(PI * e) * 0.8);
-  return mix(I.rgb, inside, I.a) + starburst(px, O, far, 1.0 - smoothstep(0.0, 0.15, e), vec3(1.0, 0.92, 0.75));
+  // 5: the page develops in the tray (momentReveal, above).
+  return scene;
 }
 `;
 
@@ -274,6 +264,10 @@ void main() {
   else if (uMode == 7) o = vec4(heroScene(px), 1.0);
   else if (uMode == 8) o = vec4(transitGround(uA, px0 - uRegion.xy, px), 1.0);
   else if (uMode == 9) o = dewGasPacked(px0 - uRegion.xy, transitP(uH));   // Racing's lit gas, for transit.js
+  // Photography's evening (transit.js): the window baked still, the evening in depth, the exposure.
+  else if (uMode == 10) o = momentBake(px0, uB);
+  else if (uMode == 11) o = momentVolume(px0, transitP(uH));
+  else if (uMode == 12) o = momentExposure(px0);
   else o = vec4(mix(sceneOf(uA, px), sceneOf(uB, px), smoothstep(0.3, 0.7, uH)), 1.0);
   bool icePass = (uMode == 8 && uB == 2 && uH > -.2 && uH < 1.12)
               || ((uMode == 2 || uMode == 3) && uA == 2 && uH < .5 && (uMode == 2 || uE < .7777778));

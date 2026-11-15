@@ -13,7 +13,7 @@ import { createTransit } from './transit.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uWinA', 'uWinB', 'uVol', 'uExp', 'uWinOn', 'uVolOn', 'uExpOn'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -89,6 +89,10 @@ function createScene() {
         gl.uniform1i(U.uTerrain, 4);
         gl.uniform1i(U.uTerrainDetail, 6);
         gl.uniform1i(U.uPlate, 7);
+        gl.uniform1i(U.uWinA, 8);
+        gl.uniform1i(U.uWinB, 9);
+        gl.uniform1i(U.uVol, 3);
+        gl.uniform1i(U.uExp, 10);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -148,6 +152,10 @@ function createScene() {
     const iceReady = iceEffect ? transit?.bindIce(cssW,cssH) : s.iceReady;
     gl.uniform1f(U.uIceReady, iceReady ? 1 : 0);
     gl.uniform1f(U.uPlateOn, transit?.plateReady() ? 1 : 0);
+    const mo = transit?.momentInfo();
+    gl.uniform1f(U.uWinOn, mo?.win ? 1 : 0);
+    gl.uniform1f(U.uVolOn, mo?.vol ? 1 : 0);
+    gl.uniform1f(U.uExpOn, mo?.exp ? 1 : 0);
     gl.uniform1f(U.uIceDetail, iceDetail);
     const c = s.card;
     gl.uniform4f(U.uCard, c ? c[0] : 0, c ? c[1] : 0, c ? c[2] : 0, c ? c[3] : 0);

@@ -378,45 +378,6 @@ vec3 vellum(vec3 under, vec2 q) {
   return mix(milk, milk * (0.75 + 0.5 * under), 0.35) + (noise(q * vec2(0.9, 0.06)) - 0.5) * 0.035;
 }
 
-// ---- Photography: film ----------------------------------------------------------------------------
-// The page becomes 35 mm film and is pulled away, strip by strip from the foot of the screen up. Each
-// strip (a row FILM_H high) is first exposed: a flash crosses it and it turns to a colour negative,
-// orange-masked, with sprocket holes along its edges and lines between its frames. Then it is pulled
-// off the table from one end (alternate rows from alternate ends), lifting into a rising, twisting
-// helix of film; where it has left, the Photography page develops in the tray. filmU: how far the
-// pull has gone (0..1); filmPulled: how much of the strip (CSS px) has left the table.
-const float FILM_H = 84.0;
-vec4 filmGrid(vec2 size) { float rows = max(4.0, floor(size.y / FILM_H + 0.5)); return vec4(1.0, rows, size.x, size.y / rows); }
-float filmA(int r, vec4 g, vec2 size) {
-  float y0 = (float(r) + 0.5) * g.w;
-  return 0.1 + 0.74 * clamp(1.0 - y0 / size.y, 0.0, 1.0) + (hash(vec2(float(r), 3.3)) - 0.5) * 0.04;
-}
-float filmU(float A, float P) { return clamp((P - A + 0.2) / 0.5, 0.0, 1.0); }
-float filmNeg(float A, float P) { return smoothstep(-0.28, -0.2, P - A); }
-float filmSide(int r) { return r % 2 == 0 ? 1.0 : -1.0; }   // 1: pulled from the left end
-float filmPulled(float u, float len) { return pow(u, 1.6) * (len + 700.0); }
-// The film's printing over an image at q (row height h): the negative (neg 0..1 of the way there),
-// lines between frames, and in the margins the orange base with sprocket holes. a: 1 in a hole.
-vec4 filmLook(vec3 img, vec2 q, float h, float neg) {
-  float yr = mod(q.y, h), m = h * 0.15;
-  vec3 negc = clamp(vec3(0.9) - img * 1.9, 0.0, 1.0) * vec3(0.98, 0.64, 0.4) + vec3(0.07, 0.03, 0.01);
-  vec3 col = mix(img, negc, neg);
-  float frameW = (h - 2.0 * m) * 1.5;
-  float fx = mod(q.x, frameW);
-  col = mix(col, vec3(0.12, 0.05, 0.02), smoothstep(3.0, 1.5, min(fx, frameW - fx)) * neg);
-  float inMargin = 1.0 - step(m, yr) * step(yr, h - m);
-  if (inMargin > 0.5) {
-    float ym = yr < m ? yr : h - yr;
-    col = mix(col, vec3(0.6, 0.33, 0.15) + (hash(floor(q * 0.5)) - 0.5) * 0.03, neg);
-    // Edge printing: small ticks along the outer margin.
-    col = mix(col, vec3(0.95, 0.75, 0.45), neg * step(0.9, fract(q.x / (frameW * 0.25))) * step(ym, m * 0.18) * 0.6);
-    float hp = frameW / 8.0;
-    float hole = step(abs(mod(q.x, hp) - hp * 0.5), hp * 0.27) * step(abs(ym - m * 0.55), m * 0.3);
-    return vec4(col, hole * neg);
-  }
-  return vec4(col, 0.0);
-}
-
 // A divergence-free swirl: three layers of drifting vortex cells (the curl of sin x sin y), about
 // unit speed. Every flowing unit and the liquid seam follow it.
 vec2 vortexCells(vec2 p, float k, vec2 ph, float a) {

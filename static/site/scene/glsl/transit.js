@@ -103,82 +103,7 @@ vec3 groundSheets(vec2 q, vec2 px, float P) {
   return underFold(sceneFolio(px), above, q);
 }
 
-// Outdoors → Photography. The page is exposed onto film and pulled away strip by strip (flight.js
-// film): on the table each strip is the Outdoors page until a flash crosses it and it turns to a
-// negative with sprocket holes; then it is pulled off from one end (units.js film). Where it has gone
-// the Photography page develops in the tray: ripples spread from the line where the film lifts, the
-// safelight glows, and the print comes up from a halftone screen through ordered dither to full tone.
-// The prints in the tray: the film's frames printed positive, white-bordered, each a little askew,
-// laid in a loose grid. Each comes up from blank paper through a halftone screen and dither to full
-// tone (develop) once the film has left its place, and dissolves near the end. rgb: the print; a: 1 on
-// a print, a soft shadow just outside it.
-vec4 filmPrint(vec2 q, vec2 S, float P) {
-  vec2 cell = vec2(236.0, 172.0);
-  vec2 c0 = floor(q / cell);
-  vec4 o = vec4(0.0);
-  vec4 g = filmGrid(S);
-  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-    vec2 c = c0 + vec2(float(i), float(j));
-    float h1 = hash(c + 1.9), h2 = hash(c + 4.7), h3 = hash(c + 8.3);
-    vec2 ctr = (c + 0.5 + (vec2(h1, h2) - 0.5) * 0.35) * cell;
-    float ang = (h3 - 0.5) * 0.2;
-    vec2 lp = rot(-ang) * (q - ctr);
-    vec2 half_ = vec2(98.0, 70.0);
-    vec2 e = abs(lp) - half_;
-    float sd = max(e.x, e.y);
-    // When its place was uncovered, from its strip's pull.
-    int r = clamp(int(floor(ctr.y / g.w)), 0, int(g.y) - 1);
-    float A = filmA(r, g, S), side = filmSide(r);
-    float l = side > 0.0 ? ctr.x : S.x - ctr.x;
-    float Pu = A - 0.2 + 0.5 * pow(clamp(l / (S.x + 700.0), 0.0, 1.0), 1.0 / 1.6);
-    float dv = smoothstep(Pu + 0.03, Pu + 0.3, P);
-    float gone = smoothstep(0.9 + 0.05 * h1, 0.99 + 0.03 * h1, P);
-    float show = step(Pu + 0.02, P) * (1.0 - gone);
-    if (show <= 0.0) continue;
-    if (sd < 0.0) {
-      vec3 col;
-      if (min(-e.x, -e.y) < 8.0) col = vec3(0.92, 0.9, 0.86);
-      else col = develop(texA(ctr + lp * 1.35) * 1.1, q, dv);
-      col = mix(vec3(0.93, 0.91, 0.87), col, smoothstep(0.0, 0.12, dv) * 0.9 + 0.1);
-      o = vec4(col * (0.8 + 0.2 * smoothstep(-40.0, 0.0, lp.y)), show);
-    } else if (o.a < 0.5) {
-      o.a = max(o.a, exp(-sd / 10.0) * 0.5 * show);
-    }
-  }
-  return o;
-}
-vec3 groundFilm(vec2 q, vec2 px, float P) {
-  vec2 S = uRegion.zw;
-  vec4 g = filmGrid(S);
-  int r = clamp(int(floor(q.y / g.w)), 0, int(g.y) - 1);
-  float A = filmA(r, g, S), u = filmU(A, P), side = filmSide(r);
-  float l = side > 0.0 ? q.x : S.x - q.x;
-  float pulled = filmPulled(u, S.x);
-  if (l >= pulled) {
-    float neg = filmNeg(A, P);
-    vec3 col = sceneFolio(px);
-    if (neg > 0.0) {
-      vec4 f = filmLook(col, q, g.w, neg);
-      col = f.a > 0.5 ? vec3(0.03, 0.01, 0.01) : f.rgb;
-    }
-    // The exposure: a flash crossing the strip from its far end.
-    float fl = exp(-pow((P - A + 0.24 - 0.03 * (1.0 - l / S.x)) / 0.012, 2.0));
-    col += vec3(1.0, 0.9, 0.75) * fl * 0.9;
-    // The shadow of the film lifting off just ahead.
-    if (pulled > 0.0) col *= 1.0 - 0.45 * exp(-(l - pulled) / 26.0);
-    return col;
-  }
-  // Uncovered: the tray. The developer ripples out from where the film lifts, under the safelight, and
-  // the frames come up in it as prints (filmPrint), until they dissolve into the Photography page as
-  // it arrives.
-  float d = pulled - l;
-  vec3 col = sceneDarkroom(px);
-  col += DR_RED * (0.1 + 0.18 * (0.5 + 0.5 * sin(d * 0.07 - T * 5.0)) * exp(-d / 260.0));
-  vec4 pr = filmPrint(q, S, P);
-  col = mix(col * (1.0 - 0.55 * pr.a), pr.rgb, step(0.5, pr.a) * pr.a) + bokeh(q, 0.35 * (1.0 - smoothstep(0.85, 1.0, P)));
-  return col;
-}
-
+// Outdoors → Photography: the thickness of a moment (glsl/moment.js groundMoment).
 
 // Photography → Chess. Ink fingers climb from the foot and fork; around them the ink billows into the
 // water in clouds (inkVolume: domain-warped noise, thickest near the branches, growing as they do);
@@ -231,7 +156,7 @@ vec3 transitGround(int a, vec2 q, vec2 px) {
   if (a == 0) return groundCubes(q, px, P);
   if (a == 3) return groundDew(q, px, P);
   if (a == 2) return groundPeaks(q, px, P);
-  if (a == 4) return groundFilm(q, px, P);
+  if (a == 4) return groundMoment(q, px, P);
   return groundInk(q, px, P);
 }
 `;

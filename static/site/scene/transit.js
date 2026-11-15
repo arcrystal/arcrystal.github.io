@@ -17,6 +17,7 @@
 import { createDewResources } from './dew-resources.js';
 import { createTerrainResources } from './terrain-resources.js';
 import { makeLead } from './lead-plan.js';
+import { MOMENT, evening } from './moment-plan.js';
 import { VERTEX } from './glsl/index.js';
 import { UNIT_PROGRAMS, REACH_BAKE } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
@@ -25,12 +26,13 @@ import { SPOTS, FREEZE, CLICK } from './dew-plan.js';
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
 // bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach. plan: its
 // choreography is worked out ahead in lerp.js (PLANS below) and read from the same slot. mips: the
-// lower world's snapshot is mipmapped, to be read blurred; mipsA: the upper world's too.
+// lower world's snapshot is mipmapped, to be read blurred; mipsA: the upper world's too. live: both
+// worlds are drawn live where they show, so no snapshots are kept.
 const KINDS = {
   '0-3': { id: 'cubes', units: ['cubes:back', 'flow', 'cubes:front'], plan: true, mips: true },   // About Me → Science: a vortex
   '3-2': { id: 'dew', units: ['fieldlines', 'drops', 'shards'], mips: true, mipsA: true },   // Science → Racing: remnants, gravity's spots, cold from the card, the vacuum
-  '2-4': { id: 'peaks', units: [] },                                 // Racing → Outdoors: paint into the White Mountains into art glass
-  '4-5': { id: 'film', units: ['film'] },                            // Outdoors → Photography: film, developed
+  '2-4': { id: 'peaks', units: [], live: true },                     // Racing → Outdoors: paint into the White Mountains into art glass
+  '4-5': { id: 'moment', units: [], live: true },                    // Outdoors → Photography: the thickness of a moment
   '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
 };
 // Cell sizes in CSS px (fine pointer, touch).
@@ -346,6 +348,83 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     terrain.request(w, h);
   });
 
+  // Outdoors → Photography (glsl/moment.js): the window baked still, once for the screen (its colour,
+  // and what the lantern's light adds; mipmapped, units 8 and 9); the evening in depth, drawn whenever
+  // P has moved while it has depth (nothing in it moves by itself), at a reduced resolution (unit 3);
+  // and the exposure, once (unit 10, mipmapped).
+  const moment = { key: null, tex: {}, fb: {}, baked: false, exposed: false, volP: null };
+  function momentDrop() {
+    for (const k in moment.tex) { gl.deleteTexture(moment.tex[k]); gl.deleteFramebuffer(moment.fb[k]); }
+    moment.tex = {}; moment.fb = {}; moment.baked = moment.exposed = moment.volOn = false; moment.volP = null; moment.key = null;
+  }
+  function momentUnbind() {
+    for (const u of [3, 8, 9, 10]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
+    gl.activeTexture(gl.TEXTURE0);
+  }
+  function momentBind() {
+    for (const [u, k] of [[8, 'a'], [9, 'b'], [3, 'vol'], [10, 'exp']]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, moment.tex[k] ?? null); }
+    gl.activeTexture(gl.TEXTURE0);
+  }
+  function mips(t) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+  // While the glass remembers, its echoes change only as each comes in (glsl/moment.js moEchoes): the
+  // pass is drawn again only then.
+  function echoKey(P) {
+    const tau = evening(P);
+    let n = 0;
+    for (let i = 1; i <= MOMENT.echoes; i++) {
+      const t = i / MOMENT.echoes, x = Math.max(0, Math.min(1, (tau - t) / 0.02)), on = x * x * (3 - 2 * x);
+      if (on >= 1) n++; else if (on > 0) return P;
+    }
+    return `echoes ${n}`;
+  }
+  function momentPasses(s, f) {
+    const [, , w, h] = s.region, P = transitP(s.p ?? 0), area = w * h;
+    const ws = area > 2.5e6 ? 0.75 : 1, vs = area > 2.5e6 ? 0.5 : area > 1.1e6 ? 0.72 : coarse ? 0.8 : 0.9;
+    const plate = terrain.plateReady() ? 1 : 0, key = `${w} ${h} ${plate}`;
+    if (moment.key !== key) {
+      momentDrop();
+      moment.key = key;
+      const size = { a: ws, b: ws, exp: ws, vol: vs };
+      for (const k in size) {
+        const tw = Math.max(1, Math.round(w * size[k])), th = Math.max(1, Math.round(h * size[k]));
+        moment.tex[k] = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+        moment.fb[k] = target(moment.tex[k]);
+        moment[k + 'Size'] = [tw, th];
+      }
+    }
+    momentUnbind();
+    const pass = (k, mode, extra = {}) => renderPane({ ...s, mode, vel: 0, clip: null, ...extra }, moment.fb[k], ...moment[k + 'Size']);
+    if (!moment.baked) {
+      pass('a', 10, { b: 0 });
+      pass('b', 10, { b: 1 });
+      mips(moment.tex.a); mips(moment.tex.b);
+      moment.baked = true;
+    }
+    momentBind();
+    // The evening in depth, while it has any (and a little either side, for the handoffs); before
+    // that, the echoes of the glass remembering.
+    const volKey = P < MOMENT.depth[0] ? echoKey(P) : P;
+    if (P > MOMENT.remember[0] - 0.01 && P < MOMENT.shutter[1] + 0.02 && moment.volP !== volKey) {
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+      pass('vol', 11, { h: s.p ?? 0 });
+      moment.volP = volKey;
+      moment.volOn = true;
+    }
+    if (P > MOMENT.close[1] - 0.03 && !moment.exposed) {
+      gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+      pass('exp', 12);
+      mips(moment.tex.exp);
+      moment.exposed = true;
+    }
+    momentBind();
+  }
+
   let frame = 0;
   const effectSnap = { tex: [], fb: [], reach: null };
   // A click into Racing (glsl/dew.js dewClick draws the ground): before the frame, the plan bound and
@@ -400,9 +479,11 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     iceReady: (w, h) => dew.ready(w, h),
     // Outdoors' plate (its world's heights), on unit 7 once it has arrived.
     plateReady: () => terrain.plateReady(),
+    // Photography's evening (momentPasses): which of its textures are in.
+    momentInfo: () => ({ win: moment.baked, vol: !!moment.volOn, exp: moment.exposed }),
     bindIce: (w, h) => dew.bind(w, h),
     iceStats: (w, h) => dew.stats(w, h),
-    dispose() { dew.dispose(); terrain.dispose(); snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
+    dispose() { dew.dispose(); terrain.dispose(); momentDrop(); snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
     // What a click's cover reads (opens.js), made once per click from its origin O and far corner:
     // the maze (house), the ink's reach; null for processes computed on the fly, or
     // while the bake program is still compiling (the effect then computes what it can live).
@@ -423,6 +504,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       const K = kindOf(s);
       if (!K || !usable(K)) return false;
       const [, , w, h] = s.region;
+      if (K.id === 'moment') { momentPasses(s, f); return true; }
+      if (K.live) return true;
       // The dew is seen through drops and frost: its worlds' snapshots can be coarser on big screens.
       const ts = (K.id === 'dew' ? (w > 1800 ? 0.36 : coarse ? 0.45 : 0.5) : coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
       const tw = Math.max(1, Math.round(w * ts)), th = Math.max(1, Math.round(h * ts));
@@ -468,19 +551,20 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     // On the canvas: the ground through the scene's shader, then the units.
     draw(s, f, drawGround, restore) {
       const K = kindOf(s);
-      const snap = snaps.get(K.id);
-      if (!snap) return false;
+      const snap = K.live ? null : snaps.get(K.id);
+      if (!snap && !K.live) return false;
       const [, , w, h] = s.region;
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, snap.tex[0]);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, snap.tex[1]);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, snap?.tex[0] ?? null);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, snap?.tex[1] ?? null);
       const simOn = false;
       const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : null;
       // The ink's reach, or the seam's plan.
-      const reach = K.plan ? planTexture(K.id, w, h, ground) : snap.reach?.t ?? null;
+      const reach = K.plan ? planTexture(K.id, w, h, ground) : snap?.reach?.t ?? null;
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, reach);
       gl.activeTexture(gl.TEXTURE0);
       // (Outdoors' mountains: their heightfield, on unit 4, in the same flag.)
-      const iceReady = K.id === 'dew' ? snap.planMode && dew.bind(w, h) : K.id === 'peaks' ? terrain.bind(w, h) : false;
+      if (K.id === 'moment') momentBind();
+      const iceReady = K.id === 'dew' ? snap.planMode && dew.bind(w, h) : K.id === 'peaks' ? terrain.bind(w, h) : K.id === 'moment' ? true : false;
       // The drops from the first until the last has split, the shards and their lines until the last has
       // fused (the drops' lenses read Science's snapshot, unit 0, and its gas, unit 3).
       const P = transitP(s.p ?? 0), st = K.id === 'dew' && iceReady && renderPane ? dew.stats(w, h) : null;
@@ -492,6 +576,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn, iceReady });
       const unbindGas = () => { if (gas) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); } };
       if (K.id === 'peaks') terrain.unbind();
+      if (K.id === 'moment') momentUnbind();
       if (!drew || !K.units.length) { unbindGas(); return drew; }
       // The units keep the ground's scissor: while the strip scrolls in or out, they stay in it.
       for (const unit of K.units) {
@@ -500,10 +585,10 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
         const snow = name === 'drops' || name === 'shards' || name === 'fieldlines';
         if (snow && !(name === 'drops' ? nRecords : nShards)) continue;
         const prog = programs[name], def = UNIT_PROGRAMS[name];
-        const g = name === 'sheets' || name === 'film' || snow ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
+        const g = name === 'sheets' || snow ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
         // The vortex carries its cubes the whole height of the screen, one a cell. The sheets draw a
         // layer at a time, the lowest first.
-        const [first, count] = name === 'sheets' ? [0, 1] : snow ? [0, name === 'drops' ? nRecords : nShards] : name === 'flow' ? [0, g[0] * g[1]] : name === 'film' ? [0, Math.max(4, Math.floor(h / 84 + 0.5))]
+        const [first, count] = name === 'sheets' ? [0, 1] : snow ? [0, name === 'drops' ? nRecords : nShards] : name === 'flow' ? [0, g[0] * g[1]]
           : name === 'cubes' || name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;

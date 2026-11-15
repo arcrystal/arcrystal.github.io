@@ -27,7 +27,7 @@ const TYPE = {
 // What each style's transition is made of (the homepage's hold captions say the same).
 const PROCESS = {
   house: 'A maze carved depth-first', cosmos: 'A vortex', glass: 'Stardust, then frost',
-  folio: 'The mountains rise', darkroom: 'Film, developed', ink: 'Branching ink',
+  folio: 'The mountains rise', darkroom: 'The thickness of a moment', ink: 'Branching ink',
 };
 
 const PAGES = {
@@ -225,26 +225,48 @@ ART.folio = () => {
 // Photography: film pulled off the table in coils, sprocket holes along both edges (a wide dashed
 // stroke under a narrower one shows only in the margins), over prints developing in the red tray,
 // white-bordered, each a little askew, coming up from a halftone screen.
+// Photography: the thickness of a moment. The lantern's reflection through the evening as a ribbon in
+// space-time (its edge brilliant, its inside smoke, the glint's hairline along it), in the colours of
+// time (amber, copper, sage, midnight blue), the summits' ruby threads behind; below, under the
+// safelight, the same evening coming up in a print in the developer, the meniscus crossing it.
 ART.darkroom = () => {
   const r = rng(6);
-  let prints = '', defs = '';
-  const cells = [[640, 300], [860, 330], [1080, 300], [700, 470], [920, 500], [1140, 470], [760, 140], [1000, 150]];
-  cells.forEach(([x, y], i) => {
-    const w = 190, h = 136, a = (r() - 0.5) * 12, dev = i / cells.length;
-    defs += `<pattern id="ht${i}" width="${f(9 - 5 * dev)}" height="${f(9 - 5 * dev)}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="${f((9 - 5 * dev) / 2)}" cy="${f((9 - 5 * dev) / 2)}" r="${f(1.6 + 1.6 * r())}" fill="#9FB58C" fill-opacity="${f(0.5 + 0.4 * dev)}"/></pattern>`;
-    prints += `<g transform="rotate(${f(a)} ${x} ${y})"><rect x="${x - w / 2 + 8}" y="${y - h / 2 + 10}" width="${w}" height="${h}" fill="#000" fill-opacity="0.45" filter="url(#soft)"/>
-      <rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" fill="#EDEAE3"/>
-      <rect x="${x - w / 2 + 9}" y="${y - h / 2 + 9}" width="${w - 18}" height="${h - 18}" fill="#1F2E22"/>
-      <rect x="${x - w / 2 + 9}" y="${y - h / 2 + 9}" width="${w - 18}" height="${h - 18}" fill="url(#ht${i})"/></g>`;
-  });
-  const film = d => `<path d="${d}" stroke="#2A1408" stroke-width="58"/><path d="${d}" stroke="#0B0705" stroke-width="50" stroke-dasharray="5 7"/>
-    <path d="${d}" stroke="#C9783F" stroke-width="38"/><path d="${d}" stroke="#5A2A12" stroke-width="38" stroke-dasharray="2.5 58"/>
-    <path d="${d}" stroke="#FFE2C2" stroke-opacity="0.25" stroke-width="6" transform="translate(-6 -9)"/>`;
-  return `<defs>${fade(500, 700)}${defs}<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
-    <radialGradient id="safe" cx="0.78" cy="0.55" r="0.6"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.55"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0.05"/></radialGradient></defs>
-  <g mask="url(#fade)"><rect width="${W}" height="${H}" fill="url(#safe)"/>${prints}
-    <g fill="none" stroke-linecap="butt">${film('M560 640 C 700 520, 900 600, 980 470 S 1220 300, 1080 210 S 820 220, 900 80 S 1120 -40, 1240 40')}
-    ${film('M1240 600 C 1120 560, 1060 420, 1150 360 S 1300 330, 1260 230')}</g></g>`;
+  const rib = 'M560 250 C 700 170, 820 330, 940 270 S 1120 150, 1250 210';
+  const ribLo = 'M560 286 C 700 214, 820 362, 940 300 S 1120 170, 1250 222';
+  let threads = '';
+  for (let i = 0; i < 9; i++) {
+    const x = 760 + r() * 420, y = 120 + r() * 260, l = 120 + r() * 160;
+    threads += `<path d="M${f(x)} ${f(y)}l${f(l)} ${f(-l * 0.32)}" stroke="#B3271B" stroke-opacity="${f(0.35 + r() * 0.35)}" stroke-width="${f(1 + r() * 1.2)}"/>`;
+  }
+  // The print: a sheet lying back in the tray (a trapezoid), dark, the evening's trail paper-white.
+  const sheet = 'M700 430 L1175 412 L1240 610 L640 628 Z';
+  const trail = 'M690 560 C 790 500, 870 590, 960 545 S 1120 470, 1205 500';
+  return `<defs>${fade(500, 700)}
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3.5"/></filter>
+    <radialGradient id="safe" cx="0.72" cy="-0.05" r="0.75"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.5"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0.02"/></radialGradient>
+    <linearGradient id="time" x1="560" x2="1250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFC27A"/><stop offset="0.35" stop-color="#F08A5E"/><stop offset="0.62" stop-color="#9DC79A"/><stop offset="1" stop-color="#7F95F2"/></linearGradient>
+    <clipPath id="sheet"><path d="${sheet}"/></clipPath></defs>
+  <g mask="url(#fade)"><rect width="${W}" height="${H}" fill="url(#safe)"/>
+    <g fill="none" stroke-linecap="round">${threads}</g>
+    <path d="${rib}" fill="none" stroke="url(#time)" stroke-opacity="0.18" stroke-width="40"/>
+    <path d="${rib}" fill="none" stroke="url(#time)" stroke-width="5" filter="url(#glow)"/>
+    <path d="${ribLo}" fill="none" stroke="url(#time)" stroke-width="3" stroke-opacity="0.85" filter="url(#glow)"/>
+    <path d="${rib}" fill="none" stroke="url(#time)" stroke-width="1.6"/>
+    <path d="${ribLo}" fill="none" stroke="url(#time)" stroke-width="1.2" stroke-opacity="0.9"/>
+    <path d="M560 268 C 700 192, 820 346, 940 285 S 1120 160, 1250 216" fill="none" stroke="#FFE9C9" stroke-width="1" stroke-opacity="0.9"/>
+    <g transform="translate(80 -16)"><path d="${sheet}" fill="#000" fill-opacity="0.5" filter="url(#soft)" transform="translate(10 14)"/>
+    <path d="${sheet}" fill="#3A0F0B"/>
+    <g clip-path="url(#sheet)">
+      <path d="${trail}" fill="none" stroke="#C9584A" stroke-width="30" stroke-opacity="0.35"/>
+      <path d="${trail}" fill="none" stroke="#E98A7C" stroke-width="5" filter="url(#glow)"/>
+      <path d="${trail}" fill="none" stroke="#F3B2A6" stroke-width="1.3"/>
+      <path d="M820 420 C 800 480, 860 540, 820 640" fill="none" stroke="#B0473A" stroke-width="16" stroke-opacity="0.3"/>
+      <path d="M1080 410 C 1110 470, 1050 540, 1090 640" fill="none" stroke="#B0473A" stroke-width="13" stroke-opacity="0.25"/>
+      <path d="M560 470 C 760 520, 980 600, 1260 690" fill="none" stroke="#FF7A66" stroke-width="2.4" stroke-opacity="0.85" filter="url(#glow)"/>
+    </g>
+    <path d="${sheet}" fill="none" stroke="#E5483F" stroke-opacity="0.35" stroke-width="1.2"/></g></g>`;
 };
 
 // Chess: branching ink. Strokes split in two or three as they reach, thinning to hairlines, the

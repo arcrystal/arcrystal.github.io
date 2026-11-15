@@ -72,7 +72,7 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 1.25, leadOut: 0.06 }, ink: { pin: 1.2 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 3.6, leadOut: 0.06 }, ink: { pin: 1.2 } },
 };
 // Racing's band surfaces in place inside its transition (home.js wraps it with its hold): the hold
 // ends, and the band scrolls on, at the transition's very end.
@@ -124,10 +124,16 @@ function paceTable(PACE) {
   const inverse = P => { const k = Math.max(0, Math.min(N, (P + 0.2) / 1.4 * N)), i = Math.min(N - 1, Math.floor(k)); return raw[i] + (raw[i + 1] - raw[i]) * (k - i); };
   return { ease, inverse };
 }
-const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE);
+// Photography's, likewise (scene/moment-plan.js): the strip coming in unhurried, the glass remembering
+// and the evening opening into depth at an even pace, the held moment beside it slower, time closing
+// into the image slowest of all at its very end, the shutter quick, and the print in the developer
+// unhurried.
+const DARKROOM_PACE = [[-0.2, 14.0], [-0.12, 1.3], [0.21, 1.3], [0.5, 1.35], [0.58, 1.7], [0.66, 1.5], [0.82, 1.4], [0.88, 2.3], [0.925, 2.0], [0.965, 1.0], [0.99, 1.4], [1.1, 1.7], [1.2, 1.5]];
+const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE), DARKROOM_TABLE = paceTable(DARKROOM_PACE);
 export const glassEase = GLASS_TABLE.ease, glassRaw = GLASS_TABLE.inverse;
 export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;
-export const easeFor = style => (style === 'glass' ? glassEase : style === 'folio' ? folioEase : holdEase);
+export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.inverse;
+export const easeFor = style => (style === 'glass' ? glassEase : style === 'folio' ? folioEase : style === 'darkroom' ? darkroomEase : holdEase);
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);
