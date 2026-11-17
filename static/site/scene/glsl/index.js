@@ -13,6 +13,7 @@ import { DEW_GLSL } from './dew.js';
 import { PEAKS_GLSL } from './peaks.js';
 import { FIRE_GLSL } from './fire.js';
 import { PLUME_GLSL } from './plume.js';
+import { UNMIX_GLSL } from './unmix.js';
 import { TRANSIT } from './transit.js';
 import { OPENS, MAIN } from './opens.js';
 
@@ -23,5 +24,5 @@ void main() {
 }`;
 
 export function fragment(quality = 5) {
-  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, DEW_GLSL, PEAKS_GLSL, FIRE_GLSL, PLUME_GLSL, TRANSIT, OPENS, MAIN].join('\n');
+  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, DEW_GLSL, PEAKS_GLSL, FIRE_GLSL, PLUME_GLSL, UNMIX_GLSL, TRANSIT, OPENS, MAIN].join('\n');
 }

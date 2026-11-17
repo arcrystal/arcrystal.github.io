@@ -29,6 +29,8 @@ try {
   const page = await browser.newPage({ width, height, deviceScaleFactor: Number(o.dpr), mobile: Math.min(width, height) <= 500 });
   await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
   await page.waitFor(() => /\bgl\b/.test(document.documentElement.className), { timeout: 20000 });
+  // (Chess's transition is baked in the background first: scene/ink-sim.js.)
+  if (o.seam === 'ink') await page.waitFor(async () => (await import('/static/site/scene/scene.js')).getScene()?.inkReady?.(), { timeout: 60000 });
   await sleep(3000);
   for (let pass = 1; pass <= Number(o.passes); pass++) {
   const res = await page.eval(async (style, secs) => {

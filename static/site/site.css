@@ -347,6 +347,18 @@ html.gl .band-art { opacity: 0; }
 .ch-band .pv--chess { position: relative; width: min(100%, 440px); padding: 0; display: grid; grid-template-rows: auto auto; gap: 14px; justify-items: start; text-align: left; }
 .ch-band .pv-board-wrap { width: 100%; height: auto; aspect-ratio: 1; padding: 6px; background: #FBF8F1; box-shadow: 0 1px 0 rgb(28 26 23 / 0.08), 0 0 0 1px rgb(28 26 23 / 0.06), 0 34px 70px -34px rgb(28 26 23 / 0.45); rotate: -0.6deg; }
 .ch-band .pv-cap { justify-items: start; }
+/* Where the scene draws (html.gl, from the page's first moments), the board's box has the proportions and
+   the room of the board it draws in three dimensions (scene/board3d.js), so nothing moves when it takes
+   over: the card gives way to it then (.is-gl), its drawing kept underneath, hidden, for when the scene is
+   not there (html.gl goes, and with it this). */
+.gl .ch-band .pv--chess { width: min(100%, 560px); }
+/* (Its ratings go under it: beside it, their width, which changes as they arrive, would take the board's
+   room, and the board is drawn, and its transition baked, for one box.) */
+.gl .ch-band { grid-template-columns: minmax(0, 1fr); }
+/* (There, under the board, they are on the darkest of the band's washes: a card of paper keeps them read.) */
+.gl .ch-band-ratings { padding: 10px 18px 12px; border-radius: 12px; background: color-mix(in srgb, var(--c-bg) 88%, transparent); box-shadow: 0 0 0 1px rgb(28 26 23 / 0.06); }
+.gl .ch-band .pv-board-wrap { aspect-ratio: 1.2; padding: 0; background: none; box-shadow: none; rotate: none; }
+.gl .pv-board-wrap.is-gl > .pv-board { visibility: hidden; }
 .ch-band-ratings { display: grid; grid-auto-flow: column; gap: var(--s-5); margin: 0; }
 .ch-band-ratings dt { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-fg-mute); }
 .ch-band-ratings dd { margin: 0; font-family: var(--font-display); font-size: clamp(2rem, 1.2rem + 2vw, 3.2rem); font-variant-numeric: tabular-nums; }

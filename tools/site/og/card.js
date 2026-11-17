@@ -1,6 +1,6 @@
 // The share card for one page, drawn in that page's style: its name in the style's display face,
 // its line, and on the right the process its transition is built on, drawn here in SVG (the maze,
-// the vortex, the supernovae's gas gathered into drops and pulled as shards into Racing's card, the White Mountains leaded into art glass, fire becoming memory, ink finding the board). The
+// the vortex, the supernovae's gas gathered into drops and pulled as shards into Racing's card, the White Mountains leaded into art glass, fire becoming memory, ink gathering into the board). The
 // homepage gets the crystal, one facet per destination. Everything is seeded, so a card only
 // changes when its words or this file do. Sets <html data-ready> once the fonts are in.
 import { carveMaze } from '/static/site/lerp.js';
@@ -8,6 +8,7 @@ import { makeDewPlan, radiusAt, liveAt } from '/static/site/scene/dew-plan.js';
 import { landform, PEAKS48, PEMI } from '/static/site/scene/terrain-plan.js';
 import { GLASS, REDS, JEWELS, leadCell } from '/static/site/scene/glsl/folio.js';
 import { PALETTE } from '/static/site/scene/palette.js';
+import { BOARD, DETAIL, FOOT, SQ, SR, TALL, TYPES, bodyOf, frameCamera, halfWidth, headOf, project, startSlots, toR, toY, worldOf } from '/static/site/scene/staunton.js';
 
 const W = 1200, H = 630;
 const id = new URLSearchParams(location.search).get('id') || 'home';
@@ -270,54 +271,149 @@ ART.darkroom = () => {
     ${embers}${sparks}${grains}</g>`;
 };
 
-// Chess: ink finding order. Two drops rolled into vortex rings (each a bell of veils, the thread it fell
-// by, its core seen edge on as a bar, knotted at both ends), their veils trailing down into the board they
-// are becoming: threads along its lines, knotted where they cross, and every other square filling,
-// sharp at the foot, still bleeding at the top.
+// Chess: ink, unmixed. The tile's own tilted board (staunton.js: its camera, and the sprite's pieces turned
+// on their axes), caught as it forms out of the grey haze: the squares hardened, lacquered wash and paper,
+// all but the far rank, still ink; each piece cured from its foot (white done, black's pawns part way, its
+// back rank barely begun, knights first), a glint at each front; above, threads of black and white ink
+// streaming down into the pieces still forming, motes caught in the light.
 ART.ink = () => {
-  const r = rng(9), sq = 44, bx = 772, by = 236, n = 8 * sq;
-  let lines = '', knots = '', squares = '';
-  for (let i = 0; i <= 8; i++) {
-    const op = f(0.22 + 0.35 * (1 - i / 8));
-    lines += `<path d="M${bx} ${by + i * sq}h${n}" stroke-opacity="${op}"/><path d="M${bx + i * sq} ${by}v${n}" stroke-opacity="0.34"/>`;
-  }
-  for (let row = 1; row < 8; row++) for (let col = 1; col < 8; col++) {
-    const k = 1 - row / 8;
-    knots += `<circle cx="${bx + col * sq}" cy="${by + row * sq}" r="${f(1.2 + 2.6 * k)}" fill-opacity="${f(0.15 + 0.6 * k)}"/>`;
-  }
-  for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
-    if ((row + col) % 2 === 0) continue;
-    const k = row / 7, born = k + (r() - 0.5) * 0.25;
-    if (born < 0.12) continue;
-    const ins = (1 - Math.min(1, born)) * sq * 0.3, rx = (1 - Math.min(1, born)) * sq * 0.42;
-    squares += `<rect x="${f(bx + col * sq + ins)}" y="${f(by + row * sq + ins)}" width="${f(sq - 2 * ins)}" height="${f(sq - 2 * ins)}" rx="${f(rx)}" fill-opacity="${f(0.35 + 0.55 * Math.min(1, born))}"/>`;
-  }
-  // A drop rolled into a ring at (x, y), its ring R across: the thread, the bell's shells, the veils
-  // trailing below, the core.
-  const drop = (x, y, R, col, op) => {
-    let g = `<path d="M${f(x - 3)} -10C${f(x + 9)} ${f(y * 0.3)} ${f(x - 9)} ${f(y * 0.6)} ${f(x)} ${f(y - R * 0.9)}" stroke-width="2.2"/>`
-      + `<path d="M${f(x + 6)} -10C${f(x + 16)} ${f(y * 0.35)} ${f(x - 2)} ${f(y * 0.65)} ${f(x + 5)} ${f(y - R * 0.85)}" stroke-width="1" stroke-opacity="0.5"/>`;
-    g += `<path d="M${f(x - R)} ${f(y)}A${f(R)} ${f(R * 1.08)} 0 0 1 ${f(x + R)} ${f(y)}Z" fill="url(#veil)" stroke="none"/>`;
-    for (let j = 0; j < 3; j++) {
-      const Rj = R * (1 - 0.16 * j);
-      g += `<path d="M${f(x - Rj)} ${f(y)}A${f(Rj)} ${f(Rj * (1.08 - 0.06 * j))} 0 0 1 ${f(x + Rj)} ${f(y)}" stroke-width="${f(2.6 - 0.7 * j)}" stroke-opacity="${f(0.75 - 0.2 * j)}"/>`;
-    }
-    for (let j = 0; j < 7; j++) {
-      const u = (j / 6 - 0.5) * 1.7, x0 = x + u * R, len = R * (1.1 + r() * 1.6), sway = (r() - 0.5) * R * 0.8;
-      g += `<path d="M${f(x0)} ${f(y + 6)}c${f(sway * 0.3)} ${f(len * 0.4)} ${f(sway)} ${f(len * 0.6)} ${f(sway * 0.6)} ${f(len)}" stroke-width="${f(0.8 + r() * 1.4)}" stroke-opacity="${f(0.2 + r() * 0.3)}"/>`;
-    }
-    g += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(R * 0.98)}" ry="${f(R * 0.12)}" fill="${col}" stroke="none"/>`;
-    for (const s of [-1, 1]) g += `<circle cx="${f(x + s * R * 0.92)}" cy="${f(y)}" r="${f(R * 0.13)}" fill="${col}" stroke="none"/>`;
-    return `<g stroke="${col}" fill="none" stroke-linecap="round" opacity="${op}">${g}</g>`;
+  const r = rng(11), X0 = 650, X1 = 1215, Y0 = 80, Y1 = 640, w = X1 - X0, h = Y1 - Y0;
+  const cam = frameCamera(w / h, { elev: 0.62, fov: 0.5, margin: 0.04 });
+  const at = p => { const [u, v] = project(cam, p); return [X0 + (u + 1) / 2 * w, Y0 + (1 - v) / 2 * h]; };
+  const poly = q => q.map(p => at(p).map(f).join(',')).join(' ');
+  const E = BOARD.half + BOARD.frame, WASH = '#26221E', PAPER = '#ECE4D3', WHITE_INK = '#FFFDF8';
+  // A circle of the solid at height y, as the screen sees it.
+  const ring = (x, y, z, rad) => {
+    const [cx, cy] = at([x, y, z]), rx = Math.abs(at([x + rad, y, z])[0] - cx), ry = Math.abs(at([x, y, z + rad])[1] - at([x, y, z - rad])[1]) / 2;
+    return `<ellipse cx="${f(cx)}" cy="${f(cy)}" rx="${f(rx)}" ry="${f(Math.max(0.4, ry))}"/>`;
   };
+  const ball = (x, y, z, rad) => { const [cx, cy] = at([x, y, z]); return `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(Math.abs(at([x + rad, y, z])[0] - cx))}"/>`; };
+  // A piece between heights lo and hi (world units): its turned body as rings stacked from the foot (each
+  // shaded across, as a turned surface is), then what turning cannot make (the king's cross, the queen's
+  // coronet, the bishop's finial, the knight's head cut flat, facing the middle). grow fattens it.
+  const piece = (s, lo, hi, grow = 0) => {
+    const T = TYPES[s.type], polys = bodyOf(T), top = Math.min(...polys.flat().map(v => v[1])), inside = y => y >= lo && y <= hi;
+    let g = '';
+    for (let sy = FOOT - 0.2; sy >= top; sy -= 0.5) { const hw = halfWidth(polys, sy); if (hw > 0 && inside(toY(sy))) g += ring(s.x, toY(sy), s.z, hw / SQ * SR + grow); }
+    if (T === 'K') for (const [cx, cy, hw, hh] of DETAIL.cross) if (inside(cy)) g += `<polygon points="${poly([[s.x + cx - hw - grow, cy - hh - grow, s.z], [s.x + cx + hw + grow, cy - hh - grow, s.z], [s.x + cx + hw + grow, cy + hh + grow, s.z], [s.x + cx - hw - grow, cy + hh + grow, s.z]])}"/>`;
+    if (T === 'Q') {
+      const [cr, cy, br] = DETAIL.coronet;
+      if (inside(cy)) for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + 0.2; g += ball(s.x + cr * Math.cos(a), cy, s.z + cr * Math.sin(a), br + grow); }
+      if (inside(DETAIL.crown[0])) g += ball(s.x, DETAIL.crown[0], s.z, DETAIL.crown[1] + grow);
+    }
+    if (T === 'B' && inside(DETAIL.finial[0])) g += ball(s.x, DETAIL.finial[0], s.z, DETAIL.finial[1] + grow);
+    if (T === 'N') {
+      // The sprite's knight looks left; each turns to face the middle.
+      const dir = s.file < 4 ? -1 : 1;
+      for (const p of headOf()) {
+        const q = p.map(([x, y]) => [s.x + dir * toR(x) * (1 + grow * 3), Math.min(hi, Math.max(lo, toY(y))), s.z]);
+        if (hi > 0.45) g += `<polygon points="${poly(q)}"/>`;
+      }
+    }
+    return g;
+  };
+  // How far each piece has cured (a share of its height): white done; black's pawns rippling out from the
+  // middle; its back rank begun, the knights furthest.
+  const cureOf = s => !s.black ? 1 : s.rank === 7 ? 0.95 - 0.12 * Math.abs(s.file - 3.5) : TYPES[s.type] === 'N' ? 0.62 : 0.12 + r() * 0.16;
+  const slots = startSlots().sort((a, b) => a.z - b.z);
+  // The board: its slab and frame, the squares (the far rank's still ink), the inlay, the lacquer.
+  let squares = '', liquid = '';
+  for (let file = 0; file < 8; file++) for (let rank = 1; rank <= 8; rank++) {
+    const [x, z] = worldOf(file, rank), dark = (file + rank) % 2 === 1;
+    const q = poly([[x - 0.5, 0, z - 0.5], [x + 0.5, 0, z - 0.5], [x + 0.5, 0, z + 0.5], [x - 0.5, 0, z + 0.5]]);
+    if (rank < 8) squares += `<polygon points="${q}" fill="${dark ? WASH : PAPER}"${dark ? ` fill-opacity="${f(0.9 + r() * 0.1)}"` : ''}/>`;
+    else liquid += `<polygon points="${q}" fill="${dark ? C.ink : WHITE_INK}" fill-opacity="${dark ? f(0.55 + r() * 0.2) : f(0.6 + r() * 0.2)}"/>`;
+  }
+  const zF = 3, fl = at([-E, 0, -zF]), fr = at([E, 0, -zF]);
+  const board = `<polygon points="${poly([[-E, 0, E], [E, 0, E], [E, -BOARD.slab, E], [-E, -BOARD.slab, E]])}" fill="#0E0D0B"/>
+    <polygon points="${poly([[-E, 0, -zF], [E, 0, -zF], [E, 0, E], [-E, 0, E]])}" fill="${C.ink}"/>
+    <polygon points="${poly([[-4.14, 0, -zF], [-4.14, 0, 4.14], [4.14, 0, 4.14], [4.14, 0, -zF]])}" fill="none" stroke="${C.accent}" stroke-width="1.2" stroke-opacity="0.9"/>
+    ${squares}<polygon points="${poly([[-4, 0, -zF], [4, 0, -zF], [4, 0, 4], [-4, 0, 4]])}" fill="url(#lacquer)"/>`;
+  const farFrame = `<polygon points="${poly([[-E, 0, -E], [E, 0, -E], [E, 0, -zF], [-E, 0, -zF]])}" fill="${C.ink}" fill-opacity="0.7"/>`;
+  // Shadows, cast back and to the right; then the pieces, far ones first: the solid below each front, the
+  // ink above it, the glint at it.
+  let shadows = '', pieces = '';
+  for (const s of slots) {
+    const T = TYPES[s.type], tall = TALL[T], c = cureOf(s), yc = c * tall + (c >= 1 ? 1 : 0);
+    if (c > 0.3) shadows += ring(s.x + 0.12 + tall * 0.12, 0, s.z - 0.1 - tall * 0.16, 0.34 + tall * 0.05);
+    const fill = s.black ? 'url(#obsidian)' : 'url(#ivory)', rim = s.black ? '#8A93A3' : C.ink;
+    // (Rings overlap, so a part seen through is a group's opacity, never its fill's.)
+    let g = `<g fill="${rim}" opacity="${s.black ? 0.5 : 0.6}">${piece(s, -1, yc, 0.018)}</g><g fill="${fill}">${piece(s, -1, yc)}</g>`;
+    if (c < 1) {
+      g += `<g filter="url(#liquid)" fill="${C.ink}">${piece(s, yc - 0.02, 9, 0.012)}<g fill="${WHITE_INK}" opacity="0.16">${piece(s, yc + 0.08, 9, -0.035)}</g></g>`;
+      const [x0] = at([s.x - 0.42, yc, s.z]), [x1, y1] = at([s.x + 0.42, yc, s.z]);
+      g += `<path d="M${f(x0)} ${f(y1)}H${f(x1)}" stroke="#FFF7E6" stroke-width="4" stroke-opacity="0.8" filter="url(#glow)"/><path d="M${f(x0 + 3)} ${f(y1)}H${f(x1 - 3)}" stroke="#FFFCF4" stroke-width="1" stroke-opacity="0.95"/>`;
+    }
+    pieces += g;
+  }
+  // Threads of ink streaming down out of the haze into the pieces still forming: bundles of strands, black
+  // and white, spread wide above and gathering as they fall; a few curls where the stirring is still undoing.
+  let threads = '', veils = '', motes = '';
+  const bez = (a, b, c, d, t) => { const s = 1 - t; return [0, 1].map(i => s * s * s * a[i] + 3 * s * s * t * b[i] + 3 * s * t * t * c[i] + t * t * t * d[i]); };
+  const targets = slots.filter(s => cureOf(s) < 1);
+  for (let k = 0; k < 30; k++) {
+    const s = targets[k % targets.length], tall = TALL[TYPES[s.type]], end = at([s.x + (r() - 0.5) * 0.3, tall * (0.6 + r() * 0.5), s.z]);
+    const st = [end[0] + (r() - 0.5) * 300, Y0 - 120 + r() * 60], turn = r() < 0.5 ? -1 : 1, L = end[1] - st[1];
+    const c1 = [st[0] + turn * L * (0.25 + r() * 0.35), st[1] + L * (0.3 + r() * 0.2)], c2 = [end[0] - turn * L * (0.12 + r() * 0.2), end[1] - L * (0.35 + r() * 0.2)];
+    const white = k % 3 !== 0, n = 2 + Math.floor(r() * 3), spread = 3.5 + r() * 4;
+    veils += `<path d="M${f(st[0])} ${f(st[1])}C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(end[0])} ${f(end[1])}" stroke="${white ? WHITE_INK : C.ink}" stroke-width="${f(10 + r() * 16)}" stroke-opacity="${white ? 0.1 : 0.07}"/>`;
+    for (let j = 0; j < n; j++) {
+      const o = (j - (n - 1) / 2) * spread, col = (white ? j % 4 !== 3 : j % 3 === 2) ? WHITE_INK : C.ink;
+      const d = `M${f(st[0] + o * 2.4)} ${f(st[1])}C${f(c1[0] + o * 1.8)} ${f(c1[1])} ${f(c2[0] + o * 0.6)} ${f(c2[1])} ${f(end[0] + o * 0.08)} ${f(end[1])}`;
+      threads += `<path d="${d}" stroke="${col}" stroke-width="${f(0.8 + r() * (col === C.ink ? 2 : 1.5))}" stroke-opacity="${f(col === C.ink ? 0.35 + r() * 0.45 : 0.5 + r() * 0.45)}"/>`;
+    }
+    for (let j = 0; j < 3; j++) {
+      const [mx, my] = bez(st, c1, c2, end, 0.3 + r() * 0.65);
+      motes += `<circle cx="${f(mx + (r() - 0.5) * 10)}" cy="${f(my + (r() - 0.5) * 6)}" r="${f(0.6 + r() * 1.2)}"/>`;
+    }
+  }
+  // Curls: two arms, black and white, wound together.
+  let curls = '';
+  for (const [cx, cy, R0, rot] of [[880, 60, 46, 0.4], [1110, 120, 38, 2.2], [1000, 26, 30, 4.1]]) {
+    for (let arm = 0; arm < 2; arm++) {
+      let d = '';
+      for (let i = 0; i <= 90; i++) {
+        const th = i / 90 * 3.4 * Math.PI, rr = R0 * Math.exp(-0.17 * th), a = th + rot + arm * Math.PI;
+        d += `${i ? 'L' : 'M'}${f(cx + rr * Math.cos(a))} ${f(cy + rr * Math.sin(a) * 0.62)}`;
+      }
+      curls += `<path d="${d}" stroke="${arm ? WHITE_INK : C.ink}" stroke-width="${arm ? 1.6 : 2.2}" stroke-opacity="${arm ? 0.85 : 0.6}"/>`;
+    }
+  }
+  // Light from above through the water.
+  let shafts = '';
+  for (let k = 0; k < 6; k++) {
+    const x = X0 - 40 + r() * w, wd = 18 + r() * 46, sk = 90 + r() * 60;
+    shafts += `<polygon points="${f(x)},-10 ${f(x + wd)},-10 ${f(x + wd + sk)},${f(fl[1] + 40)} ${f(x + sk - wd * 0.4)},${f(fl[1] + 40)}" fill-opacity="${f(0.06 + r() * 0.1)}"/>`;
+  }
+  // Sparkles along the board's front.
+  let sparks = '';
+  for (let k = 0; k < 12; k++) {
+    const t = r(), x = fl[0] + (fr[0] - fl[0]) * t, y = fl[1] + (r() - 0.5) * 4, s = 2 + r() * 5;
+    sparks += `<path d="M${f(x - s)} ${f(y)}L${f(x)} ${f(y - s * 0.22)}L${f(x + s)} ${f(y)}L${f(x)} ${f(y + s * 0.22)}ZM${f(x)} ${f(y - s * 0.7)}L${f(x + s * 0.15)} ${f(y)}L${f(x)} ${f(y + s * 0.7)}L${f(x - s * 0.15)} ${f(y)}Z"/>`;
+  }
   return `<defs>${fade(470, 720)}
-    <filter id="bleed" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="4"/><feDisplacementMap in="SourceGraphic" scale="7"/></filter>
-    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="12"/><feGaussianBlur stdDeviation="1.4"/></filter>
-    <radialGradient id="veil" cx="0.5" cy="0.9" r="0.75"><stop offset="0" stop-color="${C.ink}" stop-opacity="0.16"/><stop offset="1" stop-color="${C.ink}" stop-opacity="0.04"/></radialGradient></defs>
+    <linearGradient id="ivory" x1="0" x2="1"><stop offset="0" stop-color="#A99D86"/><stop offset="0.24" stop-color="#E4DAC6"/><stop offset="0.4" stop-color="#FFFCF3"/><stop offset="0.66" stop-color="#F1E9D8"/><stop offset="1" stop-color="#9E927C"/></linearGradient>
+    <linearGradient id="obsidian" x1="0" x2="1"><stop offset="0" stop-color="#050505"/><stop offset="0.26" stop-color="#222429"/><stop offset="0.38" stop-color="#5D6C82"/><stop offset="0.46" stop-color="#1D1F23"/><stop offset="0.85" stop-color="#0D0D0D"/><stop offset="1" stop-color="#2A2F38"/></linearGradient>
+    <linearGradient id="lacquer" gradientUnits="userSpaceOnUse" x1="${X0}" y1="${f(fl[1])}" x2="${X1}" y2="${Y1}"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.45" stop-color="#fff" stop-opacity="0.13"/><stop offset="0.55" stop-color="#fff" stop-opacity="0.02"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="haze" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${f(fl[1] + 150)}"><stop offset="0" stop-color="#B9B2A6"/><stop offset="0.55" stop-color="#9A9387"/><stop offset="0.8" stop-color="#9A9387" stop-opacity="0.75"/><stop offset="1" stop-color="#9A9387" stop-opacity="0"/></linearGradient>
+    <filter id="liquid" x="-30%" y="-30%" width="160%" height="160%"><feTurbulence type="fractalNoise" baseFrequency="0.05 0.08" numOctaves="3" seed="5"/><feDisplacementMap in="SourceGraphic" scale="7" xChannelSelector="R" yChannelSelector="G"/><feGaussianBlur stdDeviation="0.7"/></filter>
+    <filter id="silk" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="10"/></filter>
+    <filter id="mist" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="shade" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="glow" x="-50%" y="-400%" width="200%" height="900%"><feGaussianBlur stdDeviation="3"/></filter></defs>
   <g mask="url(#fade)">
-    <g filter="url(#bleed)"><g fill="none" stroke="${C.ink}" stroke-width="1.6">${lines}</g><g fill="${C.ink}">${knots}${squares}</g>
-      <rect x="${bx}" y="${by}" width="${n}" height="${n}" fill="none" stroke="${C.ink}" stroke-width="2.4" stroke-opacity="0.8"/></g>
-    <g filter="url(#soft)">${drop(1010, 150, 82, C.ink, 0.92)}${drop(846, 96, 48, C.accent, 0.8)}</g></g>`;
+    <rect x="${X0 - 260}" y="-10" width="${w + 320}" height="${f(fl[1] + 160)}" fill="url(#haze)"/>
+    <g fill="${WHITE_INK}">${shafts}</g>
+    <g fill="none" stroke-linecap="round" filter="url(#mist)">${veils}</g>
+    ${board}
+    <g filter="url(#liquid)">${farFrame}<g>${liquid}</g></g>
+    <path d="M${f(fl[0])} ${f(fl[1])}L${f(fr[0])} ${f(fr[1])}" stroke="#FFF7E6" stroke-width="5" stroke-opacity="0.7" filter="url(#glow)"/>
+    <path d="M${f(fl[0])} ${f(fl[1])}L${f(fr[0])} ${f(fr[1])}" stroke="#FFFCF4" stroke-width="1.1" stroke-opacity="0.85"/>
+    <g fill="#FFFCF4">${sparks}</g>
+    <g fill="${C.ink}" fill-opacity="0.34" filter="url(#shade)">${shadows}</g>
+    <g fill="none" stroke-linecap="round" filter="url(#silk)">${curls}${threads}</g>
+    ${pieces}
+    <g fill="${WHITE_INK}" fill-opacity="0.9">${motes}</g></g>`;
 };
 
 // The AI Power Map: 224 moments on one line from 2021 to 2026, stacked where they crowd.

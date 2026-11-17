@@ -9,11 +9,13 @@
 import { onTick, motion } from '../lib/util.js';
 import { VERTEX, fragment } from './glsl/index.js';
 import { createTransit } from './transit.js';
+import { createBoard3D } from './board3d.js';
+import { startSlots } from './staunton.js';
 
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uGlyph', 'uBoard', 'uBoardOn', 'uCardRot', 'uCam'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -48,7 +50,7 @@ function createScene() {
   const coarse = matchMedia('(pointer: coarse)').matches;
   const quality = coarse || innerWidth < 900 ? 4 : 5;
   const hosts = new Set();
-  let program = null, U = {}, ready = false, drewLast = false, transit = null;
+  let program = null, U = {}, ready = false, drewLast = false, transit = null, board3d = null, inkBoardBox = null;
   let effect = null, stopTick = null;
   let cssW = 0, cssH = 0, dpr = 1, scale = 1, slow = 0, fast = 0, iceDetail = 1, slowShare = 0;
   // The viewport, cached: reading innerWidth after the hosts have written styles would force a layout.
@@ -90,13 +92,15 @@ function createScene() {
         gl.uniform1i(U.uTerrainDetail, 6);
         gl.uniform1i(U.uPlate, 7);
         gl.uniform1i(U.uFlow, 8);
-        gl.uniform1i(U.uGlyph, 9);
-        gl.uniform1i(U.uBoard, 10);
+        gl.uniform1i(U.uB3, 11);
+        gl.uniform1i(U.uB3Mask, 12);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         ready = true;
-        transit = createTransit(gl, { renderWorld, renderPane, coarse });
+        transit = createTransit(gl, { renderWorld, renderPane, coarse, board3d: () => board3d });
+        // Chess's board, in three dimensions (board3d.js): the tile's, and its transition's.
+        board3d = createBoard3D(gl, { coarse });
         requestAnimationFrame(() => root.classList.add('gl'));
         resolve(true);
       };
@@ -104,7 +108,7 @@ function createScene() {
     });
   }
 
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; effect?.abort?.(); transit?.dispose(); transit = null; root.classList.remove('gl'); });
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); ready = false; effect?.abort?.(); transit?.dispose(); transit = null; board3d?.dispose(); board3d = null; root.classList.remove('gl'); });
   canvas.addEventListener('webglcontextrestored', () => { compile(); });
 
   // ---- input ---------------------------------------------------------------------------------
@@ -155,10 +159,17 @@ function createScene() {
     const c = s.card;
     gl.uniform4f(U.uCard, c ? c[0] : 0, c ? c[1] : 0, c ? c[2] : 0, c ? c[3] : 0);
     gl.uniform1f(U.uCardR, s.cardR ?? 24);
-    // Chess's board (glsl/plume.js): its card's turn, whether its picture is in, and the view closed on it.
-    gl.uniform1f(U.uCardRot, s.cardRot ?? 0);
-    gl.uniform1f(U.uBoardOn, s.boardOn ? 1 : 0);
-    gl.uniform3f(U.uCam, s.cam ? s.cam[0] : 0, s.cam ? s.cam[1] : 0, s.cam ? s.cam[2] : 1);
+    // (Photography → Chess's board, curing out of its ink: glsl/unmix.js.)
+    const bb = s.b3box;
+    gl.uniform4f(U.uB3Box, bb ? bb[0] : 0, bb ? bb[1] : 0, bb ? bb[2] : 1, bb ? bb[3] : 1);
+    gl.uniform1f(U.uB3On, s.b3on ? 1 : 0);
+    // (A click into Chess binds the board's picture and its ink itself; a seam's transit has bound them.)
+    if (s.b3on && (s.mode === 2 || s.mode === 3)) {
+      const ink = transit?.inkClick(cssW, cssH);
+      gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, board3d?.texture ?? null);
+      gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, ink?.mask ?? null);
+      gl.activeTexture(gl.TEXTURE0);
+    }
     gl.uniform1f(U.uCardMix, s.cardMix ?? 1);
     const cr = s.crystal;
     gl.uniform3f(U.uCrystal, cr ? cr[0] : 0, cr ? cr[1] : 0, cr ? cr[2] : 0);
@@ -271,6 +282,15 @@ function createScene() {
         }
       }
       transit.sweep(now);
+      // Photography → Chess's fluid, baked a few steps a frame while no seam is playing.
+      if (inkBoardBox) transit.inkBoard(inkBoardBox, cssW, cssH);
+      if (!list.some(s => s.mode === 6 && s.p > 0.01 && s.p < 0.99)) transit.bake(coarse ? 1 : 2, cssW, cssH);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.useProgram(program);
+    }
+    // Chess's board (a state's board: its box and position): brought up to date off screen, a pass at most.
+    if (board3d) {
+      for (const s of list) if (s.board) s.boardOk = board3d.render(s.board.rect, s.board.pos);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.useProgram(program);
     }
@@ -283,10 +303,20 @@ function createScene() {
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform2f(U.uOrigin, 0, 0);
     drewLast = false;
+    const boards = [];
     for (const s of list) {
       const drew = s.transit ? transit.draw(s, info, drawGround, restoreMain) : draw(s);
       if (drew && s.units) { transit.drawEffect(s, info); restoreMain(); }
+      if (drew && s.boardOk && (s.board.alpha ?? 1) > 0) boards.push(s);
       drewLast = drew || drewLast;
+    }
+    // Chess's board is the band's content, as its card was: over every world, a seam's strip too (with motion
+    // paused, the seam into Chess straddles the band's top, where the board is), and not cut to the band's
+    // world (that strip's half is not the band's region, though the board's box is in the band).
+    if (boards.length) {
+      gl.disable(gl.SCISSOR_TEST);
+      for (const s of boards) { board3d.blit(s.board.rect, dpr, canvas.height, s.board.alpha ?? 1); restoreMain(); }
+      gl.enable(gl.SCISSOR_TEST);
     }
     adapt(dt, list.some(s => (s.a === 2 && (s.mode === 2 || s.mode === 3)) || (s.b === 2 && s.mode === 6)));
   }
@@ -314,6 +344,7 @@ function createScene() {
   function giveUp() {
     effect?.abort?.();
     transit?.dispose(); transit = null;
+    board3d?.dispose(); board3d = null;
     ready = false;
     root.classList.remove('gl');
     root.classList.add('no-gl');
@@ -344,8 +375,11 @@ function createScene() {
       state() {
         const region = [0, 0, vpW, vpH];
         const h = fog ? 1 : 0;
-        if (run.front) return { region, mode: revealing ? 3 : close ? 4 : 2, a: style, e, h, card, cardR, point: at };
-        return { region, mode: 3, a: style, e, h, point: at };
+        // (Into Chess: the board it builds, where it stands, and its ink: glsl/unmix.js umClickCover.)
+        const ink = style === STYLE_ID.ink && !close && !fog && board3d?.ready() ? transit?.inkClick(vpW, vpH) : null;
+        const b3 = ink ? { board: { rect: ink.box, pos: { slots: startSlots(), marks: null }, alpha: 0 }, b3box: ink.box, b3on: true } : null;
+        if (run.front) return { region, mode: revealing ? 3 : close ? 4 : 2, a: style, e, h, card, cardR, point: at, ...b3 };
+        return { region, mode: 3, a: style, e, h, point: at, ...b3 };
       },
       step(dt) {
         if (dead || e === goal) return;
@@ -452,6 +486,12 @@ function createScene() {
     iceReady: () => !!transit?.iceReady(vpW,vpH),
     iceStats: () => ({ ...transit?.iceStats(vpW,vpH), renderScale: scale, detail: iceDetail, fallback: !ready }),
     get pointer() { return { x: ptrX, y: ptrY, on: ptrOn }; },
+    // Whether Chess's board is drawn by the scene (its tile then gives way to it).
+    boardDrawn: () => !!board3d?.drawn,
+    // Where Chess's board waits during its transition (CSS px [x, y, w, h] on the screen): its fluid is baked for it.
+    setInkBoard(box) { inkBoardBox = box; },
+    // Whether that fluid is baked (for the tools).
+    inkReady: () => !!transit?.inkReady(),
   };
   // Compile once the page has painted.
   api.compiled = new Promise(r => requestAnimationFrame(() => setTimeout(() => compile().then(r), 0)));

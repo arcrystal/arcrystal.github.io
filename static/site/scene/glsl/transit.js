@@ -93,7 +93,7 @@ vec3 groundSheets(vec2 q, vec2 px, float P) {
 
 // Outdoors → Photography: fire becoming memory (glsl/fire.js groundFire).
 
-// Photography → Chess: ink finding order (glsl/plume.js groundPlume).
+// Photography → Chess: ink, unmixed (glsl/unmix.js groundUnmix).
 
 vec3 transitGround(int a, vec2 q, vec2 px) {
   gCardMix = 0.0;
@@ -102,6 +102,6 @@ vec3 transitGround(int a, vec2 q, vec2 px) {
   if (a == 3) return groundDew(q, px, P);
   if (a == 2) return groundPeaks(q, px, P);
   if (a == 4) return groundFire(q, px, P);
-  return groundPlume(q, px, P);
+  return groundUnmix(q, px, P);
 }
 `;

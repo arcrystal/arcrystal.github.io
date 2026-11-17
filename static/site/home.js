@@ -17,6 +17,7 @@ import { skyline } from './skyline.js';
 import { powermap } from './powermap.js';
 import { mountSims } from './sims.js';
 import { playChess, loadRatings, layoutStart, layoutBuilt } from './previews.js';
+import { scotchAt, scotchBuilt, startSlots, builtAt } from './scene/staunton.js';
 
 const TAU = Math.PI * 2;
 const CYCLE_MS = 5000;
@@ -67,6 +68,9 @@ export function mount(main, ctx) {
     }
     sections = bands.map((b, i) => {
       const r = b.getBoundingClientRect();
+      // Chess's board, drawn by the scene (scene/board3d.js): its box, from the band's top.
+      const bw = b.querySelector('.pv-board-wrap'), bwr = bw?.getBoundingClientRect();
+      const boardBox = bwr ? [bwr.left, bwr.top - r.top, bwr.width, bwr.height] : null;
       const hold = holds.get(i), hr = hold?.getBoundingClientRect();
       const wrap = hold?.parentElement?.classList.contains('seam-wrap') ? hold.parentElement : null;
       if (wrap) {
@@ -87,11 +91,15 @@ export function mount(main, ctx) {
         if (b.style.getPropertyValue('--held-shift') !== `${shift}px`) b.style.setProperty('--held-shift', `${shift}px`);
         const span = hold.offsetHeight + shift;
         return { el: b, id: b.dataset.band, style: b.dataset.style, top: wt + span - shift, h: b.offsetHeight, seam: 0,
-          hold: { top: wt, h: span + vh }, stick: { top: wt, span, shift }, card: box };
+          hold: { top: wt, h: span + vh }, stick: { top: wt, span, shift }, card: box, board: boardBox };
       }
       return { el: b, id: b.dataset.band, style: b.dataset.style, top: r.top + sy, h: r.height, seam: 0,
-        hold: hr ? { top: hr.top + sy, h: hr.height } : null };
+        hold: hr ? { top: hr.top + sy, h: hr.height } : null, board: boardBox };
     });
+    // Chess's board during its hold, where its band waits (held higher by its shift): its transition's fluid
+    // is baked for it (scene/ink-sim.js).
+    const chessHeld = sections.find(s => s.stick && s.board && s.style === 'ink');
+    if (chessHeld) getScene()?.setInkBoard?.([chessHeld.board[0], chessHeld.board[1] - chessHeld.stick.shift, chessHeld.board[2], chessHeld.board[3]]);
     // Racing's card during its hold: the transition's fragments stream into it (scene/transit.js).
     const held = sections.find(s => s.stick && s.card && s.style === 'glass');
     if (held) document.dispatchEvent(new CustomEvent('dew:card', { detail: held.card.slice(0, 4) }));
@@ -105,8 +113,9 @@ export function mount(main, ctx) {
   measure();
   const ro = new ResizeObserver(measure);
   ro.observe(main);
-  // (Chess's board is measured for the transition that builds it: its card changes size without the page
-  // doing so, when its ratings arrive beside it.)
+  // (Chess's board is measured for the transition that builds it: its card is watched too, should it change
+  // size without the page doing so. Where the scene draws, its ratings sit under it, so their arriving
+  // does not; a new box means a new bake, scene/transit.js inkFits.)
   const boardCard = main.querySelector('.band--chess .pv-board-wrap');
   if (boardCard) ro.observe(boardCard);
   scope.add(() => ro.disconnect());
@@ -272,15 +281,39 @@ export function mount(main, ctx) {
   // Chess: the Scotch plays while the band is in view; the ratings are read once. Where the band waits
   // under the transition that builds its board (the starting position), the board is laid out at the
   // start, still, and the game begins once the band has surfaced: its first frame is the one built.
+  //   Once the scene draws the board in three dimensions (scene/board3d.js), the game runs on its own
+  // clock there (staunton.js scotchAt) and the tile's drawing, kept underneath for when the scene is not
+  // there, holds the built position. Coming into view, the game picks up where it rests (built), so
+  // nothing jumps; after its transition, it starts from the start the transition built.
   const board = main.querySelector('.band--chess [data-pv="chess"]');
+  const boardWrap = board?.querySelector('.pv-board-wrap');
+  let chessView = null;
   if (board) {
     const band = board.closest('.band');
-    let run = null, rated = false, seen = false, whole = false;
+    const plies = (board.dataset.plies || '').split(' ').filter(Boolean);
+    const restsAt = builtAt(plies.length);
+    let run = null, rated = false, seen = false, whole = false, gl = false, glStart = null, fromStart = false;
     const waiting = () => !!band.parentElement?.classList.contains('seam-wrap') && !whole;
     const sync = () => {
+      if (gl) {
+        run?.stop(); run = null;
+        layoutBuilt(board);
+        if (waiting() && !motion.paused) { glStart = null; fromStart = true; return; }
+        if (seen && !motion.paused) glStart ??= performance.now() - (fromStart ? 0 : restsAt);
+        else glStart = null;
+        fromStart = false;
+        return;
+      }
       if (seen && !waiting() && !motion.paused) { run ??= playChess(board); return; }
       run?.stop(); run = null;
       if (waiting() && !motion.paused) layoutStart(board); else layoutBuilt(board);
+    };
+    chessView = {
+      setGL(on) { if (on === gl) return; gl = on; boardWrap?.classList.toggle('is-gl', on); sync(); },
+      position() {
+        if (waiting() && !motion.paused) return { slots: startSlots(), marks: null };
+        return glStart == null ? scotchBuilt(plies) : scotchAt(performance.now() - glStart, plies);
+      },
     };
     const io = new IntersectionObserver(entries => entries.forEach(e => {
       seen = e.isIntersecting;
@@ -349,10 +382,23 @@ export function mount(main, ctx) {
         // The seams above and below draw their halves of the band, so the band leaves them out.
         const cutTop = s.seam / 2, cutBot = (sections[i + 1]?.seam ?? 0) / 2;   // 0 beside a hold
         const y = s.top - scrollY + cutTop, h = s.h - cutTop - cutBot;
-        if (h <= 0 || y + h <= 0 || y >= vh) return null;
+        // (Chess's board is made a screen and a half before it shows, so the tile gives way off screen; its
+        // region then draws nothing.)
+        const ahead = s.board && chessView ? vh * 1.5 : 0;
+        if (h <= 0 || y + h <= -ahead || y >= vh + ahead) return null;
         const at = arrived.get(b);
         const e = at && !motion.paused ? clamp((performance.now() - at) / ARRIVE_MS) : 0;
-        return { region: [0, y, vw, h], mode: 0, a: STYLE_ID[s.style] ?? 0, vel: clamp(vel, -3, 3), e: e < 1 ? e : 0 };
+        const st = { region: [0, y, vw, h], mode: 0, a: STYLE_ID[s.style] ?? 0, vel: clamp(vel, -3, 3), e: e < 1 ? e : 0 };
+        // Chess's board: drawn by the scene where the tile's box is, once it can be (the tile then gives way).
+        // (Where the band is: through its hold it waits on the screen, held higher by its shift, as its seam
+        // has it.)
+        if (s.board && chessView) {
+          chessView.setGL(scene.boardDrawn());
+          const k = s.stick, up = k?.shift || 0;
+          const bandY = !k ? s.top - scrollY : scrollY < k.top + up ? k.top - scrollY : Math.min(-up, k.top + k.span - up - scrollY);
+          st.board = { rect: [s.board[0], s.board[1] + bandY, s.board[2], s.board[3]], pos: chessView.position() };
+        }
+        return st;
       },
     })));
     // A seam where two styles meet. In a hold: the whole screen, scrolling in with the page, held
@@ -384,6 +430,9 @@ export function mount(main, ctx) {
               }
             }
             if (y + vh <= 0 || y >= vh) return null;
+            // (Chess's transition, once whole, is the band itself, its board the tile's own: the band draws
+            // it, so the seam steps aside, as it does if its fluid is not baked yet.)
+            if (c.style === 'ink' && c.stick && raw >= 1) return null;
             // (A held band's pictures are decoded while its transition plays, not as it surfaces.)
             if (c.stick && !c.warm) { c.warm = true; [...c.el.querySelectorAll('img')].slice(0, 6).forEach(img => img.decode?.().catch(() => {})); }
             const cap = captions.get(i);
@@ -391,7 +440,7 @@ export function mount(main, ctx) {
             // Science's content enters the cleared foot while the vortex still fills the screen.
             // Keep drawing the full clearing curve behind it until the transition finishes.
             const science = c.style === 'cosmos' || c.style === 'glass';
-            let card = [0, y, vw, vh], cardR, cardRot = 0;
+            let card = [0, y, vw, vh], cardR, cardRot = 0, board;
             if (c.stick) {
               // The caption goes as the band begins to surface (Racing's shader crystallizes its card
               // from the ice a little before).
@@ -399,10 +448,13 @@ export function mount(main, ctx) {
               const up = c.stick.shift || 0;
               const bandY = scrollY < c.stick.top + up ? c.stick.top - scrollY : Math.min(-up, c.stick.top + c.stick.span - up - scrollY);
               if (c.card) { card = [c.card[0], c.card[1] + bandY, c.card[2], c.card[3]]; cardR = c.card[4]; cardRot = c.card[5]; }
+              // Chess's board, at the start, where the band waits: its transition cures it out of the ink and
+              // draws it itself (glsl/unmix.js), so it is not laid over the seam (alpha 0).
+              if (c.board && chessView) board = { rect: [c.board[0], c.board[1] + bandY, c.board[2], c.board[3]], pos: { slots: startSlots(), marks: null }, alpha: 0 };
             } else if (science && cap) cap.el.style.visibility = c.top - scrollY < vh ? 'hidden' : '';
             const clipY = science && raw < 1 ? Math.max(0, y) : y;
             // Drawn on the whole screen as if held; the strip's place on screen (clip) reveals it.
-            return { region: [0, 0, vw, vh], clip: [0, clipY, vw, vh], card, cardR, cardRot, mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
+            return { region: [0, 0, vw, vh], clip: [0, clipY, vw, vh], card, cardR, cardRot, board, mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
               p, h: 1 - p, vel: clamp(vel, -3, 3) };
           }
           if (!c.seam) return null;

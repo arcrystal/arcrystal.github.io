@@ -72,7 +72,7 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 4.2 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 5.0 } },
 };
 // Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
 // each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
@@ -136,7 +136,8 @@ const DARKROOM_PACE = [[-0.2, 3.6], [-0.1, 3.6], [-0.06, 1.3], [0.2, 1.25], [0.3
 // begins to rise), the plumes entering at an even pace, their folding given room with a slower rest in
 // its middle, the lattice and the squares unhurried, the pieces slowest (there is the most to see), and
 // the settling a little quicker.
-const INK_PACE = [[-0.2, 3.6], [-0.1, 3.6], [-0.06, 1.2], [0.08, 1.2], [0.3, 1.25], [0.42, 1.7], [0.5, 1.3], [0.56, 1.35], [0.75, 1.4], [0.88, 1.9], [1.06, 1.8], [1.12, 1.4], [1.2, 1.4]];
+// Chess's (scene/unmix-plan.js): the tray, the rain, the storm, a long still point, the unmixing, the hardening slowest.
+const INK_PACE = [[-0.2, 2.6], [-0.08, 2.6], [-0.03, 1.3], [0.3, 1.3], [0.48, 1.2], [0.55, 1.9], [0.6, 1.6], [0.8, 1.4], [0.86, 2.1], [1.0, 2.1], [1.06, 1.6], [1.2, 1.4]];
 const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE), DARKROOM_TABLE = paceTable(DARKROOM_PACE), INK_TABLE = paceTable(INK_PACE);
 export const glassEase = GLASS_TABLE.ease, glassRaw = GLASS_TABLE.inverse;
 export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;

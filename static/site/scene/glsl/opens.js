@@ -176,7 +176,7 @@ vec4 cover(int s, vec2 px, float e) {
   float E = e * 1.04;
   if (s == 0) return mazeCover(px, E);
   // 1: from the click itself, which the new page is told too, so its board stays where it formed.
-  if (s == 1) return pmcCover(px, uPoint, farCorner(uPoint) * 1.02, E);
+  if (s == 1) return uB3On > .5 ? umClickCover(px, uPoint, farCorner(uPoint) * 1.02, E) : pmcCover(px, uPoint, farCorner(uPoint) * 1.02, E);
   if (s == 2) return dewMaterial(px, px, R, -.2 + 1.04 * e, true, false);
   if (s == 3) return vortexCover(px, O, E);
   if (s == 4) return leadCover(px, O, far, E);
@@ -202,7 +202,7 @@ vec3 reveal(int s, vec2 px, float e) {
     float line = smoothstep(1.9, 0.9, abs(M.x)) * (1.0 - smoothstep(t, t + 0.12, e));
     return mix(scene, vec3(0.16, 0.16, 0.19), line * 0.9);
   }
-  if (s == 1) return pmcReveal(px, O, far, e);
+  if (s == 1) return uB3On > .5 ? umClickReveal(px, O, far, e) : pmcReveal(px, O, far, e);
   if (s == 2) return scene; // Racing's reveal is a translucent front overlay (MAIN).
   // 3: the vortex has spent itself building the page; nothing is left to let go.
   if (s == 3) return scene;
