@@ -161,22 +161,35 @@ html.gl .band-art { opacity: 0; }
    of the screen while the hold passes, fading in and out with its progress (--p, 0..1), with a
    thin line for how far it has come. A dark frosted pill, so it reads on every world. */
 .seam-hold { position: relative; }
-/* Racing surfaces in place (home.js wraps it with its hold): the band waits at the top of the screen
-   under the transition, hidden, and its content condenses from frost to sharp as the transition ends
-   (--surface 0 → 1); then the page scrolls on. */
+/* Racing and Photography surface in place (home.js wraps each with its hold): the band waits at the
+   top of the screen under the transition, hidden, and its content condenses to sharp as the transition
+   ends (--surface 0 → 1); then the page scrolls on. */
 .seam-wrap { position: relative; }
-.seam-wrap > .band--racing { position: sticky; top: 0; min-height: 100svh; padding-top: clamp(28px, 4vh, 48px); align-items: start; }
-.seam-wrap > .band--racing.is-held { visibility: hidden; }
-.js:not(.motion-paused) .seam-wrap > .band--racing > .band-inner > * { translate: none; transition: none; }
-.seam-wrap > .band--racing .band-head > * {
+.seam-wrap > .band { position: sticky; top: 0; min-height: 100svh; }
+.seam-wrap > .band--racing { padding-top: clamp(28px, 4vh, 48px); align-items: start; }
+.seam-wrap > .band.is-held { visibility: hidden; }
+.js:not(.motion-paused) .seam-wrap > .band > .band-inner > * { translate: none; transition: none; }
+.seam-wrap > .band .band-head > * {
   opacity: clamp(0, calc(var(--surface, 1) * 1.7 - .1), 1);
   filter: blur(calc(max(0, 1 - var(--surface, 1) * 1.4) * 14px));
 }
-.seam-wrap > .band--racing .band-body {
+.seam-wrap > .band .band-body {
   opacity: clamp(0, calc(var(--surface, 1) * 2 - .9), 1);
   filter: blur(calc(max(0, 1 - var(--surface, 1)) * 10px));
 }
-.seam-wrap > .band--racing .band-info { opacity: clamp(0, calc(var(--surface, 1) * 3 - 2), 1); }
+/* (Its information button below the header: the band waits at the top of the screen, where the header's
+   own buttons are.) */
+.seam-wrap > .band .band-info { top: calc(var(--header-h) + 8px + var(--held-shift, 0px)); opacity: clamp(0, calc(var(--surface, 1) * 3 - 2), 1); }
+/* Chess's board is built by its transition where the tile shows it, sharp: the card comes last, over
+   the same picture, without the blur; its caption and ratings with the heading. On a short screen the
+   band is held higher, so the board is in view (--held-shift, home.js). */
+.seam-wrap > .band--chess { top: calc(-1 * var(--held-shift, 0px)); }
+.seam-wrap > .band--chess .band-body { opacity: 1; filter: none; }
+.seam-wrap > .band--chess :is(.pv-cap, .ch-band-ratings) { opacity: clamp(0, calc(var(--surface, 1) * 1.7 - .1), 1); }
+.seam-wrap > .band--chess .pv-board-wrap { opacity: clamp(0.002, calc(var(--surface, 1) * 5 - 4), 1); will-change: opacity; }
+/* (The card is painted, unseen, while its band waits: its washes' filter is slow to draw, and is not
+   left for the moment it appears.) */
+.seam-wrap > .band--chess.is-held .pv-board-wrap { visibility: visible; pointer-events: none; }
 .seam-cap {
   position: sticky; top: calc(100svh - 74px); z-index: 2; width: max-content; max-width: calc(100vw - 32px); margin: 0 auto;
   padding: 9px 16px 8px; border-radius: 999px; background: rgb(14 14 18 / 0.58); color: #F4F2EE;

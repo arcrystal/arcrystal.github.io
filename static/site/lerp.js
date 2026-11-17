@@ -72,14 +72,16 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 3.6, leadOut: 0.06 }, ink: { pin: 1.2 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 4.2 } },
 };
-// Racing's band surfaces in place inside its transition (home.js wraps it with its hold): the hold
-// ends, and the band scrolls on, at the transition's very end.
+// Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
+// each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
+// at which a band's content begins to surface, and over how much of P it comes.
 export const GLASS_RELEASE = 1.2;
+export const HELD = Object.freeze({ glass: [1.02, 0.16], darkroom: [1.08, 0.115], ink: [1.1, 0.098] });
 export const holdFor = (style, pin = HOLD.pin) => {
   const h = { pin: 1, leadIn: HOLD.leadIn, leadOut: HOLD.leadOut, ...HOLD.by[style] };
-  if (style === 'glass') h.leadOut = 0;
+  if (HELD[style]) h.leadOut = 0;
   return h;
 };
 export function holdAt(sy, T, H, vh, leadIn = HOLD.leadIn, leadOut = HOLD.leadOut) {
@@ -124,27 +126,31 @@ function paceTable(PACE) {
   const inverse = P => { const k = Math.max(0, Math.min(N, (P + 0.2) / 1.4 * N)), i = Math.min(N - 1, Math.floor(k)); return raw[i] + (raw[i + 1] - raw[i]) * (k - i); };
   return { ease, inverse };
 }
-// Photography's, likewise (scene/moment-plan.js): the strip coming in unhurried, the glass remembering
-// and the evening opening into depth at an even pace, the held moment beside it slower, time closing
-// into the image slowest of all at its very end, the shutter quick, and the print in the developer
-// unhurried.
-const DARKROOM_PACE = [[-0.2, 14.0], [-0.12, 1.3], [0.21, 1.3], [0.5, 1.35], [0.58, 1.7], [0.66, 1.5], [0.82, 1.4], [0.88, 2.3], [0.925, 2.0], [0.965, 1.0], [0.99, 1.4], [1.1, 1.7], [1.2, 1.5]];
-const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE), DARKROOM_TABLE = paceTable(DARKROOM_PACE);
+// Photography's, likewise (scene/fire-plan.js): the low sun creeping up the window while the strip
+// comes in (slowly, so it is held before the sun has reached its top or anything has caught), the fire
+// and its embers at an even pace, the one ember and the ribbons unhurried, the torus's weave held
+// longest, on through it into the veil, the waves and their silver a little slower, and the picture
+// developing slowest of all.
+const DARKROOM_PACE = [[-0.2, 3.6], [-0.1, 3.6], [-0.06, 1.3], [0.2, 1.25], [0.3, 1.2], [0.42, 1.3], [0.54, 1.7], [0.63, 1.25], [0.8, 1.3], [0.96, 1.4], [1.02, 1.6], [1.17, 1.7], [1.2, 1.5]];
+// Chess's, likewise (scene/ink-plan.js): the strip coming in slowly (so it is held before the water
+// begins to rise), the plumes entering at an even pace, their folding given room with a slower rest in
+// its middle, the lattice and the squares unhurried, the pieces slowest (there is the most to see), and
+// the settling a little quicker.
+const INK_PACE = [[-0.2, 3.6], [-0.1, 3.6], [-0.06, 1.2], [0.08, 1.2], [0.3, 1.25], [0.42, 1.7], [0.5, 1.3], [0.56, 1.35], [0.75, 1.4], [0.88, 1.9], [1.06, 1.8], [1.12, 1.4], [1.2, 1.4]];
+const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE), DARKROOM_TABLE = paceTable(DARKROOM_PACE), INK_TABLE = paceTable(INK_PACE);
 export const glassEase = GLASS_TABLE.ease, glassRaw = GLASS_TABLE.inverse;
 export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;
 export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.inverse;
-export const easeFor = style => (style === 'glass' ? glassEase : style === 'folio' ? folioEase : style === 'darkroom' ? darkroomEase : holdEase);
+export const inkEase = INK_TABLE.ease, inkRaw = INK_TABLE.inverse;
+export const easeFor = style => (style === 'glass' ? glassEase : style === 'folio' ? folioEase : style === 'darkroom' ? darkroomEase : style === 'ink' ? inkEase : holdEase);
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);
 
-// A point's flight from its arrival A (0..1, when the reach fills it) and its own lean jit (0..1):
+// A point's flight from its arrival A (0..1, when its part of the transition comes) and its own lean jit (0..1):
 // 0 = at home in the upper world, 1 = landed in the lower one.
 export const flightAt = (A, P, jit = 0.5) => clamp01(0.5 + (P - A + (jit - 0.5) * 0.1) / 0.3);
 
-// Where arrivals can fall at rn (0 at the strip's foot, 1 at its top): the branches grow out at
-// 0.55 × (0.85..1.15) of rn, and the gaps fill up to 0.36 later, ±0.02 of noise.
-export const arrivalRange = rn => [Math.max(0, 0.4675 * rn - 0.02), Math.min(1, 0.6325 * rn + 0.38)];
 
 // ---- The processes' pure parts (mirrors of scene/glsl/flight.js and opens.js) ----------------------
 

@@ -15,7 +15,7 @@ import {
 } from '../../../static/site/scene/dew-plan.js';
 import { PALETTE, lineRGB, rgb } from '../../../static/site/scene/palette.js';
 import { GIANTS, blackbody, lineColour } from '../../../static/site/scene/giants.js';
-import { HOLD, holdFor, holdAt, glassEase, glassRaw, transitP, GLASS_RELEASE } from '../../../static/site/lerp.js';
+import { HOLD, holdFor, holdAt, glassEase, glassRaw, transitP, GLASS_RELEASE, HELD } from '../../../static/site/lerp.js';
 
 const screens = [[1440, 900], [390, 844]];
 const plans = screens.map(([w, h]) => makeDewPlan(w, h));
@@ -258,7 +258,9 @@ test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip com
   assert.ok(rate(0.4) > rate(0.15), 'the spots unhurried');
   for (let r = 0; r <= 1; r += 0.01) near(glassRaw(transitP(glassEase(r))), r, 1e-6, 'its inverse');
   const home = readFileSync(new URL('../../../static/site/home.js', import.meta.url), 'utf8');
-  assert.match(home, /sf = clamp\(\(P - 1\.02\) \/ 0\.16\)/);
+  // (home.js surfaces a held band from HELD: Racing's content from P 1.02 over .16.)
+  assert.deepEqual(HELD.glass, [1.02, 0.16]);
+  assert.match(home, /const \[s0, ds\] = HELD\[c\.style\], sf = clamp\(\(transitP\(p\) - s0\) \/ ds\)/);
   assert.match(src, /if \(!click && P >= 1\.18\) \{ gCardMix = 1\.0; return vec4\(sceneGlacier\(px\), 1\.0\); \}/);
   assert.match(src, /gCardMix = smoothstep\(1\.13, 1\.18, P\);/);
 });

@@ -1,25 +1,8 @@
 // What the transitions draw, shared by the click covers (opens.js) and the seams (transit.js). Each
 // destination is told apart by its process, not its colours (flight.js has the maths):
-//   Chess        ink: a branching reach of soft fingers (branchLook)
 //   Science      a vortex: cubes drawn in, spun and stretched along an axis (vortexCore, the light at its heart)
-//   (Photography's camera and darkroom are glsl/camera.js.)
-// A Look is a colour c, its coverage m, and light it gives off (glow, added over everything, so it
-// also lights the old page through the gaps).
+//   (Photography's fire is glsl/fire.js; Chess's ink, glsl/plume.js.)
 export const REACH_LOOK = /* glsl */ `
-struct Look { vec3 c; float m; vec3 glow; };
-
-// ---- Chess: ink --------------------------------------------------------------------------------------
-// Soft fingers that swell as they age and pool darker at their edges. Rr: the reach here; P: how
-// far the transition has gone on the reach's clock.
-Look branchLook(Reach Rr, float P, vec2 px) {
-  float grown = smoothstep(Rr.tb - 0.004, Rr.tb + 0.01, P);
-  float age = max(P - Rr.tb, 0.0);
-  float wk = Rr.d / (Rr.w * (1.0 + 2.5 * min(age * 3.0, 1.0)));
-  float m = smoothstep(1.2, 0.3, wk) * grown * (0.8 + 0.2 * noise(px * 0.3));
-  vec3 c = mix(INK_BLACK, INK_INDIGO, 0.25 + 0.35 * smoothstep(0.2, 1.0, wk) * noise(px * 0.02));
-  return Look(c * (0.85 + 0.3 * smoothstep(0.6, 1.0, wk)), m, vec3(0.0));
-}
-
 // ---- Science: the vortex's core --------------------------------------------------------------------
 // Light along the axis where the vortex is busy (amt 0..1, the caller's, by height): a narrow orange
 // heart, where it turns fastest, in a wider sheath of blue and teal, with streaks running along the

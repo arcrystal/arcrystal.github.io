@@ -8,20 +8,8 @@ vec3 texA(vec2 q) { return texture(uTexA, tUV(q)).rgb; }
 vec3 texB(vec2 q) { return texture(uTexB, tUV(q)).rgb; }
 
 // Each seam is told apart by its process (flight.js, reach.js): a vortex for Science, crystal
-// condensation for Racing, peeling sheets for Outdoors, a camera iris for Photography, a branching reach of
-// ink for Chess. P = transitP(p); uH is p itself.
-const float BLEAD = 0.22;
-// The ink's reach at a seam point, where it matters: false where the point's height alone says
-// nothing has grown there yet (u = 0) or it settled long ago (u = 1).
-bool seamReach(vec2 q, float P, out Reach Rq, out float u) {
-  float rn = clamp(1.0 - q.y / uRegion.w, 0.0, 1.0);
-  Rq = Reach(1e9, 1.0, 1.0, 1.0, 1.0);
-  if (P + BLEAD < 0.4675 * rn - 0.01) { u = 0.0; return false; }
-  if (P > 0.6325 * rn + 0.58) { u = 1.0; return false; }
-  Rq = seamReachAt(q);
-  u = flightAt(Rq.A, 0.5, P);
-  return true;
-}
+// condensation for Racing, the mountains rising for Outdoors, fire becoming memory for Photography, ink
+// finding order for Chess. P = transitP(p); uH is p itself.
 
 // About Me → Science. A vortex stands on the foot of the screen and grows up it (flight.js
 // vortexBand), gathering the page into cubes behind its top and throwing them down and out to build
@@ -103,52 +91,9 @@ vec3 groundSheets(vec2 q, vec2 px, float P) {
   return underFold(sceneFolio(px), above, q);
 }
 
-// Outdoors → Photography: the thickness of a moment (glsl/moment.js groundMoment).
+// Outdoors → Photography: fire becoming memory (glsl/fire.js groundFire).
 
-// Photography → Chess. Ink fingers climb from the foot and fork; around them the ink billows into the
-// water in clouds (inkVolume: domain-warped noise, thickest near the branches, growing as they do);
-// behind them the developer clears into wash along a soft, granulating wet edge; the tray's red
-// lingers in the dark side. The ink stays until the end and lets go as Chess arrives.
-// Done before the strip's foot comes on screen above Chess (P 1.02, the earliest, on a phone).
-float inkLetGo(float P) { return 1.0 - smoothstep(0.86, 1.02, P); }
-vec3 inkVolume(vec3 col, Reach Rq, vec2 q, float P) {
-  float grown = smoothstep(Rq.tb, Rq.tb + 0.22, P + BLEAD);
-  if (grown <= 0.0) return col;
-  float near = exp(-max(Rq.d - Rq.w, 0.0) / (18.0 + 34.0 * grown));
-  vec2 wq = q * 0.0052 + vec2(0.0, -T * 0.02);
-  wq += vec2(fbm3(wq * 1.7 + T * 0.03), fbm3(wq * 1.7 + 5.2 - T * 0.025)) * 0.9;
-  float b = fbm3(wq);
-  float dens = grown * smoothstep(0.4, 0.95, near + (b - 0.5) * 0.9) * inkLetGo(P) * 0.45;
-  vec3 ink = mix(INK_INDIGO, INK_BLACK, smoothstep(0.3, 0.9, near)) * (0.9 + 0.2 * b);
-  return mix(col, ink, dens);
-}
-vec3 groundInk(vec2 q, vec2 px, float P) {
-  Reach Rq; float u;
-  bool live = seamReach(q, P, Rq, u);
-  vec3 col;
-  if (u <= 0.0) col = sceneDarkroom(px);
-  else if (u >= 1.0) col = sceneInk(px);
-  else {
-    float ub = u + (fbm3(q * 0.007 + vec2(0.0, T * 0.02)) - 0.5) * 0.6 * sin(PI * u);
-    float w = smoothstep(0.42, 0.58, ub);
-    vec3 dark = w < 1.0 ? sceneDarkroom(px) + DR_RED * smoothstep(0.1, 0.45, ub) * 0.16 : vec3(0.0);
-    vec3 wash = w > 0.0 ? sceneInk(px) : vec3(0.0);
-    if (w > 0.0) {
-      float gran = 0.75 + 0.5 * noise(q * 0.35);
-      float wet = exp(-max(ub - 0.5, 0.0) * 16.0);
-      wash = mix(wash, INK_BLACK, clamp(wet * 0.8 * gran, 0.0, 0.9));
-    }
-    col = mix(dark, wash, w);
-  }
-  if (P > 1.02) return col;
-  // Settled points still carry their ink until it lets go.
-  if (!live && u >= 1.0) Rq = seamReachAt(q);
-  if (u <= 0.0 && !live) return col;
-  col = inkVolume(col, Rq, q, P);
-  Look L = branchLook(Rq, P + BLEAD, px);
-  float keep = inkLetGo(P);
-  return mix(col, L.c, L.m * keep) + L.glow * keep;
-}
+// Photography → Chess: ink finding order (glsl/plume.js groundPlume).
 
 vec3 transitGround(int a, vec2 q, vec2 px) {
   gCardMix = 0.0;
@@ -156,7 +101,7 @@ vec3 transitGround(int a, vec2 q, vec2 px) {
   if (a == 0) return groundCubes(q, px, P);
   if (a == 3) return groundDew(q, px, P);
   if (a == 2) return groundPeaks(q, px, P);
-  if (a == 4) return groundMoment(q, px, P);
-  return groundInk(q, px, P);
+  if (a == 4) return groundFire(q, px, P);
+  return groundPlume(q, px, P);
 }
 `;

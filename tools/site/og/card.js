@@ -1,6 +1,6 @@
 // The share card for one page, drawn in that page's style: its name in the style's display face,
 // its line, and on the right the process its transition is built on, drawn here in SVG (the maze,
-// the vortex, the supernovae's gas gathered into drops and pulled as shards into Racing's card, the White Mountains leaded into art glass, film developed into prints, branching ink). The
+// the vortex, the supernovae's gas gathered into drops and pulled as shards into Racing's card, the White Mountains leaded into art glass, fire becoming memory, ink finding the board). The
 // homepage gets the crystal, one facet per destination. Everything is seeded, so a card only
 // changes when its words or this file do. Sets <html data-ready> once the fonts are in.
 import { carveMaze } from '/static/site/lerp.js';
@@ -27,7 +27,7 @@ const TYPE = {
 // What each style's transition is made of (the homepage's hold captions say the same).
 const PROCESS = {
   house: 'A maze carved depth-first', cosmos: 'A vortex', glass: 'Stardust, then frost',
-  folio: 'The mountains rise', darkroom: 'The thickness of a moment', ink: 'Branching ink',
+  folio: 'The mountains rise', darkroom: 'Fire becoming memory', ink: 'Ink finding order',
 };
 
 const PAGES = {
@@ -222,75 +222,102 @@ ART.folio = () => {
     <path d="${came}" fill="none" stroke="${C.accent}" stroke-opacity=".22" stroke-width=".7"/></g>`;
 };
 
-// Photography: film pulled off the table in coils, sprocket holes along both edges (a wide dashed
-// stroke under a narrower one shows only in the margins), over prints developing in the red tray,
-// white-bordered, each a little askew, coming up from a halftone screen.
-// Photography: the thickness of a moment. The lantern's reflection through the evening as a ribbon in
-// space-time (its edge brilliant, its inside smoke, the glint's hairline along it), in the colours of
-// time (amber, copper, sage, midnight blue), the summits' ruby threads behind; below, under the
-// safelight, the same evening coming up in a print in the developer, the meniscus crossing it.
+// Photography: fire becoming memory. The torus the embers' ribbons wind onto, two families crossing
+// as warp and weft, copper and gold, seen a little from above (the far side dimmer); embers and sparks
+// round it; fine silver grains settling below, under the safelight.
 ART.darkroom = () => {
-  const r = rng(6);
-  const rib = 'M560 250 C 700 170, 820 330, 940 270 S 1120 150, 1250 210';
-  const ribLo = 'M560 286 C 700 214, 820 362, 940 300 S 1120 170, 1250 222';
-  let threads = '';
-  for (let i = 0; i < 9; i++) {
-    const x = 760 + r() * 420, y = 120 + r() * 260, l = 120 + r() * 160;
-    threads += `<path d="M${f(x)} ${f(y)}l${f(l)} ${f(-l * 0.32)}" stroke="#B3271B" stroke-opacity="${f(0.35 + r() * 0.35)}" stroke-width="${f(1 + r() * 1.2)}"/>`;
+  const r = rng(6), cx = 935, cy = 318, R = 218, a = 94, tilt = 1.02, TAU = Math.PI * 2;
+  const at = (th, ph) => {
+    const x = (R + a * Math.cos(th)) * Math.cos(ph), y = (R + a * Math.cos(th)) * Math.sin(ph), z = a * Math.sin(th);
+    return [cx + x, cy + y * Math.cos(tilt) - z * Math.sin(tilt), y * Math.sin(tilt) + z * Math.cos(tilt)];
+  };
+  let back = '', front = '';
+  for (let fam = 0; fam < 2; fam++) for (let k = 0; k < 17; k++) {
+    const al = (k / 17) * TAU + (r() - 0.5) * 0.16, dir = fam ? -1 : 1, d = ['', ''];
+    let prev = -1;
+    for (let i = 0; i <= 260; i++) {
+      const ph = (i / 260) * TAU, [x, y, z] = at(dir * 3 * ph + al, ph), side = z > 0 ? 1 : 0;
+      d[side] += `${prev === side ? 'L' : 'M'}${f(x)} ${f(y)}`;
+      prev = side;
+    }
+    const col = r() < 0.45 ? '#D1783D' : r() < 0.85 ? '#FFBD52' : '#FFEDC7', w = f(1 + r() * 1.3);
+    back += `<path d="${d[0]}" stroke="${col}" stroke-width="${w}" stroke-opacity="0.34"/>`;
+    front += `<path d="${d[1]}" stroke="${col}" stroke-width="${w}" stroke-opacity="0.95"/>`;
   }
-  // The print: a sheet lying back in the tray (a trapezoid), dark, the evening's trail paper-white.
-  const sheet = 'M700 430 L1175 412 L1240 610 L640 628 Z';
-  const trail = 'M690 560 C 790 500, 870 590, 960 545 S 1120 470, 1205 500';
+  // Embers: fire under a dark crust; sparks.
+  let embers = '', sparks = '', grains = '';
+  for (let i = 0; i < 9; i++) {
+    const x = 610 + r() * 630, y = 40 + r() * 520, q = 7 + r() * 13;
+    if (Math.hypot((x - cx) / 1.25, (y - cy) / 0.7) < 250 && Math.hypot((x - cx) / 1.25, (y - cy) / 0.7) > 90) continue;
+    embers += `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(r() * 360)})"><circle r="${f(q * 2.4)}" fill="url(#halo)"/>
+      <ellipse rx="${f(q)}" ry="${f(q * (0.72 + r() * 0.2))}" fill="url(#coal)"/>
+      <path d="M${f(-q * 0.7)} ${f(-q * 0.1)}q${f(q * 0.5)} ${f(-q * 0.6)} ${f(q * 0.9)} ${f(-q * 0.2)}t${f(q * 0.5)} ${f(q * 0.5)}q${f(-q * 0.5)} ${f(q * 0.5)} ${f(-q * 1.1)} ${f(q * 0.2)}z" fill="#120C0A" fill-opacity="0.82"/></g>`;
+  }
+  for (let i = 0; i < 70; i++) sparks += `<circle cx="${f(580 + r() * 680)}" cy="${f(r() * 560)}" r="${f(0.7 + r() * 1.5)}" fill="${r() < 0.5 ? '#FFBD52' : '#F25C1A'}" fill-opacity="${f(0.35 + r() * 0.6)}"/>`;
+  for (let i = 0; i < 520; i++) {
+    const y = 560 + Math.pow(r(), 0.7) * 150;
+    grains += `<circle cx="${f(540 + r() * 720)}" cy="${f(y)}" r="${f(0.5 + r() * 1.1)}" fill="#D6DBE6" fill-opacity="${f((0.15 + r() * 0.7) * Math.min(1, (y - 550) / 60))}"/>`;
+  }
   return `<defs>${fade(500, 700)}
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
-    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3.5"/></filter>
-    <radialGradient id="safe" cx="0.72" cy="-0.05" r="0.75"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.5"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0.02"/></radialGradient>
-    <linearGradient id="time" x1="560" x2="1250" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFC27A"/><stop offset="0.35" stop-color="#F08A5E"/><stop offset="0.62" stop-color="#9DC79A"/><stop offset="1" stop-color="#7F95F2"/></linearGradient>
-    <clipPath id="sheet"><path d="${sheet}"/></clipPath></defs>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.2"/></filter>
+    <radialGradient id="safe" cx="0.72" cy="-0.05" r="0.75"><stop offset="0" stop-color="${C.accent}" stop-opacity="0.42"/><stop offset="1" stop-color="${C.accent2}" stop-opacity="0.02"/></radialGradient>
+    <radialGradient id="halo"><stop offset="0" stop-color="#F25C1A" stop-opacity="0.5"/><stop offset="1" stop-color="#F25C1A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="coal" cx="0.4" cy="0.38"><stop offset="0" stop-color="#FFEDC7"/><stop offset="0.35" stop-color="#FFBD52"/><stop offset="0.75" stop-color="#F25C1A"/><stop offset="1" stop-color="#6B0D05"/></radialGradient></defs>
   <g mask="url(#fade)"><rect width="${W}" height="${H}" fill="url(#safe)"/>
-    <g fill="none" stroke-linecap="round">${threads}</g>
-    <path d="${rib}" fill="none" stroke="url(#time)" stroke-opacity="0.18" stroke-width="40"/>
-    <path d="${rib}" fill="none" stroke="url(#time)" stroke-width="5" filter="url(#glow)"/>
-    <path d="${ribLo}" fill="none" stroke="url(#time)" stroke-width="3" stroke-opacity="0.85" filter="url(#glow)"/>
-    <path d="${rib}" fill="none" stroke="url(#time)" stroke-width="1.6"/>
-    <path d="${ribLo}" fill="none" stroke="url(#time)" stroke-width="1.2" stroke-opacity="0.9"/>
-    <path d="M560 268 C 700 192, 820 346, 940 285 S 1120 160, 1250 216" fill="none" stroke="#FFE9C9" stroke-width="1" stroke-opacity="0.9"/>
-    <g transform="translate(80 -16)"><path d="${sheet}" fill="#000" fill-opacity="0.5" filter="url(#soft)" transform="translate(10 14)"/>
-    <path d="${sheet}" fill="#3A0F0B"/>
-    <g clip-path="url(#sheet)">
-      <path d="${trail}" fill="none" stroke="#C9584A" stroke-width="30" stroke-opacity="0.35"/>
-      <path d="${trail}" fill="none" stroke="#E98A7C" stroke-width="5" filter="url(#glow)"/>
-      <path d="${trail}" fill="none" stroke="#F3B2A6" stroke-width="1.3"/>
-      <path d="M820 420 C 800 480, 860 540, 820 640" fill="none" stroke="#B0473A" stroke-width="16" stroke-opacity="0.3"/>
-      <path d="M1080 410 C 1110 470, 1050 540, 1090 640" fill="none" stroke="#B0473A" stroke-width="13" stroke-opacity="0.25"/>
-      <path d="M560 470 C 760 520, 980 600, 1260 690" fill="none" stroke="#FF7A66" stroke-width="2.4" stroke-opacity="0.85" filter="url(#glow)"/>
-    </g>
-    <path d="${sheet}" fill="none" stroke="#E5483F" stroke-opacity="0.35" stroke-width="1.2"/></g></g>`;
+    <g fill="none" stroke-linecap="round">${back}</g>
+    <g fill="none" stroke-linecap="round" filter="url(#glow)" opacity="0.8">${front}</g>
+    <g fill="none" stroke-linecap="round">${front}</g>
+    ${embers}${sparks}${grains}</g>`;
 };
 
-// Chess: branching ink. Strokes split in two or three as they reach, thinning to hairlines, the
-// edges bled by turbulence the way ink runs into paper.
+// Chess: ink finding order. Two drops rolled into vortex rings (each a bell of veils, the thread it fell
+// by, its core seen edge on as a bar, knotted at both ends), their veils trailing down into the board they
+// are becoming: threads along its lines, knotted where they cross, and every other square filling,
+// sharp at the foot, still bleeding at the top.
 ART.ink = () => {
-  const r = rng(9), segs = [];
-  const grow = (x, y, a, len, w, depth) => {
-    if (!depth || w < 0.5) return;
-    const bend = (r() - 0.5) * 0.7, x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
-    const qx = x + Math.cos(a + bend) * len * 0.55, qy = y + Math.sin(a + bend) * len * 0.55;
-    segs.push({ d: `M${f(x)} ${f(y)}Q${f(qx)} ${f(qy)} ${f(x2)} ${f(y2)}`, w, depth });
-    const n = r() < 0.3 ? 3 : 2;
-    for (let i = 0; i < n; i++) grow(x2, y2, a + (i - (n - 1) / 2) * (0.42 + r() * 0.3) + (r() - 0.5) * 0.25, len * (0.7 + r() * 0.12), w * (0.62 + r() * 0.08), depth - 1);
+  const r = rng(9), sq = 44, bx = 772, by = 236, n = 8 * sq;
+  let lines = '', knots = '', squares = '';
+  for (let i = 0; i <= 8; i++) {
+    const op = f(0.22 + 0.35 * (1 - i / 8));
+    lines += `<path d="M${bx} ${by + i * sq}h${n}" stroke-opacity="${op}"/><path d="M${bx + i * sq} ${by}v${n}" stroke-opacity="0.34"/>`;
+  }
+  for (let row = 1; row < 8; row++) for (let col = 1; col < 8; col++) {
+    const k = 1 - row / 8;
+    knots += `<circle cx="${bx + col * sq}" cy="${by + row * sq}" r="${f(1.2 + 2.6 * k)}" fill-opacity="${f(0.15 + 0.6 * k)}"/>`;
+  }
+  for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+    if ((row + col) % 2 === 0) continue;
+    const k = row / 7, born = k + (r() - 0.5) * 0.25;
+    if (born < 0.12) continue;
+    const ins = (1 - Math.min(1, born)) * sq * 0.3, rx = (1 - Math.min(1, born)) * sq * 0.42;
+    squares += `<rect x="${f(bx + col * sq + ins)}" y="${f(by + row * sq + ins)}" width="${f(sq - 2 * ins)}" height="${f(sq - 2 * ins)}" rx="${f(rx)}" fill-opacity="${f(0.35 + 0.55 * Math.min(1, born))}"/>`;
+  }
+  // A drop rolled into a ring at (x, y), its ring R across: the thread, the bell's shells, the veils
+  // trailing below, the core.
+  const drop = (x, y, R, col, op) => {
+    let g = `<path d="M${f(x - 3)} -10C${f(x + 9)} ${f(y * 0.3)} ${f(x - 9)} ${f(y * 0.6)} ${f(x)} ${f(y - R * 0.9)}" stroke-width="2.2"/>`
+      + `<path d="M${f(x + 6)} -10C${f(x + 16)} ${f(y * 0.35)} ${f(x - 2)} ${f(y * 0.65)} ${f(x + 5)} ${f(y - R * 0.85)}" stroke-width="1" stroke-opacity="0.5"/>`;
+    g += `<path d="M${f(x - R)} ${f(y)}A${f(R)} ${f(R * 1.08)} 0 0 1 ${f(x + R)} ${f(y)}Z" fill="url(#veil)" stroke="none"/>`;
+    for (let j = 0; j < 3; j++) {
+      const Rj = R * (1 - 0.16 * j);
+      g += `<path d="M${f(x - Rj)} ${f(y)}A${f(Rj)} ${f(Rj * (1.08 - 0.06 * j))} 0 0 1 ${f(x + Rj)} ${f(y)}" stroke-width="${f(2.6 - 0.7 * j)}" stroke-opacity="${f(0.75 - 0.2 * j)}"/>`;
+    }
+    for (let j = 0; j < 7; j++) {
+      const u = (j / 6 - 0.5) * 1.7, x0 = x + u * R, len = R * (1.1 + r() * 1.6), sway = (r() - 0.5) * R * 0.8;
+      g += `<path d="M${f(x0)} ${f(y + 6)}c${f(sway * 0.3)} ${f(len * 0.4)} ${f(sway)} ${f(len * 0.6)} ${f(sway * 0.6)} ${f(len)}" stroke-width="${f(0.8 + r() * 1.4)}" stroke-opacity="${f(0.2 + r() * 0.3)}"/>`;
+    }
+    g += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(R * 0.98)}" ry="${f(R * 0.12)}" fill="${col}" stroke="none"/>`;
+    for (const s of [-1, 1]) g += `<circle cx="${f(x + s * R * 0.92)}" cy="${f(y)}" r="${f(R * 0.13)}" fill="${col}" stroke="none"/>`;
+    return `<g stroke="${col}" fill="none" stroke-linecap="round" opacity="${op}">${g}</g>`;
   };
-  grow(1240, 120, Math.PI * 1.06, 120, 22, 9);
-  grow(1240, 400, Math.PI * 0.96, 132, 26, 9);
-  grow(1060, 690, Math.PI * 1.32, 96, 18, 8);
-  const ink = segs.map(s => `<path d="${s.d}" stroke="${s.depth > 4 ? C.ink : C.accent}" stroke-opacity="${f(s.depth > 4 ? 0.9 : 0.75)}" stroke-width="${f(s.w)}"/>`).join('');
-  let washes = '';
-  for (let i = 0; i < 6; i++) washes += `<circle cx="${f(900 + r() * 300)}" cy="${f(r() * H)}" r="${f(60 + r() * 120)}" fill="${C.accent}" fill-opacity="${f(0.05 + r() * 0.06)}" filter="url(#wash)"/>`;
   return `<defs>${fade(470, 720)}
-    <filter id="bleed" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="4"/><feDisplacementMap in="SourceGraphic" scale="9"/></filter>
-    <filter id="wash" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="28"/></filter></defs>
-  <g mask="url(#fade)">${washes}<g fill="none" stroke-linecap="round" filter="url(#bleed)">${ink}</g></g>`;
+    <filter id="bleed" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="4"/><feDisplacementMap in="SourceGraphic" scale="7"/></filter>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="12"/><feGaussianBlur stdDeviation="1.4"/></filter>
+    <radialGradient id="veil" cx="0.5" cy="0.9" r="0.75"><stop offset="0" stop-color="${C.ink}" stop-opacity="0.16"/><stop offset="1" stop-color="${C.ink}" stop-opacity="0.04"/></radialGradient></defs>
+  <g mask="url(#fade)">
+    <g filter="url(#bleed)"><g fill="none" stroke="${C.ink}" stroke-width="1.6">${lines}</g><g fill="${C.ink}">${knots}${squares}</g>
+      <rect x="${bx}" y="${by}" width="${n}" height="${n}" fill="none" stroke="${C.ink}" stroke-width="2.4" stroke-opacity="0.8"/></g>
+    <g filter="url(#soft)">${drop(1010, 150, 82, C.ink, 0.92)}${drop(846, 96, 48, C.accent, 0.8)}</g></g>`;
 };
 
 // The AI Power Map: 224 moments on one line from 2021 to 2026, stacked where they crowd.

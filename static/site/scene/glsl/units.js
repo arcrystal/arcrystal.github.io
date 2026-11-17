@@ -9,6 +9,7 @@ import { NOISE } from './common.js';
 import { FLIGHT, SEAM_TEX } from './flight.js';
 import { DEW, FIELD, FREEZE, CLICK, SKY } from '../dew-plan.js';
 import { PALETTE, rgb } from '../palette.js';
+import { FIRE_UNITS } from './fire.js';
 const pv3 = h => `vec3(${rgb(h).map(x => x.toFixed(4)).join(', ')})`;
 
 const HEAD = /* glsl */ `#version 300 es
@@ -462,69 +463,6 @@ void main() {
   // A small star: a soft core and a cross of rays.
   float g = exp(-d * 7.0) + (exp(-abs(vK.x) * 14.0) + exp(-abs(vK.y) * 14.0)) * exp(-d * 1.5) * 0.35;
   o = vec4(vCol * g, 0.0);
-}`;
-
-// ---- Photography → Chess: ink filaments ------------------------------------------------------
-// The darkroom lets go of its black as ink dropped in water: from each seed a tapering stroke sinks
-// along the flow, curling, its head swelling, then bleeds wider and fades into the wash.
-const FILAMENTS_VS = VHEAD + /* glsl */ `
-const int NSEG = 16;
-out float vSide;
-out float vS;
-out vec3 vCol;
-out float vAl;
-out vec2 vQ;
-void main() {
-  int cols = int(uGrid.x);
-  ivec2 c = cellOf(gl_InstanceID + uFirst, cols);
-  if (c.y >= int(uGrid.y) || hash(vec2(c) + 5.5) > 0.55) { gl_Position = GONE; return; }
-  vec2 seed = (vec2(c) + hash2(vec2(c) + 7.3)) * uGrid.zw;
-  float P = transitP(uH);
-  float u = seamU(seed, hash(vec2(c) + 0.8), P);
-  // Once grown, a stroke stays, bled into the wash, until the ink lets go as Chess arrives.
-  if (u <= 0.1 || P > 1.02) { gl_Position = GONE; return; }
-  float r = hash(vec2(c) + 2.6);
-  float grow = smoothstep(0.1, 0.62, u);
-  float fade = 1.0 - smoothstep(0.86, 1.02, P);
-  float bleed = smoothstep(0.55, 1.0, u);
-  float len = (110.0 + 260.0 * r) * grow;
-  float ds = len / float(NSEG);
-  int seg = gl_VertexID / 6;
-  vec2 k = QUAD[gl_VertexID % 6];
-  int vi = seg + int(k.x);
-  vec2 p = seed, v = vec2(0.0, 1.0);
-  for (int j = 0; j < NSEG; j++) {
-    if (j >= vi) break;
-    v = normalize(swirl(p * 1.15 + r * 70.0, uTime * 0.35) * 1.7 + vec2(0.0, 0.75));
-    p += v * ds;
-  }
-  vec2 nrm = vec2(-v.y, v.x);
-  float s = float(vi) / float(NSEG);
-  float wid = (0.4 + 3.8 * pow(s, 2.5)) * (1.0 + 2.2 * bleed) * (0.7 + 0.6 * r);
-  float side = k.y * 2.0 - 1.0;
-  p += nrm * side * wid;
-  vec3 from = texture(uTexA, tUV(seed)).rgb;
-  vec3 tone = mix(INK_BLACK_V, INK_INDIGO_V, r * 0.7);
-  vCol = mix(from, tone, smoothstep(0.12, 0.5, u));
-  vAl = (0.45 + 0.35 * r) * fade * (0.25 + 0.75 * s) * smoothstep(0.0, 0.1, grow) * (1.0 - 0.82 * bleed);
-  vSide = side;
-  vS = s;
-  vQ = p;
-  gl_Position = project(vec3(p, 0.0));
-}`.replace('INK_BLACK_V', 'vec3(0.110, 0.102, 0.090)').replace('INK_INDIGO_V', 'vec3(0.184, 0.290, 0.420)');
-
-const FILAMENTS_FS = FHEAD + /* glsl */ `
-in float vSide;
-in float vS;
-in vec3 vCol;
-in float vAl;
-in vec2 vQ;
-float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
-void main() {
-  float edge = exp(-vSide * vSide * 2.6);
-  float gran = 0.75 + 0.25 * h21(floor(vQ * 1.1));
-  float al = vAl * edge * gran * (0.8 + 0.2 * vS);
-  o = vec4(vCol * al, al);
 }`;
 
 // The vortex's body (About Me → Science): flow lines on a perpetual loop, from wide at its base at
@@ -1011,10 +949,11 @@ export const UNIT_PROGRAMS = {
   flow: { vs: FLOW_VS, fs: STREAKS_FS, verts: 22 * 6, blend: 'over' },
   sheets: { vs: SHEETS_VS, fs: SHEETS_FS, verts: 30 * 12 * 6, blend: 'opaque' },   // per layer, instances: rows × (cols + 1)
   glitter: { vs: GLITTER_VS, fs: GLITTER_FS, verts: 6, blend: 'add' },
-  filaments: { vs: FILAMENTS_VS, fs: FILAMENTS_FS, verts: 16 * 6, blend: 'over' },
   fieldlines: { vs: FIELDLINES_VS, fs: FIELDLINES_FS, verts: 15 * 6, blend: 'add' },   // instances: the lines the shards ride
   drops: { vs: DROPS_VS, fs: DROPS_FS, verts: 6, blend: 'over' },                         // instances: the clumps' drops, the stars' beads
   shards: { vs: SHARDS_VS, fs: SHARDS_FS, verts: 6, blend: 'over' },                      // instances: the frozen drops' shards
+  // Outdoors → Photography (glsl/fire.js): the embers, the ribbons their paths become, the silver grains.
+  ...Object.fromEntries(Object.entries(FIRE_UNITS).map(([name, u]) => [name, { vs: VHEAD + u.vs, fs: FHEAD + (u.noise ? NOISE : '') + u.fs, verts: u.verts, blend: u.blend }])),
 };
 
 // ---- The fluid: stable fluids on a coarse grid over the Science → Racing seam --------------------
@@ -1088,23 +1027,3 @@ void main() {
   o = vec4(v, 0.0, 1.0);
 }`,
 };
-
-// Bakes a seam's or a click's reach (flight.js SEAM_TEX): one texel per patch of the strip or screen.
-export const REACH_BAKE = /* glsl */ `#version 300 es
-precision highp float;
-#define PI 3.14159265
-#define TAU 6.28318531
-uniform vec2 uSize;   // the strip, CSS px
-uniform vec2 uTexel;  // the texture, texels
-uniform int uPolar;   // 1: a click's, out from uO to uFar (CSS px); 0: a seam's, up from the foot
-uniform vec2 uO;
-uniform float uFar;
-out vec4 o;
-` + NOISE + FLIGHT + /* glsl */ `
-void main() {
-  vec2 q = vec2(gl_FragCoord.x / uTexel.x, 1.0 - gl_FragCoord.y / uTexel.y) * uSize;
-  Reach r;
-  if (uPolar == 1) r = reachPolar(q, uO, uFar, 0.0);
-  else r = reachFoot(q, uSize, 0.0);
-  o = vec4(min(r.d, 63.75) / 64.0, min(r.w, 23.9) / 24.0, r.tb, r.A);
-}`;

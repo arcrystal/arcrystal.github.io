@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   parseHex, toOklab, oklabCss, mixOklab, approach, seamAt, smoothstep, easeInOutCubic,
-  transitP, flightAt, arrivalRange, HOLD, holdAt, holdFor, holdEase,
+  transitP, flightAt, HOLD, holdAt, holdFor, holdEase,
   layerArrival, filmArrival, filmU, filmNeg, carveMaze, VORTEX, vortexWindOn, vortexPace, coreEase, vortexTurn, vortexAt,
   vortexBand, vortexWide, vortexClearY, vortexSharp, vortexFunnel, vortexHug, vortexSweep, vortexSwarm, vortexSwerve, vortexRise, vortexOrbit,
   vortexPlan, vortexPlanTexels,
@@ -75,14 +75,11 @@ test('eases', () => {
   assert.equal(easeInOutCubic(1), 1);
 });
 
-// Arrivals a point at height rn (0 foot, 1 top) can have, sampled across their range.
-const arrivals = rn => { const [lo, hi] = arrivalRange(rn); return [lo, (lo + hi) / 2, hi]; };
-
 test('transits: at rest at either end of the hold, and the strip’s edges meet their bands', () => {
   const jits = [0, 0.5, 1];
-  for (let rn = 0; rn <= 1; rn += 0.02) for (const A of arrivals(rn)) for (const j of jits) {
-    assert.equal(flightAt(A, transitP(0), j), 0, `start rn=${rn}`);
-    assert.equal(flightAt(A, transitP(1), j), 1, `end rn=${rn}`);
+  for (let A = 0; A <= 1; A += 0.02) for (const j of jits) {
+    assert.equal(flightAt(A, transitP(0), j), 0, `start A=${A}`);
+    assert.equal(flightAt(A, transitP(1), j), 1, `end A=${A}`);
   }
   // Scrolling down (p rising) only ever moves a point forward: the transit is reversible.
   for (const A of [0, 0.3, 0.7, 1]) {
@@ -121,15 +118,6 @@ test('holds: a transit begins as its strip comes on screen, and plays slowly at 
   assert.equal(holdEase(0), 0);
   assert.equal(holdEase(1), 1);
   assert.ok(holdEase(0.2) < 0.2);
-});
-
-test('processes: the ink rests at the strip\'s top edge while it comes in, and has let go by its foot', () => {
-  for (const { P, top } of edges('ink')) if (top !== null) {
-    const rn = 1 - top;
-    for (const A of [arrivalRange(rn)[0], arrivalRange(rn)[1]]) for (const j of [0, 1]) assert.equal(flightAt(A, P, j), 0, `top=${top} P=${P}`);
-  }
-  // The ink lets go (glsl/transit.js inkLetGo) by P 1.02, before the strip's foot shows.
-  for (const { P, foot } of edges('ink')) if (foot !== null) assert.ok(P >= 1.02, `P=${P}`);
 });
 
 test('processes: the sheets rest at the top edge while the strip comes in, and are gone from its foot as it leaves', () => {

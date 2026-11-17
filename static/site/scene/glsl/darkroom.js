@@ -4,9 +4,6 @@
 export const DARKROOM = /* glsl */ `
 const vec3 DR_BG = vec3(0.043, 0.039, 0.035);
 const vec3 DR_RED = vec3(0.78, 0.19, 0.16);
-// A sheet settling into the tray (glsl/moment.js): rings from gDrRing.xy (px) of age z (s) and strength
-// w, flattened as the tray's surface is seen.
-vec4 gDrRing = vec4(0.0);
 
 vec3 sceneDarkroom(vec2 px) {
   vec2 uv = px / R;
@@ -23,10 +20,6 @@ vec3 sceneDarkroom(vec2 px) {
   vec2 q = vec2(px.x * 0.005, px.y * 0.016);
   float stir = uPtrOn * exp(-pow(length(px - PTR) / 220.0, 2.0));
   float h = fbm3(q + vec2(T * 0.03, -T * 0.08)) + 0.25 * sin(length(px - PTR) * 0.05 - T * 3.0) * stir;
-  if (gDrRing.w > 0.0) {
-    float rr = length((px - gDrRing.xy) * vec2(1.0, 3.2)), front = gDrRing.z * 340.0;
-    h += gDrRing.w * 0.4 * sin(rr * 0.045 - gDrRing.z * 5.0) * exp(-pow((rr - front) / 160.0, 2.0)) / (1.0 + rr / 400.0);
-  }
   float crest = pow(smoothstep(0.45, 0.85, h), 3.0);
   col += DR_RED * tray * (0.1 + crest * 0.75) * (0.4 + glow);
   col += vec3(1.0, 0.55, 0.45) * tray * pow(crest, 6.0) * 0.3;

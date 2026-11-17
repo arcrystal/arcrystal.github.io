@@ -17,26 +17,30 @@
 import { createDewResources } from './dew-resources.js';
 import { createTerrainResources } from './terrain-resources.js';
 import { makeLead } from './lead-plan.js';
-import { MOMENT, evening } from './moment-plan.js';
+import { FIRE, FIREC, makeIgnition, ignitionTexels } from './fire-plan.js';
+import { INK, RING, stage, flowTime, dropTime, ringAt, ringFrame, whorlFrame, zoomAt } from './ink-plan.js';
+import { createInkResources } from './ink-resources.js';
+import { PLUME_MAP, PLUME_INK } from './glsl/plume.js';
 import { VERTEX } from './glsl/index.js';
-import { UNIT_PROGRAMS, REACH_BAKE } from './glsl/units.js';
+import { UNIT_PROGRAMS } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
 import { SPOTS, FREEZE, CLICK } from './dew-plan.js';
 
 // Upper style id - lower style id (scene.js STYLE_ID) → the seam, each told apart by its process.
-// bake: what the seam's texture holds (glsl/flight.js): the ink's branching reach. plan: its
-// choreography is worked out ahead in lerp.js (PLANS below) and read from the same slot. mips: the
+// plan: its choreography is worked out ahead in lerp.js (PLANS below) and read from unit 5. mips: the
 // lower world's snapshot is mipmapped, to be read blurred; mipsA: the upper world's too. live: both
 // worlds are drawn live where they show, so no snapshots are kept.
 const KINDS = {
   '0-3': { id: 'cubes', units: ['cubes:back', 'flow', 'cubes:front'], plan: true, mips: true },   // About Me → Science: a vortex
   '3-2': { id: 'dew', units: ['fieldlines', 'drops', 'shards'], mips: true, mipsA: true },   // Science → Racing: remnants, gravity's spots, cold from the card, the vacuum
   '2-4': { id: 'peaks', units: [], live: true },                     // Racing → Outdoors: paint into the White Mountains into art glass
-  '4-5': { id: 'moment', units: [], live: true },                    // Outdoors → Photography: the thickness of a moment
-  '5-1': { id: 'ink', units: ['filaments'], bake: 'reach' },         // Photography → Chess: branching ink
+  '4-5': { id: 'fire', units: ['embers', 'ribbons', 'grains'], live: true },   // Outdoors → Photography: fire becoming memory
+  '5-1': { id: 'plume', units: [], live: true },                     // Photography → Chess: ink finding order
 };
 // Cell sizes in CSS px (fine pointer, touch).
-const CELL = { cubes: [18, 22], streaks: [26, 36], flow: [30, 44], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], filaments: [14, 22] };
+const CELL = { cubes: [18, 22], streaks: [26, 36], flow: [30, 44], clickCubes: [13, 17], clickStreaks: [28, 38], glitter: [7, 11], embers: [16, 24], grains: [6, 10] };
+// Outdoors → Photography's ribbons: strands a family round the torus's tube, ribbons a strand round its ring (fine pointer, touch).
+const RIBBONS = [[30, 12], [20, 10]];
 const FLY = 420;   // how far, CSS px, a unit can stray from its row
 // Outdoors' layers of sheets (glsl/flight.js layerGrid): [cols, rows] of layer k.
 const SHEET_LAYERS = 3;
@@ -109,7 +113,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
   }
   const jobs = [
     ...Object.entries(UNIT_PROGRAMS).map(([name, def]) => ({ name, vs: def.vs, fs: def.fs, def })),
-    { name: 'bake', vs: VERTEX, fs: REACH_BAKE },
+    { name: 'plumeMap', vs: VERTEX, fs: PLUME_MAP },
+    { name: 'plumeInk', vs: VERTEX, fs: PLUME_INK },
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
   if (ext) {
@@ -148,7 +153,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
 
   const kindOf = s => KINDS[`${s.a}-${s.b}`] || null;
   function usable(K) {
-    if (!programs.bake) return false;
+    if (K.id === 'plume' && !(programs.plumeMap && programs.plumeInk)) return false;
     for (const u of K.units) if (!programs[u.split(':')[0]]) return false;
     return true;
   }
@@ -174,7 +179,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
   function dropSnap(snap) {
     snap.tex.forEach(t => gl.deleteTexture(t));
     snap.fb.forEach(f => gl.deleteFramebuffer(f));
-    if (snap.reach) { gl.deleteTexture(snap.reach.t); gl.deleteFramebuffer(snap.reach.fb); }
     if (snap.gas) { gl.deleteTexture(snap.gas.t); gl.deleteFramebuffer(snap.gas.fb); }
   }
   // Racing's lit gas (glsl/dew.js dewGasField): soft, so drawn at a fraction of the screen's resolution
@@ -199,29 +203,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     snap.gas.still = still;
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
     renderPane({ ...s, mode: 9, h: still ? (GAS_STILL + 0.2) / 1.4 : s.p ?? 0, e: 0, clip: null }, snap.gas.fb, tw, th);
-  }
-  // The seam's reach, baked once for its size (flight.js SEAM_TEX): about a texel per CSS px, a
-  // little coarser on big screens.
-  // kind: 'reach' (the ink's branches).
-  function bake(snap, style, w, h, polar = null, kind = 'reach') {
-    const rs = w > 1600 ? 0.6 : 0.8;
-    const tw = Math.max(1, Math.round(w * rs)), th = Math.max(1, Math.round(h * rs));
-    const key = `${kind} ${style} ${w} ${h} ${polar}`;
-    if (snap.reach?.key === key) return;
-    if (snap.reach) { gl.deleteTexture(snap.reach.t); gl.deleteFramebuffer(snap.reach.fb); }
-    const t = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
-    snap.reach = { key, t, fb: target(t) };
-    const { p, U } = programs.bake;
-    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
-    gl.useProgram(p);
-    gl.uniform1i(U.uPolar, polar ? 1 : 0);
-    if (polar) { gl.uniform2f(U.uO, polar[0], polar[1]); gl.uniform1f(U.uFar, polar[2]); }
-    gl.disable(gl.SCISSOR_TEST);
-    gl.disable(gl.BLEND);
-    gl.viewport(0, 0, tw, th);
-    gl.uniform2f(U.uSize, w, h);
-    gl.uniform2f(U.uTexel, tw, th);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   function snapFor(K, w, h) {
     let snap = snaps.get(K.id);
@@ -348,85 +329,157 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     terrain.request(w, h);
   });
 
-  // Outdoors → Photography (glsl/moment.js): the window baked still, once for the screen (its colour,
-  // and what the lantern's light adds; mipmapped, units 8 and 9); the evening in depth, drawn whenever
-  // P has moved while it has depth (nothing in it moves by itself), at a reduced resolution (unit 3);
-  // and the exposure, once (unit 10, mipmapped).
-  const moment = { key: null, tex: {}, fb: {}, baked: false, exposed: false, volP: null };
-  function momentDrop() {
-    for (const k in moment.tex) { gl.deleteTexture(moment.tex[k]); gl.deleteFramebuffer(moment.fb[k]); }
-    moment.tex = {}; moment.fb = {}; moment.baked = moment.exposed = moment.volOn = false; moment.volP = null; moment.key = null;
-  }
-  function momentUnbind() {
-    for (const u of [3, 8, 9, 10]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
+  // Outdoors → Photography (glsl/fire.js): when the fire reaches each point of the window (fire-plan.js
+  // makeIgnition, from Outdoors' plate), once a screen size, worked out in fire-worker.js (here, should
+  // the worker be unavailable): half floats, filtered, on unit 5 while the seam draws. Null until it is in.
+  const fire = { key: null, t: null, asked: null, worker: undefined };
+  function fireUpload(key, w, h, half) {
+    if (gl.isContextLost()) return;
+    if (fire.t) gl.deleteTexture(fire.t);
+    const t = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, w, h, 0, gl.RED, gl.HALF_FLOAT, half);
+    for (const q of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, q, gl.LINEAR);
+    for (const q of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, q, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
+    fire.key = key; fire.t = t;
   }
-  function momentBind() {
-    for (const [u, k] of [[8, 'a'], [9, 'b'], [3, 'vol'], [10, 'exp']]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, moment.tex[k] ?? null); }
-    gl.activeTexture(gl.TEXTURE0);
+  function fireTexture(w, h) {
+    const W = Math.round(w), H = Math.round(h), key = `${W} ${H}`;
+    if (fire.key === key) return fire.t;
+    const plate = terrain.plateData();
+    if (!plate || fire.asked === key) return null;
+    fire.asked = key;
+    if (fire.worker === undefined) {
+      try {
+        fire.worker = new Worker(new URL('./fire-worker.js', import.meta.url), { type: 'module' });
+        fire.worker.onmessage = ({ data }) => {
+          if (data.error) { console.warn('The fire\'s plan failed', data.error); return; }
+          if (data.key === fire.asked) fireUpload(data.key, data.w, data.h, data.half);
+        };
+        fire.worker.onerror = () => { fire.worker = null; fire.asked = null; };
+      } catch (e) { fire.worker = null; }
+    }
+    if (fire.worker) { fire.worker.postMessage({ km: plate.km, n: plate.n, W, H, key }); return null; }
+    const plan = makeIgnition(plate.km, plate.n, W, H);
+    fireUpload(key, plan.w, plan.h, ignitionTexels(plan));
+    return fire.t;
   }
-  function mips(t) {
+  // Asked for ahead, for this screen, once the plate has arrived.
+  (function ahead(tries) {
+    later(() => { if (!gl.isContextLost() && !fire.asked && !fireTexture(innerWidth, innerHeight) && !fire.asked && tries > 0) setTimeout(() => ahead(tries - 1), 500); });
+  })(20);
+
+  // Photography → Chess (glsl/plume.js). The tile's own pictures (ink-resources.js: the silhouettes on
+  // unit 9, its board on 10). Three passes into float targets each frame the ink is moving: the whorls'
+  // backward map over the screen; each drop's, over the half plane through its axis (a tile each, side by
+  // side); then the ink as seen through them, mipmapped, on unit 8 for the ground. The cores and bodies
+  // the maps step back through are worked out here for the frame's flow time (ink-plan.js ringFrame,
+  // whorlFrame). Without float targets the seam stays plain.
+  const ink = createInkResources(gl);
+  const floatOK = !!gl.getExtension('EXT_color_buffer_float'), halfOK = floatOK || !!gl.getExtension('EXT_color_buffer_half_float');
+  const floatLinear = !!gl.getExtension('OES_texture_float_linear');
+  const TILE = [144, 288];
+  const plume = { key: null, whorl: null, rings: null, seen: null, cam: [0, 0, 1], cells: new Float32Array(INK.steps[0] * 16), bodies: new Float32Array(INK.steps[0] * 4), none: new Float32Array(INK.steps[0] * 4), drops: new Float32Array(16), rings4: new Float32Array(16) };
+  function floatTarget(tw, th, mip) {
+    const full = floatOK && floatLinear;
+    const t = texture(tw, th, full ? gl.RGBA32F : gl.RGBA16F, gl.RGBA, full ? gl.FLOAT : gl.HALF_FLOAT);
+    if (mip) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.bindTexture(gl.TEXTURE_2D, null); }
+    const fb = target(t), ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    if (!ok) { gl.deleteTexture(t); gl.deleteFramebuffer(fb); return null; }
+    return { t, fb, tw, th };
+  }
+  function plumeDrop() { for (const k of ['whorl', 'rings', 'seen']) if (plume[k]) { gl.deleteTexture(plume[k].t); gl.deleteFramebuffer(plume[k].fb); plume[k] = null; } }
+  function plumeTargets(w, h) {
+    const key = `${Math.round(w)} ${Math.round(h)}`;
+    if (plume.key === key) return !!plume.seen;
+    plume.key = key;
+    plumeDrop();
+    if (!halfOK) return false;
+    // (The ink is soft: seen at no more than about a megapixel.)
+    const sc = Math.min(coarse ? 0.7 : 1, Math.sqrt(1.3e6 / (w * h)));
+    plume.whorl = floatTarget(Math.max(2, Math.round(w * 0.3)), Math.max(2, Math.round(h * 0.3)), false);
+    plume.rings = floatTarget(TILE[0] * 4, TILE[1], false);
+    plume.seen = floatTarget(Math.max(2, Math.round(w * sc)), Math.max(2, Math.round(h * sc)), true);
+    if (!plume.whorl || !plume.rings || !plume.seen) { plumeDrop(); return false; }
+    return true;
+  }
+  function plumePass(s, f) {
+    const [, , w, h] = s.region, P = transitP(s.p ?? 0), c = s.card;
+    if (!c || !plumeTargets(w, h)) return false;
+    const bx = c[0] + c[2] / 2, by = c[1] + c[3] / 2, phone = coarse || w < 700;
+    // The view: closed on the board while its pieces form, drifting from the black pieces to the white.
+    const Z = zoomAt(P, phone), ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    plume.cam = [bx, by + c[3] * 0.2 * (Z - 1) / INK.zoomBy[phone ? 1 : 0] * (2 * ease((P - INK.pieces[0]) / (INK.zoom[2] - INK.pieces[0])) - 1), Z];
+    ink.request();
+    if (P <= INK.enter[0] || P >= INK.loose[1]) return true;
+    const K = INK.steps[phone ? 1 : 0], St = stage(w, h, bx, by), tau = flowTime(P), map = programs.plumeMap, see = programs.plumeInk;
+    gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.BLEND);
+    gl.useProgram(map.p);
+    gl.uniform1i(map.U.uK, K);
+    gl.uniform1f(map.U.uBodyR2, RING.body ** 2);
+    // The whorls' map, over the screen as the view frames it.
+    const whorling = tau > 1;
+    if (whorling) {
+      whorlFrame(St, tau, K, plume.cells, f.time);
+      const [cx, cy, Z] = plume.cam, at = (x, y) => [((cx + (x - cx) / Z) - w / 2) / St.m, ((cy + (y - cy) / Z) - h / 2) / St.m];
+      const a = at(0, 0), b = at(w, h);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, plume.whorl.fb);
+      gl.viewport(0, 0, plume.whorl.tw, plume.whorl.th);
+      gl.uniform4f(map.U.uRect, 0, 0, plume.whorl.tw, plume.whorl.th);
+      gl.uniform4f(map.U.uSpan, a[0], a[1], b[0], b[1]);
+      gl.uniform4fv(map.U.uCells, plume.cells.subarray(0, K * 16));
+      gl.uniform4fv(map.U.uBodies, plume.none.subarray(0, K * 4));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    // Each drop's map: its tile of the half plane through its axis.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, plume.rings.fb);
+    gl.uniform4f(map.U.uSpan, 0, RING.span[1], RING.span[0], RING.span[2]);
+    St.drops.forEach((d, k) => {
+      const u = dropTime(d, tau);
+      plume.drops.set([d.x, d.y, d.sigma, Math.min(1, u / 0.25)], k * 4);
+      const now = ringAt(u);
+      plume.rings4.set([now.R, now.z, now.Rc, now.zc], k * 4);
+      if (u <= 0) return;
+      ringFrame(u, K, plume.cells, plume.bodies);
+      gl.viewport(k * TILE[0], 0, TILE[0], TILE[1]);
+      gl.uniform4f(map.U.uRect, k * TILE[0], 0, TILE[0], TILE[1]);
+      gl.uniform4fv(map.U.uCells, plume.cells.subarray(0, K * 16));
+      gl.uniform4fv(map.U.uBodies, plume.bodies.subarray(0, K * 4));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    });
+    // The ink, seen through them.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, plume.seen.fb);
+    gl.viewport(0, 0, plume.seen.tw, plume.seen.th);
+    gl.useProgram(see.p);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, plume.rings.t);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, plume.whorl.t);
+    gl.uniform1i(see.U.uWhorl, 0);
+    gl.uniform1i(see.U.uRings, 1);
+    gl.uniform2f(see.U.uSize, w, h);
+    gl.uniform2f(see.U.uTexel, plume.seen.tw, plume.seen.th);
+    gl.uniform3f(see.U.uCam, plume.cam[0], plume.cam[1], plume.cam[2]);
+    gl.uniform1f(see.U.uWhorlOn, whorling ? 1 : 0);
+    gl.uniform1i(see.U.uSight, INK.sight[phone ? 1 : 0]);
+    gl.uniform4fv(see.U.uDrop, plume.drops);
+    gl.uniform4fv(see.U.uRing, plume.rings4);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, plume.seen.t);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    return true;
   }
-  // While the glass remembers, its echoes change only as each comes in (glsl/moment.js moEchoes): the
-  // pass is drawn again only then.
-  function echoKey(P) {
-    const tau = evening(P);
-    let n = 0;
-    for (let i = 1; i <= MOMENT.echoes; i++) {
-      const t = i / MOMENT.echoes, x = Math.max(0, Math.min(1, (tau - t) / 0.02)), on = x * x * (3 - 2 * x);
-      if (on >= 1) n++; else if (on > 0) return P;
-    }
-    return `echoes ${n}`;
-  }
-  function momentPasses(s, f) {
-    const [, , w, h] = s.region, P = transitP(s.p ?? 0), area = w * h;
-    const ws = area > 2.5e6 ? 0.75 : 1, vs = area > 2.5e6 ? 0.5 : area > 1.1e6 ? 0.72 : coarse ? 0.8 : 0.9;
-    const plate = terrain.plateReady() ? 1 : 0, key = `${w} ${h} ${plate}`;
-    if (moment.key !== key) {
-      momentDrop();
-      moment.key = key;
-      const size = { a: ws, b: ws, exp: ws, vol: vs };
-      for (const k in size) {
-        const tw = Math.max(1, Math.round(w * size[k])), th = Math.max(1, Math.round(h * size[k]));
-        moment.tex[k] = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
-        moment.fb[k] = target(moment.tex[k]);
-        moment[k + 'Size'] = [tw, th];
-      }
-    }
-    momentUnbind();
-    const pass = (k, mode, extra = {}) => renderPane({ ...s, mode, vel: 0, clip: null, ...extra }, moment.fb[k], ...moment[k + 'Size']);
-    if (!moment.baked) {
-      pass('a', 10, { b: 0 });
-      pass('b', 10, { b: 1 });
-      mips(moment.tex.a); mips(moment.tex.b);
-      moment.baked = true;
-    }
-    momentBind();
-    // The evening in depth, while it has any (and a little either side, for the handoffs); before
-    // that, the echoes of the glass remembering.
-    const volKey = P < MOMENT.depth[0] ? echoKey(P) : P;
-    if (P > MOMENT.remember[0] - 0.01 && P < MOMENT.shutter[1] + 0.02 && moment.volP !== volKey) {
-      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
-      pass('vol', 11, { h: s.p ?? 0 });
-      moment.volP = volKey;
-      moment.volOn = true;
-    }
-    if (P > MOMENT.close[1] - 0.03 && !moment.exposed) {
-      gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
-      pass('exp', 12);
-      mips(moment.tex.exp);
-      moment.exposed = true;
-    }
-    momentBind();
-  }
+  later(() => { if (!gl.isContextLost()) ink.request(); });
 
   let frame = 0;
-  const effectSnap = { tex: [], fb: [], reach: null };
   // A click into Racing (glsl/dew.js dewClick draws the ground): before the frame, the plan bound and
   // the remnants' gas drawn (once a size, still: the click shows it grown); after it, the drops, the
   // shards and their lines on the click's clocks. False until the plan and the programs are in.
@@ -474,27 +527,41 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.SCISSOR_TEST);
   }
+  // A click into Photography (glsl/fire.js fireCover draws the ground): its embers, lifting from the fire
+  // on the cover's clock.
+  function drawFireClick(s, f) {
+    const w = f.vpW, h = f.vpH, { p, U } = programs.embers, def = UNIT_PROGRAMS.embers, g = grid('embers', w, h, f);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.useProgram(p);
+    gl.uniform4f(U.uRegion, 0, 0, w, h);
+    gl.uniform2f(U.uView, w, h);
+    gl.uniform1f(U.uTime, f.time);
+    gl.uniform1f(U.uH, ((s.e ?? 0) * 1.04 * FIREC.by + 0.2) / 1.4);
+    gl.uniform4f(U.uGrid, ...g);
+    gl.uniform1i(U.uFirst, 0);
+    gl.uniform1f(U.uClick, 1);
+    gl.uniform2f(U.uO, ...(s.origin ?? [w / 2, h / 2]));
+    gl.uniform1i(U.uReach, 5);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, def.verts, g[0] * g[1]);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.SCISSOR_TEST);
+  }
   return {
     // Racing's plan (names kept from the ice transition this replaced; scene.js and the tools use them).
     iceReady: (w, h) => dew.ready(w, h),
     // Outdoors' plate (its world's heights), on unit 7 once it has arrived.
     plateReady: () => terrain.plateReady(),
-    // Photography's evening (momentPasses): which of its textures are in.
-    momentInfo: () => ({ win: moment.baked, vol: !!moment.volOn, exp: moment.exposed }),
     bindIce: (w, h) => dew.bind(w, h),
     iceStats: (w, h) => dew.stats(w, h),
-    dispose() { dew.dispose(); terrain.dispose(); momentDrop(); snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
+    dispose() { dew.dispose(); terrain.dispose(); ink.dispose(); plumeDrop(); plume.key = null; fire.worker?.terminate(); if (fire.t) gl.deleteTexture(fire.t); fire.t = fire.key = fire.asked = null; fire.worker = undefined; snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
     // What a click's cover reads (opens.js), made once per click from its origin O and far corner:
-    // the maze (house), the ink's reach; null for processes computed on the fly, or
-    // while the bake program is still compiling (the effect then computes what it can live).
+    // the maze (house), the lead's run (Outdoors); null for processes computed on the fly.
     bakeEffect(style, O, far, w, h) {
       if (style === 0) return mazeTexture(O, w, h);
       if (style === 4) return leadTexture(O, far, w, h);
-      if (style !== 1) return null;
-      if (!programs.bake) return null;
-      bake(effectSnap, style, w, h, [Math.round(O[0]), Math.round(O[1]), Math.round(far)], 'reach');
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      return effectSnap.reach.t;
+      return null;
     },
     // Whether this seam is a transit, and ready.
     handles(s) { const K = kindOf(s); return !!K && usable(K); },
@@ -504,7 +571,9 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       const K = kindOf(s);
       if (!K || !usable(K)) return false;
       const [, , w, h] = s.region;
-      if (K.id === 'moment') { momentPasses(s, f); return true; }
+      // The fire needs its plan (until the plate is in, the seam stays plain).
+      if (K.id === 'fire') return !!fireTexture(w, h);
+      if (K.id === 'plume') return plumePass(s, f);
       if (K.live) return true;
       // The dew is seen through drops and frost: its worlds' snapshots can be coarser on big screens.
       const ts = (K.id === 'dew' ? (w > 1800 ? 0.36 : coarse ? 0.45 : 0.5) : coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
@@ -512,7 +581,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       const snap = snapFor(K, tw, th);
       snap.used = f.now;
       if (K.id === 'dew' && (snap.planMode === undefined || (!snap.planMode && (s.p <= 0 || s.p >= 1)))) snap.planMode = dew.ready(w, h);
-      if (K.bake) bake(snap, s.b, w, h, null, K.bake);
       // Which snapshots this frame rendered: both when fresh, else the one whose turn it is.
       const drew = [snap.fresh, snap.fresh];
       if (snap.fresh) {
@@ -557,14 +625,13 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, snap?.tex[0] ?? null);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, snap?.tex[1] ?? null);
       const simOn = false;
-      const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : null;
-      // The ink's reach, or the seam's plan.
-      const reach = K.plan ? planTexture(K.id, w, h, ground) : snap?.reach?.t ?? null;
+      const ground = K.id === 'cubes' ? grid('cubes', w, h, f) : K.id === 'fire' ? grid('embers', w, h, f) : null;
+      // The seam's plan (Racing's binds its own below).
+      const reach = K.plan ? planTexture(K.id, w, h, ground) : K.id === 'fire' ? fireTexture(w, h) : null;
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, reach);
       gl.activeTexture(gl.TEXTURE0);
       // (Outdoors' mountains: their heightfield, on unit 4, in the same flag.)
-      if (K.id === 'moment') momentBind();
-      const iceReady = K.id === 'dew' ? snap.planMode && dew.bind(w, h) : K.id === 'peaks' ? terrain.bind(w, h) : K.id === 'moment' ? true : false;
+      const iceReady = K.id === 'dew' ? snap.planMode && dew.bind(w, h) : K.id === 'peaks' ? terrain.bind(w, h) : K.id === 'fire' ? !!reach : false;
       // The drops from the first until the last has split, the shards and their lines until the last has
       // fused (the drops' lenses read Science's snapshot, unit 0, and its gas, unit 3).
       const P = transitP(s.p ?? 0), st = K.id === 'dew' && iceReady && renderPane ? dew.stats(w, h) : null;
@@ -573,10 +640,13 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
       // The gas, while it shows: drawn now (it needs the plan, bound above), sampled by the ground.
       const gas = K.id === 'dew' && iceReady && renderPane && gasOn(P);
       if (gas) { gasPass(snap, s, w, h, P); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, snap.gas.t); gl.activeTexture(gl.TEXTURE0); }
-      const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn, iceReady });
+      // (Chess: the flow pass on unit 8, the tile's pictures on 9 and 10, the view.)
+      const inky = K.id === 'plume', boardOn = inky && ink.bind();
+      if (inky) { gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, plume.seen?.t ?? null); gl.activeTexture(gl.TEXTURE0); }
+      const drew = drawGround({ ...s, mode: 8, h: s.p ?? 0, grid: ground, simOn, iceReady: iceReady || inky, ...(inky ? { cam: plume.cam, boardOn } : null) });
+      if (inky) { ink.unbind(); gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); }
       const unbindGas = () => { if (gas) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); } };
       if (K.id === 'peaks') terrain.unbind();
-      if (K.id === 'moment') momentUnbind();
       if (!drew || !K.units.length) { unbindGas(); return drew; }
       // The units keep the ground's scissor: while the strip scrolls in or out, they stay in it.
       for (const unit of K.units) {
@@ -584,12 +654,17 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
         const [name, pass] = unit.split(':');
         const snow = name === 'drops' || name === 'shards' || name === 'fieldlines';
         if (snow && !(name === 'drops' ? nRecords : nShards)) continue;
+        // The fire's units, each only while it shows.
+        const fiery = K.id === 'fire';
+        if (fiery && !(name === 'embers' ? P > FIRE.ignite[0] + FIRE.release[0] && P < FIRE.out[1] + 0.05
+          : name === 'ribbons' ? P > FIRE.ribbon.on[0] && P < FIRE.ribbonOff[1] : P > FIRE.fronts[0][0] && P < FIRE.develop[1])) continue;
+        const rib = RIBBONS[coarse ? 1 : 0];
         const prog = programs[name], def = UNIT_PROGRAMS[name];
-        const g = name === 'sheets' || snow ? [1, 1, 1, 1] : name === 'cubes' ? ground : grid(name, w, h, f);
+        const g = name === 'sheets' || snow ? [1, 1, 1, 1] : name === 'cubes' || name === 'embers' ? ground : name === 'ribbons' ? [rib[0], rib[1], 0, 0] : grid(name, w, h, f);
         // The vortex carries its cubes the whole height of the screen, one a cell. The sheets draw a
         // layer at a time, the lowest first.
         const [first, count] = name === 'sheets' ? [0, 1] : snow ? [0, name === 'drops' ? nRecords : nShards] : name === 'flow' ? [0, g[0] * g[1]]
-          : name === 'cubes' || name === 'filaments' ? [0, g[0] * g[1]] : span(g, s, f);
+          : name === 'ribbons' ? [0, 2 * g[0] * g[1]] : name === 'cubes' || fiery ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;
         gl.useProgram(p);
@@ -599,6 +674,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
         gl.uniform1f(U.uH, s.p ?? 0);
         gl.uniform1f(U.uVel, s.vel ?? 0);
         gl.uniform4f(U.uGrid, ...g);
+        if (fiery && U.uGrid2) gl.uniform4f(U.uGrid2, ...ground);
         gl.uniform1i(U.uFirst, first);
         if (U.uClick) gl.uniform1f(U.uClick, 0);
         if (U.uPass) gl.uniform1i(U.uPass, pass === 'back' ? 0 : pass === 'front' ? 1 : 2);
@@ -630,6 +706,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     // the cover and the cubes share (s.grid). False until the programs are in.
     prepareEffect(s, f) {
       if (s.a === 2) return prepareDewClick(s, f);
+      if (s.a === 5) return !!programs.embers;
       if (!programs.cubes || !programs.streaks) return false;
       const w = f.vpW, h = f.vpH;
       const ts = (coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);
@@ -645,6 +722,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse }) {
     // After the cover: the streamlines, then the cubes, on the whole screen.
     drawEffect(s, f) {
       if (s.a === 2) { drawDewClick(s, f); return; }
+      if (s.a === 5) { drawFireClick(s, f); return; }
       const snap = snaps.get('click');
       if (!snap || !s.grid) return;
       const w = f.vpW, h = f.vpH;

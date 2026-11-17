@@ -10,13 +10,13 @@
 // Per frame this reads scrollY and writes only the header's ink (when the band under it changes)
 // and the crystal's state; everything else is measured on resize.
 import { onTick, clamp } from './lib/util.js';
-import { approach, smoothstep, HOLD, holdAt, holdFor, easeFor, transitP } from './lerp.js';
+import { approach, smoothstep, HOLD, HELD, holdAt, holdFor, easeFor, transitP } from './lerp.js';
 import { getScene, STYLE_ID } from './scene/scene.js';
 import { racePace } from './race-pace.js';
 import { skyline } from './skyline.js';
 import { powermap } from './powermap.js';
 import { mountSims } from './sims.js';
-import { playChess, loadRatings } from './previews.js';
+import { playChess, loadRatings, layoutStart, layoutBuilt } from './previews.js';
 
 const TAU = Math.PI * 2;
 const CYCLE_MS = 5000;
@@ -73,17 +73,27 @@ export function mount(main, ctx) {
         // Racing: the band sticks at the top of the screen through the hold, under the transition, and
         // scrolls on once it ends. The hold runs from the wrapper's top for the spacer's height plus a
         // screen, so the transition ends exactly as the band lets go; the band's place is where it then is.
-        const wt = wrap.getBoundingClientRect().top + sy, span = hold.offsetHeight;
-        const card = b.querySelector('.r-band-race'), cr = card?.getBoundingClientRect();
-        return { el: b, id: b.dataset.band, style: b.dataset.style, top: wt + span, h: b.offsetHeight, seam: 0,
-          hold: { top: wt, h: span + vh }, stick: { top: wt, span },
-          card: cr ? [cr.left, cr.top - r.top, cr.width, cr.height, parseFloat(getComputedStyle(card).borderTopLeftRadius) || 24] : null };
+        const wt = wrap.getBoundingClientRect().top + sy;
+        const card = b.querySelector('.r-band-race, .pv-board-wrap'), cr = card?.getBoundingClientRect();
+        // Chess's board is built by its transition where the tile shows it: its card's own box (its
+        // rectangle is a little larger: the card is turned) and its turn. On a screen too short to show
+        // the board with the band's top at the top, the band is held higher (--held-shift), and its hold
+        // is that much longer, so it lets go as the transition ends.
+        const board = card?.classList.contains('pv-board-wrap');
+        const box = !cr ? null : board
+          ? [cr.left + (cr.width - card.offsetWidth) / 2, cr.top - r.top + (cr.height - card.offsetHeight) / 2, card.offsetWidth, card.offsetHeight, parseFloat(getComputedStyle(card).paddingLeft) || 0, (parseFloat(getComputedStyle(card).rotate) || 0) * Math.PI / 180]
+          : [cr.left, cr.top - r.top, cr.width, cr.height, parseFloat(getComputedStyle(card).borderTopLeftRadius) || 24, 0];
+        const shift = board ? Math.round(Math.max(0, Math.min(box[1] + box[3] + 28 - vh, box[1] - headH - 12))) : 0;
+        if (b.style.getPropertyValue('--held-shift') !== `${shift}px`) b.style.setProperty('--held-shift', `${shift}px`);
+        const span = hold.offsetHeight + shift;
+        return { el: b, id: b.dataset.band, style: b.dataset.style, top: wt + span - shift, h: b.offsetHeight, seam: 0,
+          hold: { top: wt, h: span + vh }, stick: { top: wt, span, shift }, card: box };
       }
       return { el: b, id: b.dataset.band, style: b.dataset.style, top: r.top + sy, h: r.height, seam: 0,
         hold: hr ? { top: hr.top + sy, h: hr.height } : null };
     });
     // Racing's card during its hold: the transition's fragments stream into it (scene/transit.js).
-    const held = sections.find(s => s.stick && s.card);
+    const held = sections.find(s => s.stick && s.card && s.style === 'glass');
     if (held) document.dispatchEvent(new CustomEvent('dew:card', { detail: held.card.slice(0, 4) }));
     // Without a hold (motion paused), each seam straddles the boundary on the band below it: tall
     // enough to read, never more than most of the shorter band beside it.
@@ -95,6 +105,10 @@ export function mount(main, ctx) {
   measure();
   const ro = new ResizeObserver(measure);
   ro.observe(main);
+  // (Chess's board is measured for the transition that builds it: its card changes size without the page
+  // doing so, when its ratings arrive beside it.)
+  const boardCard = main.querySelector('.band--chess .pv-board-wrap');
+  if (boardCard) ro.observe(boardCard);
   scope.add(() => ro.disconnect());
   scope.on(window, 'resize', measure);
 
@@ -238,10 +252,14 @@ export function mount(main, ctx) {
         if (e.isIntersecting) { e.target.classList.add('is-developed'); io.unobserve(e.target); }
       }), { root: reel, rootMargin: '0px -22% 0px -22%', threshold: 0.5 });
       // The reel's own viewport only counts once the reel is on screen.
+      // (And once its band has surfaced, where the band waits, hidden, under its transition.)
+      const band = reel.closest('.band');
+      const start = () => { prints.forEach(p => io.observe(p)); outer.disconnect(); };
       const outer = new IntersectionObserver(entries => {
-        if (entries.some(e => e.isIntersecting)) { prints.forEach(p => io.observe(p)); outer.disconnect(); }
+        if (entries.some(e => e.isIntersecting) && !band?.classList.contains('is-held')) start();
       }, { threshold: 0.35 });
       outer.observe(reel);
+      scope.on(band, 'band:surface', start);
       scope.add(() => { io.disconnect(); outer.disconnect(); });
     } else prints.forEach(p => p.classList.add('is-developed'));
     let dragX = null, startLeft = 0;
@@ -251,19 +269,29 @@ export function mount(main, ctx) {
     scope.on(reel, 'dragstart', e => e.preventDefault());
   }
 
-  // Chess: the Scotch plays while the band is in view; the ratings are read once.
+  // Chess: the Scotch plays while the band is in view; the ratings are read once. Where the band waits
+  // under the transition that builds its board (the starting position), the board is laid out at the
+  // start, still, and the game begins once the band has surfaced: its first frame is the one built.
   const board = main.querySelector('.band--chess [data-pv="chess"]');
   if (board) {
-    let run = null, rated = false;
+    const band = board.closest('.band');
+    let run = null, rated = false, seen = false, whole = false;
+    const waiting = () => !!band.parentElement?.classList.contains('seam-wrap') && !whole;
+    const sync = () => {
+      if (seen && !waiting() && !motion.paused) { run ??= playChess(board); return; }
+      run?.stop(); run = null;
+      if (waiting() && !motion.paused) layoutStart(board); else layoutBuilt(board);
+    };
     const io = new IntersectionObserver(entries => entries.forEach(e => {
-      if (e.isIntersecting) {
-        if (!rated) { rated = true; loadRatings(board.closest('.band'), scope); }
-        if (!run && !motion.paused) run = playChess(board);
-      } else { run?.stop(); run = null; }
+      seen = e.isIntersecting;
+      if (seen && !rated) { rated = true; loadRatings(band, scope); }
+      sync();
     }), { threshold: 0.3 });
     io.observe(board);
+    scope.on(band, 'band:surfaced', () => { whole = true; sync(); });
+    scope.on(band, 'band:unsurfaced', () => { whole = false; sync(); });
     scope.add(() => { io.disconnect(); run?.stop(); });
-    apis.push({ setMotion(paused) { if (paused) { run?.stop(); run = null; } } });
+    apis.push({ setMotion() { whole = false; sync(); } });
   }
 
   // ---- header ink: the ink of whatever passes under it ---------------------------------------------
@@ -340,31 +368,41 @@ export function mount(main, ctx) {
           if (c.hold) {
             const L = holdFor(c.style, coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin);
             const { y, p: raw } = holdAt(scrollY, c.hold.top, c.hold.h, vh, L.leadIn, L.leadOut);
-            if (y + vh <= 0 || y >= vh) return null;
             const p = easeFor(c.style)(raw);
-            const cap = captions.get(i);
-            if (cap && Math.abs(cap.p - raw) > 0.002) { cap.p = raw; cap.el.style.setProperty('--p', raw.toFixed(3)); }
-            // Science's content enters the cleared foot while the vortex still fills the screen.
-            // Keep drawing the full clearing curve behind it until the transition finishes.
-            const science = c.style === 'cosmos' || c.style === 'glass';
-            let card = [0, y, vw, vh], cardR;
             if (c.stick) {
-              // Racing surfaces in place: the caption goes as it begins; the band's content condenses as
-              // the transition ends (--surface, site.css); the shader crystallizes its card from the ice.
-              const P = transitP(p), sf = clamp((P - 1.02) / 0.16);
-              if (cap) cap.el.style.visibility = P > 0.96 ? 'hidden' : '';
+              // A band that surfaces in place (Racing, Photography): its content comes as its transition
+              // ends (--surface, site.css), wherever the page is (so it is there after a jump past it).
+              const [s0, ds] = HELD[c.style], sf = clamp((transitP(p) - s0) / ds);
               if (c.surface !== sf) {
+                if (sf > 0 && !(c.surface > 0)) c.el.dispatchEvent(new CustomEvent('band:surface'));
+                // (Whole, or no longer whole: Chess's game starts on the first and is set back on the second.)
+                if (sf >= 1 || c.surface >= 1) c.el.dispatchEvent(new CustomEvent(sf >= 1 ? 'band:surfaced' : 'band:unsurfaced'));
                 c.surface = sf;
                 c.el.style.setProperty('--surface', sf.toFixed(3));
                 c.el.classList.toggle('is-surfacing', sf > 0 && sf < 1);
                 c.el.classList.toggle('is-held', sf <= 0);
               }
-              const bandY = scrollY < c.stick.top ? c.stick.top - scrollY : Math.min(0, c.stick.top + c.stick.span - scrollY);
-              if (c.card) { card = [c.card[0], c.card[1] + bandY, c.card[2], c.card[3]]; cardR = c.card[4]; }
+            }
+            if (y + vh <= 0 || y >= vh) return null;
+            // (A held band's pictures are decoded while its transition plays, not as it surfaces.)
+            if (c.stick && !c.warm) { c.warm = true; [...c.el.querySelectorAll('img')].slice(0, 6).forEach(img => img.decode?.().catch(() => {})); }
+            const cap = captions.get(i);
+            if (cap && Math.abs(cap.p - raw) > 0.002) { cap.p = raw; cap.el.style.setProperty('--p', raw.toFixed(3)); }
+            // Science's content enters the cleared foot while the vortex still fills the screen.
+            // Keep drawing the full clearing curve behind it until the transition finishes.
+            const science = c.style === 'cosmos' || c.style === 'glass';
+            let card = [0, y, vw, vh], cardR, cardRot = 0;
+            if (c.stick) {
+              // The caption goes as the band begins to surface (Racing's shader crystallizes its card
+              // from the ice a little before).
+              if (cap) cap.el.style.visibility = transitP(p) > HELD[c.style][0] - 0.06 ? 'hidden' : '';
+              const up = c.stick.shift || 0;
+              const bandY = scrollY < c.stick.top + up ? c.stick.top - scrollY : Math.min(-up, c.stick.top + c.stick.span - up - scrollY);
+              if (c.card) { card = [c.card[0], c.card[1] + bandY, c.card[2], c.card[3]]; cardR = c.card[4]; cardRot = c.card[5]; }
             } else if (science && cap) cap.el.style.visibility = c.top - scrollY < vh ? 'hidden' : '';
             const clipY = science && raw < 1 ? Math.max(0, y) : y;
             // Drawn on the whole screen as if held; the strip's place on screen (clip) reveals it.
-            return { region: [0, 0, vw, vh], clip: [0, clipY, vw, vh], card, cardR, mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
+            return { region: [0, 0, vw, vh], clip: [0, clipY, vw, vh], card, cardR, cardRot, mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
               p, h: 1 - p, vel: clamp(vel, -3, 3) };
           }
           if (!c.seam) return null;
@@ -386,7 +424,7 @@ export function mount(main, ctx) {
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
   // Each hold names its transition while it plays, at the foot of the screen, with a thin line
   // for how far it has come: the process (glsl/flight.js) and where it is going.
-  const PROCESS = { cosmos: 'A vortex', glass: 'Stardust, then frost', folio: 'The mountains rise', darkroom: 'The thickness of a moment', ink: 'Branching ink' };
+  const PROCESS = { cosmos: 'A vortex', glass: 'Stardust, then frost', folio: 'The mountains rise', darkroom: 'Fire becoming memory', ink: 'Ink finding order' };
   const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;
@@ -410,9 +448,9 @@ export function mount(main, ctx) {
           el.append(cap);
           captions.set(i, { el: cap, p: -1 });
         }
-        if (b.dataset.style === 'glass') {
-          // Racing surfaces in place: its band waits on screen under the transition (sticky, held
-          // hidden), then scrolls on with the page.
+        if (HELD[b.dataset.style]) {
+          // Racing and Photography surface in place: the band waits on screen under the transition
+          // (sticky, held hidden), then scrolls on with the page.
           const wrap = document.createElement('div');
           wrap.className = 'seam-wrap';
           b.before(wrap);

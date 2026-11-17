@@ -12,13 +12,44 @@ const SAVED = 'cinema:chess:v1:stats';   // the copy the Chess page keeps in thi
 
 // ---- Chess: the Scotch Game, one ply at a time, then a pause and again --------------------------
 
+// The starting position, as markup for the board's pieces (the squares are 45 units; href: the sprite
+// the symbols come from, '' for this page's own). attr: place each by a transform attribute rather than
+// a style (for a copy of the board drawn as an image: scene/ink-resources.js).
+export function startMarkup(href = '', attr = false) {
+  const frag = [];
+  START.split('/').forEach((row, r) => {
+    let c = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) { c += Number(ch); continue; }
+      const code = (ch === ch.toUpperCase() ? 'w' : 'b') + ch.toUpperCase();
+      const at = attr ? `transform="translate(${c * 45} ${r * 45})"` : `style="transform:translate(${c * 45}px, ${r * 45}px)"`;
+      frag.push(`<use href="${href}#${code}" width="45" height="45" ${at} data-sq="${FILES[c]}${8 - r}"/>`);
+      c++;
+    }
+  });
+  return frag.join('');
+}
+// The board laid out at the start, still (while its band waits under the transition that builds it:
+// home.js); the built position is kept, for playChess's stop() and layoutBuilt to put back.
+export function layoutStart(pv) {
+  const pieces = pv.querySelector('[data-pieces]'), marks = pv.querySelector('[data-marks]');
+  if (!pieces) return;
+  pv._built ??= [pieces.innerHTML, marks.innerHTML];
+  pieces.innerHTML = startMarkup(pieces.querySelector('use')?.getAttribute('href')?.split('#')[0] ?? '');
+  marks.innerHTML = '';
+}
+export function layoutBuilt(pv) {
+  if (!pv._built) return;
+  pv.querySelector('[data-pieces]').innerHTML = pv._built[0];
+  pv.querySelector('[data-marks]').innerHTML = pv._built[1];
+}
+
 export function playChess(pv) {
   const svg = pv.querySelector('.pv-board');
   const pieces = svg.querySelector('[data-pieces]');
   const marks = svg.querySelector('[data-marks]');
   const plies = (pv.dataset.plies || '').split(' ').filter(Boolean).map(p => [p.slice(0, 2), p.slice(2, 4)]);
-  const final = pieces.innerHTML;
-  const finalMarks = marks.innerHTML;
+  const [final, finalMarks] = pv._built ?? [pieces.innerHTML, marks.innerHTML];
   let live = true;
 
   const place = (use, sq) => {
@@ -27,18 +58,7 @@ export function playChess(pv) {
     use.dataset.sq = sq;
   };
   const setup = () => {
-    const href = pieces.querySelector('use')?.getAttribute('href')?.split('#')[0] || '/chess/page/pieces.svg';
-    const frag = [];
-    START.split('/').forEach((row, r) => {
-      let c = 0;
-      for (const ch of row) {
-        if (/\d/.test(ch)) { c += Number(ch); continue; }
-        const code = (ch === ch.toUpperCase() ? 'w' : 'b') + ch.toUpperCase();
-        frag.push(`<use href="${href}#${code}" width="45" height="45" style="transform:translate(${c * 45}px, ${r * 45}px)" data-sq="${FILES[c]}${8 - r}"/>`);
-        c++;
-      }
-    });
-    pieces.innerHTML = frag.join('');
+    pieces.innerHTML = startMarkup(pieces.querySelector('use')?.getAttribute('href')?.split('#')[0] || '/chess/page/pieces.svg');
     marks.innerHTML = '';
   };
   // The move's squares take an indigo wash; where the piece lands, a drop of ink blooms.

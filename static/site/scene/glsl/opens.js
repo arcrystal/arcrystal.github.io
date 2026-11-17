@@ -2,23 +2,16 @@
 // across the whole screen, the old page showing through until it is covered (premultiplied alpha).
 // reveal(): on the new page, the same process lets go onto its scene. Each style by its process:
 //   0 About Me, Résumé, Contact  a maze carved by depth-first backtracking from the click
-//   1 Chess                      ink: a branching reach of soft fingers
+//   1 Chess                      ink blooms from the click and finds the board (glsl/plume.js)
 //   2 Racing                     dew, then frost: condensation spreading from the click, frozen from it
 //   3 Science                    a vortex at the click whose cubes fly out and build the page
 //   4 Outdoors                   molten lead running out along the window's came, then the light
 //   5 Photography                a light's sweep remembered, the shutter; the page developing
-// uH = 1: fog (fbm), for steps through history. A click's reach, crystals or maze are baked once
-// per click by transit.js (uBaked, in uReach); without them the cover computes what it can.
+// uH = 1: fog (fbm), for steps through history. A click's maze or lead is worked out once per click by
+// transit.js (uBaked, in uReach); without it the cover computes what it can.
 export const OPENS = /* glsl */ `
 uniform float uBaked;
 vec2 cardCentre() { return uCard.z > 0.0 ? uCard.xy + uCard.zw * 0.5 : R * 0.5; }
-float cardSd(vec2 px) { return uCard.z > 0.0 ? sdBox(px - cardCentre(), uCard.zw * 0.5, uCardR) : length(px - R * 0.5) - 40.0; }
-vec4 bakedAt(vec2 px) { return textureLod(uReach, vec2(px.x / R.x, 1.0 - px.y / R.y), 0.0); }
-Reach clickReach(vec2 px, vec2 O, float far) {
-  if (uBaked < 0.5) return reachPolar(px, O, far, 0.0);
-  vec4 t = bakedAt(px);
-  return Reach(t.x * 64.0, t.y * 24.0, t.z, t.w, 1.0);
-}
 
 // ---- 0: a maze --------------------------------------------------------------------------------------
 // transit.js carves it on the CPU (lerp.js carveMaze) and bakes, per cell: its visit order (16 bits
@@ -182,24 +175,18 @@ vec4 cover(int s, vec2 px, float e) {
   float far = farCorner(O) * 1.02;
   float E = e * 1.04;
   if (s == 0) return mazeCover(px, E);
-  if (s == 1) {
-    Reach Rr = clickReach(px, O, far);
-    float fill = max(smoothstep(Rr.A - 0.035, Rr.A, E), smoothstep(0.0, 0.1, E) * step(cardSd(px), 0.0));
-    vec3 f = mix(sceneOf(1, px), INK_BLACK, 0.18 + 0.1 * noise(px * 0.01));
-    vec4 o = vec4(f * fill, fill);
-    Look L = branchLook(Rr, E, px);
-    return vec4(mix(o.rgb, L.c, L.m), mix(o.a, 1.0, L.m));
-  }
+  // 1: from the click itself, which the new page is told too, so its board stays where it formed.
+  if (s == 1) return pmcCover(px, uPoint, farCorner(uPoint) * 1.02, E);
   if (s == 2) return dewMaterial(px, px, R, -.2 + 1.04 * e, true, false);
   if (s == 3) return vortexCover(px, O, E);
   if (s == 4) return leadCover(px, O, far, E);
-  // 5: a light from the click sweeps the page, remembered; the curtain ends it (glsl/moment.js).
-  return momentCover(px, O, far, E);
+  // 5: the fire spreads from the click and the page lets go as embers (glsl/fire.js).
+  return fireCover(px, O, far, E);
 }
 
 vec3 reveal(int s, vec2 px, float e) {
   if (s == 4 && uH < 0.5) return leadReveal(px, e);
-  if (s == 5 && uH < 0.5) return momentReveal(px, e);
+  if (s == 5 && uH < 0.5) return fireReveal(px, e);
   vec3 scene = sceneOf(s, px);
   if (uH > 0.5) {
     float c = 1.0 - smoothstep(fogField(px) - 0.02, fogField(px) + 0.14, e * 1.3 - 0.15);
@@ -215,18 +202,11 @@ vec3 reveal(int s, vec2 px, float e) {
     float line = smoothstep(1.9, 0.9, abs(M.x)) * (1.0 - smoothstep(t, t + 0.12, e));
     return mix(scene, vec3(0.16, 0.16, 0.19), line * 0.9);
   }
-  if (s == 1) {
-    float E = (1.0 - e) * 1.04;
-    Reach Rr = clickReach(px, O, far);
-    float keep = smoothstep(Rr.A - 0.035, Rr.A, E);
-    vec3 col = mix(scene, mix(scene, INK_BLACK, 0.18 + 0.1 * noise(px * 0.01)), keep);
-    Look L = branchLook(Rr, E, px);
-    return mix(col, L.c, L.m);
-  }
+  if (s == 1) return pmcReveal(px, O, far, e);
   if (s == 2) return scene; // Racing's reveal is a translucent front overlay (MAIN).
   // 3: the vortex has spent itself building the page; nothing is left to let go.
   if (s == 3) return scene;
-  // 5: the page develops in the tray (momentReveal, above).
+  // 5: the page develops out of the grain (fireReveal, above).
   return scene;
 }
 `;
@@ -264,10 +244,6 @@ void main() {
   else if (uMode == 7) o = vec4(heroScene(px), 1.0);
   else if (uMode == 8) o = vec4(transitGround(uA, px0 - uRegion.xy, px), 1.0);
   else if (uMode == 9) o = dewGasPacked(px0 - uRegion.xy, transitP(uH));   // Racing's lit gas, for transit.js
-  // Photography's evening (transit.js): the window baked still, the evening in depth, the exposure.
-  else if (uMode == 10) o = momentBake(px0, uB);
-  else if (uMode == 11) o = momentVolume(px0, transitP(uH));
-  else if (uMode == 12) o = momentExposure(px0);
   else o = vec4(mix(sceneOf(uA, px), sceneOf(uB, px), smoothstep(0.3, 0.7, uH)), 1.0);
   bool icePass = (uMode == 8 && uB == 2 && uH > -.2 && uH < 1.12)
               || ((uMode == 2 || uMode == 3) && uA == 2 && uH < .5 && (uMode == 2 || uE < .7777778));

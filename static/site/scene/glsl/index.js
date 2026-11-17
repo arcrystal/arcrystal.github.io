@@ -11,7 +11,8 @@ import { SEAMS } from './seams.js';
 import { REACH_LOOK } from './reach.js';
 import { DEW_GLSL } from './dew.js';
 import { PEAKS_GLSL } from './peaks.js';
-import { MOMENT_GLSL } from './moment.js';
+import { FIRE_GLSL } from './fire.js';
+import { PLUME_GLSL } from './plume.js';
 import { TRANSIT } from './transit.js';
 import { OPENS, MAIN } from './opens.js';
 
@@ -22,5 +23,5 @@ void main() {
 }`;
 
 export function fragment(quality = 5) {
-  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, DEW_GLSL, PEAKS_GLSL, MOMENT_GLSL, TRANSIT, OPENS, MAIN].join('\n');
+  return [HEADER, `#define Q ${quality | 0}`, NOISE, COMMON, FLIGHT, INK, GLACIER, COSMOS, FOLIO, DARKROOM, HOUSE, SEAMS, REACH_LOOK, SEAM_TEX, DEW_GLSL, PEAKS_GLSL, FIRE_GLSL, PLUME_GLSL, TRANSIT, OPENS, MAIN].join('\n');
 }

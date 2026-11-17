@@ -1,74 +1,12 @@
 // Flight: shared by the scene's fragment shader (transit.js and opens.js) and the unit shaders
-// (units.js, the pieces that fly), so a cell and the unit that leaves it always agree.
-//
-// Chess's transitions grow a structure across the whole screen (the reach): from a point for a click,
-// up from the foot of the strip for a seam. A few trunks fork as they go (four levels, each with
-// twice the branches of the last), reaching the far edge by about 0.55 of the way through; behind
-// them the gaps fill, nearest the branches first, by 1.0. Each style shapes its own branches. A
-// point's arrival A (0..1) is when it is filled.
+// (units.js, the pieces that fly), so a cell and the unit that leaves it always agree. A point's
+// arrival A (0..1) is when its own part of a transition comes to it.
 //
 // A seam is a pure function of its progress p (0..1, home.js: how far the page has scrolled through
 // the seam's hold): scrolling back un-builds it. P = transitP(p) runs past both ends, so p = 0 and
 // p = 1 are exactly at rest; each point flies (u 0 → 1) while P passes its arrival, ±0.15 with its
 // own jitter. lerp.js mirrors these numbers for the tests.
 export const FLIGHT = /* glsl */ `
-// The ink's reach: five trunks that wander (curl, wobble) with soft fingers (w0, half-width in px).
-const float RN0 = 8.0, RCURL = 0.45, RWOB = 0.6, RW0 = 11.0;
-float reachWobble(float r, float id) {
-  return noise(vec2(r * 0.0045, id)) - 0.5 + (noise(vec2(r * 0.013, id + 5.0)) - 0.5) * 0.4;
-}
-// Branch i of level k (N per turn), at distance r: its centre in units of that level's spacing.
-float branchC(float i, float k, float N, float r, float seed) {
-  float im = mod(i, N);
-  return i + 0.5 + (hash(vec2(im, k + seed)) - 0.5) * 0.5 + reachWobble(r, im + k * 97.0 + seed * 13.0) * RWOB;
-}
-// d: distance to the nearest branch (px); w: its half-width (px); tb: when it grew this far; A: when
-// this point is filled; sp: how far apart the branches are here (px).
-struct Reach { float d; float w; float tb; float A; float sp; };
-Reach reachAt(float r, float a, float circ, float far, float seed) {
-  float rn = r / far;
-  float aw = a + RCURL * rn * rn * 0.18;
-  Reach o = Reach(1e9, 1.0, 0.0, 0.0, circ / RN0);
-  float forks = 0.0;   // how many levels have forked here, smoothly, so the spacing never jumps
-  for (int k = 0; k < 4; k++) {
-    float fk = float(k);
-    float N = RN0 * exp2(fk);
-    float rk = k == 0 ? 0.0 : far * 0.13 * pow(1.8, fk - 1.0);
-    if (r < rk) break;
-    float x = aw * N, i0 = floor(x);
-    float born = smoothstep(rk, rk + far * 0.1, r);
-    if (k > 0) forks += born;
-    float w = RW0 * pow(0.62, fk) * (1.0 - 0.45 * min(rn, 1.0)) + 0.5;
-    for (int j = -1; j <= 1; j++) {
-      float i = i0 + float(j);
-      float c = branchC(i, fk, N, r, seed);
-      // A fork: near where its level begins, a branch bends in from its parent's centre.
-      if (k > 0 && born < 1.0) c = mix(2.0 * branchC(floor(i * 0.5), fk - 1.0, N * 0.5, r, seed), c, born);
-      float d = abs(x - c) / N * circ;
-      if (d - w < o.d - o.w) {
-        // Every branch of a trunk grows at that trunk's pace, so a fork never jumps ahead.
-        float h = hash(vec2(mod(floor(i / exp2(fk)), RN0), 31.0 + seed));
-        o.d = d; o.w = w;
-        o.tb = rn * 0.55 * (0.85 + 0.3 * h);
-      }
-    }
-  }
-  o.sp = circ / (RN0 * exp2(forks));
-  float gap = clamp((o.d - o.w) / max(o.sp * 0.5 - o.w, 1.0), 0.0, 1.0);
-  o.A = clamp(o.tb + 0.36 * gap + (noise(vec2(r, a * circ) * 0.02 + seed) - 0.5) * 0.04, 0.0, 1.0);
-  return o;
-}
-// From a point O (a click), out to far.
-Reach reachPolar(vec2 px, vec2 O, float far, float seed) {
-  vec2 v = px - O;
-  float r = length(v);
-  return reachAt(r, atan(v.y, v.x) / TAU + 0.5, max(r, 1.0) * TAU, far, seed);
-}
-// Up from the foot of a strip (size, CSS px; q y down).
-Reach reachFoot(vec2 q, vec2 size, float seed) {
-  return reachAt(clamp(size.y - q.y, 0.0, size.y), q.x / size.x, size.x, size.y, seed);
-}
-
 // A seam's progress p → P, which runs past both ends so the strip is at rest at p = 0 and p = 1.
 float transitP(float p) { return -0.2 + 1.4 * clamp(p, 0.0, 1.0); }
 // A point's flight: 0 at home in the upper world, 1 landed in the lower one.
@@ -392,23 +330,9 @@ vec2 swirl(vec2 p, float t) {
 }
 `;
 
-// A seam's reach never changes while it is on screen (it depends only on the strip's size and the
-// lower style), so transit.js bakes it once into a texture (BAKE, d/64, w/24, tb, A) and the seam's
-// ground and units read it; the crystals are baked the same way, read raw. SEAM_TEX goes after
-// FLIGHT in any shader with uRegion.
+// What a seam or a click has worked out ahead, read from unit 5 (transit.js: Science's plan, Racing's,
+// the fire's arrivals, the maze, the lead; each says how it is laid out). SEAM_TEX goes after FLIGHT in
+// any shader that reads it.
 export const SEAM_TEX = /* glsl */ `
 uniform sampler2D uReach;
-vec4 seamRaw(vec2 q) { return textureLod(uReach, vec2(q.x / uRegion.z, 1.0 - q.y / uRegion.w), 0.0); }
-Reach seamReachAt(vec2 q) {
-  vec4 t = seamRaw(q);
-  return Reach(t.x * 64.0, t.y * 24.0, t.z, t.w, 1.0);
-}
-// A seam point's flight, skipping the lookup where its height alone settles it: arrivals at rn (0
-// the foot, 1 the top) lie in [0.4675 rn - 0.02, 0.6325 rn + 0.38] (lerp.js arrivalRange).
-float seamU(vec2 q, float jit, float P) {
-  float rn = clamp(1.0 - q.y / uRegion.w, 0.0, 1.0);
-  if (P < 0.4675 * rn - 0.22) return 0.0;
-  if (P > 0.6325 * rn + 0.58) return 1.0;
-  return flightAt(seamReachAt(q).A, jit, P);
-}
 `;

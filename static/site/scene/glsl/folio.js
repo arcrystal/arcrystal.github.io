@@ -69,12 +69,10 @@ const vec3 EMBER = vec3(0.910, 0.706, 0.396);
 
 uniform sampler2D uPlate;
 uniform float uPlateOn;
-// Who holds the lantern (glsl/moment.js): 0 the world (idle, or the pointer); 1 a lantern at gLampAt of
-// gain gLampK and radius gLampR (px); 2 a light gLampK everywhere (to bake what the lantern adds).
-// gDusk: how far the dusk outside has deepened (0 the world's own).
-int gLampMode = 0;
-vec2 gLampAt = vec2(0.0);
-float gLampK = 1.0, gLampR = 420.0, gDusk = 0.0;
+// The last low sun through the glass (glsl/fire.js): gSun, how far it has come up at this point. What
+// fgShade found here, for the fire that follows: the glass's tint and how near the came is (px).
+float gSun = 0.0, gFgNear = 1e3;
+vec3 gFgTint = vec3(1.0);
 const float FG_S = ${f(TERRAIN.size)}, FG_M = ${f(GLASS.module)}, FG_KM = ${f(FT)};
 const int FG_NB = ${NB};
 const float FG_T[${NB}] = float[${NB}](${GLASS.bands.map(b => f(b)).join(', ')});
@@ -132,8 +130,6 @@ vec3 fgOutside(vec2 p) {
   vec3 col = mix(vec3(.046, .028, .016), vec3(.012, .028, .035), smoothstep(-.03, .14, hz - u.y));
   col = mix(col, vec3(.005, .013, .018), smoothstep(.2, .7, hz - u.y));
   col = mix(col, vec3(.011, .014, .011), smoothstep(.0, .1, u.y - hz));
-  // (Deepening, the last warm light going and the blue coming on.)
-  col *= mix(vec3(1.0), vec3(.42, .6, 1.12), gDusk);
   // The far trees: soft dark masses along the glow.
   float trees = smoothstep(.42, .72, fbm3(vec2(p.x / 210.0, u.y * 3.2) + 4.0)) * smoothstep(.3, .0, abs(u.y - hz + .05));
   col *= 1.0 - .6 * trees;
@@ -163,8 +159,6 @@ vec3 fgShade(vec2 px, vec2 xz, float sd[FG_NB], float solder, float lead, float 
   vec2 lamp = mix(idle, PTR, uPtrOn);
   // (Left to itself, with no pointer to carry it, it is turned low.)
   float light = exp(-pow(length(px - lamp) / 420.0, 2.0)) * mix(.35, 1.0, uPtrOn);
-  if (gLampMode == 1) { lamp = gLampAt; light = exp(-pow(length(px - lamp) / gLampR, 2.0)) * gLampK; }
-  else if (gLampMode == 2) { lamp = px + vec2(-40.0, -60.0); light = gLampK; }
   // The glass: which sheet (summit square, tarn jewel, or the band's), refracting what is outside.
   vec3 tint = FG_TINT[band];
   float opal = FG_OPAL[band], gain = FG_GLOW[band], irid = band == 6 ? .6 : 0.0, glow = 0.0, edge = came * FG_M;
@@ -215,6 +209,14 @@ vec3 fgShade(vec2 px, vec2 xz, float sd[FG_NB], float solder, float lead, float 
   // Near the came the glass sits in its channel: a little shadow, and a fine bright line where its edge
   // turns the light.
   float near = edge / kpx;
+  gFgTint = tint; gFgNear = near;
+  // The last low sun comes level through the glass: strongest in the amber, the gold and the ruby, and
+  // gathering along each pane's edge, so the ridges and the forest seem lit from within.
+  if (gSun > 0.0) {
+    float warm = max(tint.r - tint.b, 0.0), rim = exp(-near / 9.0);
+    through += tint * vec3(1.0, .56, .2) * gSun * (.1 + 2.4 * warm * warm + 1.6 * glow) * dens * (.75 + .6 * rim);
+    through += vec3(1.0, .4, .08) * gSun * gSun * rim * (.05 + .22 * step(2.5, float(band)) + .5 * glow) * dens;
+  }
   through *= .78 + .22 * smoothstep(1.5, 6.0, near);
   through += tint * (.03 + gain * .25) * smoothstep(3.0, 1.6, near) * smoothstep(1.0, 1.8, near);
   // Each pane sits at its own slight angle, so each catches the room's light a little differently.
