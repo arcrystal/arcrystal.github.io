@@ -5,6 +5,39 @@
 
 body { --page-bg: var(--c-bg); }
 
+/* ---- Opening screen: lightweight markup, independent of the scene being prepared ----------- */
+html.js { scrollbar-gutter: stable; }
+html.site-loading { overflow: hidden; }
+.site-loading-screen { display: none; }
+.site-loading .site-loading-screen {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+  color: #203b37; background: radial-gradient(ellipse at 50% 42%, #fffef8, #eff2ec 72%);
+  opacity: 1; transition: opacity 420ms ease;
+}
+.site-loading-screen[data-finished="true"] { opacity: 0; pointer-events: none; }
+.loading-brand { position: absolute; top: max(28px, env(safe-area-inset-top)); left: var(--gutter); display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; }
+.loading-center { text-align: center; padding: 80px 24px 100px; }
+.loading-art { position: relative; width: 190px; height: 150px; margin: 0 auto 38px; }
+.loading-art svg { position: absolute; width: 70px; height: 82px; top: 34px; left: 60px; filter: drop-shadow(0 12px 16px #45675d1c); }
+.loading-orbit { position: absolute; inset: -20px 0; border: 1px solid #698d7f45; border-radius: 50%; transform: rotate(-24deg) scaleY(.52); }
+.loading-orbit::after { content: ''; position: absolute; inset: -1px; border: 1px solid transparent; border-top-color: #b8934e; border-right-color: #b8934e; border-radius: 50%; animation: loading-orbit 3s linear infinite; }
+#loading-title { font-size: clamp(32px, 4vw, 46px); font-weight: 450; line-height: 1.12; letter-spacing: -.045em; margin: 0 0 16px; }
+#loading-description { font-size: 15px; color: #6b7971; margin: 0; }
+.loading-steps { display: flex; gap: 24px; justify-content: center; list-style: none; padding: 0; margin: 38px 0 16px; }
+.loading-steps li { width: 66px; border-top: 2px solid #d9dfd6; padding-top: 10px; font-size: 11px; letter-spacing: .06em; color: #87948a; transition: color .3s, border-color .3s; }
+.loading-steps [data-state="done"] { border-color: #6d9686; color: #527263; }
+.loading-steps [data-state="active"] { border-color: #b8934e; color: #52695d; }
+.loading-progress { margin: 0 auto 4px; color: #335449; font-size: 20px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.loading-status { min-height: 20px; font-size: 12px; color: #69786e; }
+.loading-enter { position: absolute; bottom: max(36px, env(safe-area-inset-bottom)); border: 0; border-bottom: 1px solid #aab8a9; padding: 10px 2px; background: transparent; color: #52695d; font: inherit; font-size: 13px; cursor: pointer; }
+.loading-enter span { margin-left: 16px; }
+.loading-enter:hover { color: #1e453b; border-color: currentColor; }
+.loading-enter:focus-visible { outline: 2px solid #597c6b; outline-offset: 6px; }
+@keyframes loading-orbit { to { transform: rotate(360deg); } }
+.motion-paused .loading-orbit::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .loading-orbit::after { animation: none; } .site-loading .site-loading-screen { transition: none; } }
+@media print { .site-loading-screen { display: none !important; } }
+
 /* ---- Header -------------------------------------------------------------------------------- */
 
 .site-header {
@@ -54,7 +87,7 @@ html[data-scrolled] body:not([data-page="home"]) .site-header {
   html.js .site-controls { margin-left: auto; }
 }
 @media (min-width: 1100px) { .menu-toggle { display: none; } }
-@media (max-width: 520px) { .motion-toggle { display: none; } }
+@media (max-width: 520px) { html:not(.motion-paused) .motion-toggle { display: none; } }
 
 /* ---- Homepage hero: the sentence is the menu ------------------------------------------------- */
 
@@ -168,7 +201,6 @@ html.gl .band-art { opacity: 0; }
 .seam-wrap > .band { position: sticky; top: 0; min-height: 100svh; }
 .seam-wrap > .band--racing { padding-top: clamp(28px, 4vh, 48px); align-items: start; }
 .seam-wrap > .band.is-held { visibility: hidden; }
-.js:not(.motion-paused) .seam-wrap > .band > .band-inner > * { translate: none; transition: none; }
 .seam-wrap > .band .band-head > * {
   opacity: clamp(0, calc(var(--surface, 1) * 1.7 - .1), 1);
   filter: blur(calc(max(0, 1 - var(--surface, 1) * 1.4) * 14px));
@@ -183,7 +215,9 @@ html.gl .band-art { opacity: 0; }
 /* Chess's board is built by its transition where the tile shows it, sharp: the card comes last, over
    the same picture, without the blur; its caption and ratings with the heading. On a short screen the
    band is held higher, so the board is in view (--held-shift, home.js). */
-.seam-wrap > .band--chess { top: calc(-1 * var(--held-shift, 0px)); }
+/* Ratings may resolve to a shorter offline row after entry. Anchor the board
+   above them throughout its bake and playback. */
+.seam-wrap > .band--chess { align-items: start; top: calc(-1 * var(--held-shift, 0px)); }
 .seam-wrap > .band--chess .band-body { opacity: 1; filter: none; }
 .seam-wrap > .band--chess :is(.pv-cap, .ch-band-ratings) { opacity: clamp(0, calc(var(--surface, 1) * 1.7 - .1), 1); }
 .seam-wrap > .band--chess .pv-board-wrap { opacity: clamp(0.002, calc(var(--surface, 1) * 5 - 4), 1); will-change: opacity; }
@@ -233,6 +267,10 @@ html.gl .band-art { opacity: 0; }
 .js:not(.motion-paused) .band > .band-inner > * { transition: opacity 700ms var(--ease-out), translate 900ms var(--ease-out); }
 .js:not(.motion-paused) .band > .band-inner > .band-body { transition-delay: 140ms; }
 .js:not(.motion-paused) .band:not(.is-in) > .band-inner > * { opacity: 0; translate: 0 32px; }
+
+/* Held artwork must be measured at its resting position, including before the
+   intersection observer first marks its band visible. */
+.js:not(.motion-paused) .seam-wrap > .band > .band-inner > * { translate: none; transition: none; }
 
 /* Science enters with the clearing background; its heading starts at the top of the content,
    and follows the scroll directly without the bands' delayed fade or extra translation. */
@@ -287,17 +325,29 @@ html.gl .band-art { opacity: 0; }
 .sx-still--readout { background: repeating-linear-gradient(to bottom, rgb(63 220 210 / 0.05) 0 1px, transparent 1px 4px); }
 .sx-sim canvas, .sx-band-sim canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-/* Racing: the Birkie at race pace, and the numbers. */
+/* Racing: a large, open track below the heading and race records. */
 .r-band { display: grid; gap: var(--s-6); }
-@media (min-width: 1100px) { .r-band { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); align-items: center; } }
-.r-band-race { position: relative; margin: 0; padding: clamp(24px, 3vw, 44px); border-radius: 28px; background: rgb(255 255 255 / 0.62); border: 1px solid rgb(255 255 255 / 0.9); box-shadow: 0 40px 80px -40px rgb(10 30 44 / 0.35), inset 0 1px 0 #fff; }
-.r-band-cap { font-size: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--c-accent); }
-.r-band-clock { margin: 6px 0 0; font-size: clamp(3rem, 1.6rem + 4vw, 6rem); font-weight: 700; letter-spacing: -0.045em; line-height: 1; font-variant-numeric: tabular-nums; }
-.r-band-clock small { font-size: 0.4em; letter-spacing: 0; color: var(--c-fg-mute); transition: opacity 300ms; }
-[data-race-pace].is-running .r-band-clock small { opacity: 0; }
-.r-band-route { position: relative; margin-top: var(--s-4); }
-.r-band-svg { display: block; width: 100%; max-height: 220px; height: auto; overflow: visible; }
-.r-band-km { position: absolute; left: 0; bottom: 0; font-size: var(--t-label); letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-fg-mute); font-variant-numeric: tabular-nums; }
+@media (min-width: 900px) {
+  .band--racing .band-inner { position: relative; align-items: start; min-height: max(720px, calc(100svh - 100px)); }
+  .band--racing .band-head { padding-top: 52px; }
+  .r-band { display: contents; }
+  .r-band .r-band-race { position: absolute; width: 72%; left: 14%; top: 150px; }
+  .r-band .r-band-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 24px; margin-top: 52px; }
+  .band--racing .r-band-stats b { font-size: clamp(1.25rem, 1.6vw, 1.8rem); }
+  .seam-wrap > .band--racing .r-band-stats { opacity: clamp(0, calc(var(--surface, 1) * 2 - .9), 1); filter: blur(calc(max(0, 1 - var(--surface, 1)) * 10px)); }
+}
+.r-band-race { position: relative; margin: 0; aspect-ratio: 4 / 3; width: 100%; }
+@media (min-width: 900px) and (max-width: 1199px) {
+  .r-band .r-band-race { top: 240px; }
+}
+@media (max-width: 899px) {
+  .seam-wrap > .band--racing { padding-top: calc(var(--header-h) + 12px); }
+  .r-band { grid-template-columns: minmax(0, 1fr); }
+  .r-band-race { width: min(100vw, calc(100% + 2 * var(--gutter))); justify-self: center; }
+}
+.r-track-still { display: block; width: 100%; height: 100%; }
+.gl:not(.motion-paused) .r-track-still { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .gl:not(.motion-paused) .r-track-still { visibility: visible; } }
 .r-band-stats { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 2px solid var(--c-fg); }
 .r-band-stats li { display: grid; gap: 2px; padding: 14px 0; border-bottom: 1px solid var(--c-rule); }
 .r-band-stats b { font-size: clamp(1.4rem, 1rem + 1.2vw, 2.1rem); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }

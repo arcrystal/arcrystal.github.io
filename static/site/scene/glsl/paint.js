@@ -11,10 +11,18 @@ const f = x => Number(x).toFixed(4);
 export const PAINT_GLSL = /* glsl */ `
 const float PT_FALL = ${f(PAINT.fall)}, PT_SPREAD = ${f(PAINT.spread)}, PT_FINGERS = ${f(PAINT.fingers)}, PT_PINCH = ${f(PAINT.pinch)};
 const float PT_OWN0 = ${f(PAINT.own[0])}, PT_OWN1 = ${f(PAINT.own[1])}, PT_MELT = ${f(PAINT.melt)}, PT_MOLD1 = ${f(PAINT.mold[1])}, PT_REAL0 = ${f(PAINT.real[0])}, PT_REAL1 = ${f(PAINT.real[1])};
-const int PT_N = ${PAINT.grid}, PT_MAX = ${PAINT.maxSplash};
+const int PT_N = ${PAINT.grid}, PT_MAX = ${PAINT.maxSplash}, PT_CELLS = ${PAINT.cells};
 // The studio's key light, from the upper left (screen: x right, y up, z out of the canvas).
 const vec3 PT_L = vec3(-.5735, .5735, .5848);
 vec4 ptHead() { return texelFetch(uReach, ivec2(0, PT_N), 0); }
+// The place of the lowest bit set (from its float's exponent: GLSL ES 3.00 has no findLSB).
+int ptLow(uint bits) { return int(floatBitsToUint(float(bits & (~bits + 1u))) >> 23u) - 127; }
+// The drops that can reach map point xz at all (paint-plan.js paintReach): a bit a drop, twenty a channel.
+vec4 ptNear(vec2 xz) {
+  ivec2 c = clamp(ivec2(floor(xz / PK_SIZE * float(PT_CELLS))), ivec2(0), ivec2(PT_CELLS - 1));
+  int k = c.y * PT_CELLS + c.x;
+  return texelFetch(uReach, ivec2(k % PT_N, PT_N + 1 + k / PT_N), 0);
+}
 // The paint's arrival at map point xz (P) and the colour it brings, bilinear between cells.
 vec4 ptGrid(vec2 xz) {
   vec2 g = xz / PK_SIZE * float(PT_N) - .5, fr = fract(g);
@@ -87,91 +95,102 @@ void ptPaint(vec2 xz, float P, float fp, float ft, float wet, vec3 land, inout v
     gloss = mix(gloss, (.25 + .6 * bead) * (1.0 - smoothstep(.0, .08, since)), mold);
   }
   int n = int(H.x);
-  for (int i = 0; i < PT_MAX; i++) {
-    if (i >= n) break;
-    vec4 A = texelFetch(uReach, ivec2(1 + 3 * i, PT_N), 0);
-    float age = P - A.z;
-    if (age < -PT_FALL) break;
-    if (age > PT_OWN1 + PT_MELT) continue;
-    vec2 d = xz - A.xy;
-    float R = A.w;
-    if (dot(d, d) > R * R * 9.0) continue;
-    vec4 B = texelFetch(uReach, ivec2(2 + 3 * i, PT_N), 0), C = texelFetch(uReach, ivec2(3 + 3 * i, PT_N), 0);
-    float N = B.x, sd = B.y * 97.0;
-    // A drop in the air: a bead of paint, nearer the eye the higher it is, its shadow closing on it.
-    if (age < 0.0) {
-      float u = -age / PT_FALL, rd = R / (2.37 * sqrt(N)) * (1.0 + 1.2 * u);
-      vec2 so = -PT_L.xy / PT_L.z * u * R * 1.4;
-      shadow = max(shadow, smoothstep(rd * 1.4, rd * .5, length(d - so)) * (1.0 - .5 * u) * .55);
-      float dd = length(d) / rd;
-      if (dd < 1.0) {
-        vec3 nd = vec3(d / rd, sqrt(1.0 - dd * dd));
-        col = C.rgb * (.35 + .8 * max(dot(nd, PT_L), 0.0)) + pow(max(dot(reflect(-PT_L, nd), vec3(0.0, 0.0, 1.0)), 0.0), 40.0) * .9;
-        h = 2.0; gloss = 0.0;
+  // The drops in the order they land, only those that can reach this part of the map (the others are
+  // more than three radii away, where a drop draws nothing: the test below).
+  vec4 near = ptNear(xz);
+  bool done = false;
+  for (int ch = 0; ch < (PT_MAX + 19) / 20; ch++) {
+    uint bits = uint(near[ch]);
+    for (int bit = 0; bit < 20; bit++) {
+      if (bits == 0u) break;
+      int i = ch * 20 + ptLow(bits);
+      bits &= bits - 1u;
+      if (i >= n) { done = true; break; }
+      vec4 A = texelFetch(uReach, ivec2(1 + 3 * i, PT_N), 0);
+      float age = P - A.z;
+      if (age < -PT_FALL) { done = true; break; }
+      if (age > PT_OWN1 + PT_MELT) continue;
+      vec2 d = xz - A.xy;
+      float R = A.w;
+      if (dot(d, d) > R * R * 9.0) continue;
+      vec4 B = texelFetch(uReach, ivec2(2 + 3 * i, PT_N), 0), C = texelFetch(uReach, ivec2(3 + 3 * i, PT_N), 0);
+      float N = B.x, sd = B.y * 97.0;
+      // A drop in the air: a bead of paint, nearer the eye the higher it is, its shadow closing on it.
+      if (age < 0.0) {
+        float u = -age / PT_FALL, rd = R / (2.37 * sqrt(N)) * (1.0 + 1.2 * u);
+        vec2 so = -PT_L.xy / PT_L.z * u * R * 1.4;
+        shadow = max(shadow, smoothstep(rd * 1.4, rd * .5, length(d - so)) * (1.0 - .5 * u) * .55);
+        float dd = length(d) / rd;
+        if (dd < 1.0) {
+          vec3 nd = vec3(d / rd, sqrt(1.0 - dd * dd));
+          col = C.rgb * (.35 + .8 * max(dot(nd, PT_L), 0.0)) + pow(max(dot(reflect(-PT_L, nd), vec3(0.0, 0.0, 1.0)), 0.0), 40.0) * .9;
+          h = 2.0; gloss = 0.0;
+        }
+        continue;
       }
-      continue;
-    }
-    // The splash, in its own frame (stretched downrange along dir if it came in at a slant).
-    vec2 ax = vec2(cos(B.w), sin(B.w));
-    float skew = B.z;
-    vec2 l = vec2(dot(d, ax) - skew * R * .3, dot(d, vec2(-ax.y, ax.x)));
-    l.x /= 1.0 + skew;
-    float r = length(l), th = atan(l.y, l.x);
-    float s = age / PT_SPREAD;
-    float Rb = R * (s < 1.0 ? sqrt(s) * 1.08 : 1.08 - .08 * smoothstep(1.0, 2.4, s));
-    Rb *= 1.0 + .035 * sin(th * N * 2.0 + sd) + .06 * (noise(vec2(th * 2.0 + sd, sd)) - .5);
-    float dist = r - Rb, hh = .55 + .45 * smoothstep(Rb * .45, Rb * .9, r), part = 0.0;
-    // Its fingers (N of them, of random lengths, longer downrange), and the satellites their tips
-    // pinch off.
-    float gf = smoothstep(.3, 1.0, age / PT_FINGERS), pinch = smoothstep(PT_PINCH * .55, PT_PINCH, age);
-    float stp = 6.2831853 / N, k0 = floor(th / stp + .5);
-    for (int j = -1; j <= 1; j++) {
-      float k = k0 + float(j), kk = mod(k, N);
-      float hk = hash(vec2(kk, sd)), hk2 = hash(vec2(kk + 31.0, sd)), hk3 = hash(vec2(kk - 17.0, sd));
-      float phi = (k + .35 * (hk2 - .5)) * stp;
-      vec2 dk = vec2(cos(phi), sin(phi));
-      float L = R * (.1 + .6 * hk * hk) * (1.0 + 2.2 * skew * max(dk.x, 0.0)) * gf * (1.0 - .3 * pinch);
-      float w = R * (.05 + .06 * hk3);
-      vec2 a = dk * Rb * .7, ba = dk * (Rb + L) - a, pa = l - a;
-      float u = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-      float df = length(pa - ba * u) - w * mix(1.0, .5, u);
-      dist = smin(dist, df, R * .07);
-      if (hk2 > .28 && pinch > 0.0) {
-        vec2 sc = dk * (Rb + L + w * (.9 + 2.5 * hk) * pinch + w);
-        float rs = w * (.5 + .4 * hk3) * smoothstep(.0, .4, pinch);
-        float ds = length(l - sc) - rs;
-        if (ds < dist) { dist = ds; part = 1.0; hh = .75 * sqrt(max(1.0 - pow(length(l - sc) / max(rs, 1e-5), 2.0), 0.0)) + .1; }
+      // The splash, in its own frame (stretched downrange along dir if it came in at a slant).
+      vec2 ax = vec2(cos(B.w), sin(B.w));
+      float skew = B.z;
+      vec2 l = vec2(dot(d, ax) - skew * R * .3, dot(d, vec2(-ax.y, ax.x)));
+      l.x /= 1.0 + skew;
+      float r = length(l), th = atan(l.y, l.x);
+      float s = age / PT_SPREAD;
+      float Rb = R * (s < 1.0 ? sqrt(s) * 1.08 : 1.08 - .08 * smoothstep(1.0, 2.4, s));
+      Rb *= 1.0 + .035 * sin(th * N * 2.0 + sd) + .06 * (noise(vec2(th * 2.0 + sd, sd)) - .5);
+      float dist = r - Rb, hh = .55 + .45 * smoothstep(Rb * .45, Rb * .9, r), part = 0.0;
+      // Its fingers (N of them, of random lengths, longer downrange), and the satellites their tips
+      // pinch off.
+      float gf = smoothstep(.3, 1.0, age / PT_FINGERS), pinch = smoothstep(PT_PINCH * .55, PT_PINCH, age);
+      float stp = 6.2831853 / N, k0 = floor(th / stp + .5);
+      for (int j = -1; j <= 1; j++) {
+        float k = k0 + float(j), kk = mod(k, N);
+        float hk = hash(vec2(kk, sd)), hk2 = hash(vec2(kk + 31.0, sd)), hk3 = hash(vec2(kk - 17.0, sd));
+        float phi = (k + .35 * (hk2 - .5)) * stp;
+        vec2 dk = vec2(cos(phi), sin(phi));
+        float L = R * (.1 + .6 * hk * hk) * (1.0 + 2.2 * skew * max(dk.x, 0.0)) * gf * (1.0 - .3 * pinch);
+        float w = R * (.05 + .06 * hk3);
+        vec2 a = dk * Rb * .7, ba = dk * (Rb + L) - a, pa = l - a;
+        float u = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        float df = length(pa - ba * u) - w * mix(1.0, .5, u);
+        dist = smin(dist, df, R * .07);
+        if (hk2 > .28 && pinch > 0.0) {
+          vec2 sc = dk * (Rb + L + w * (.9 + 2.5 * hk) * pinch + w);
+          float rs = w * (.5 + .4 * hk3) * smoothstep(.0, .4, pinch);
+          float ds = length(l - sc) - rs;
+          if (ds < dist) { dist = ds; part = 1.0; hh = .75 * sqrt(max(1.0 - pow(length(l - sc) / max(rs, 1e-5), 2.0), 0.0)) + .1; }
+        }
       }
-    }
-    // The spray: fine drops thrown out beyond the fingers (more of them downrange).
-    float sp = smoothstep(.6, 1.4, s);
-    if (sp > 0.0 && r > R * 1.15 && r < R * 2.6) {
-      float band = R * .16, ri = floor((r - R * 1.15) / band), ai = floor((th + 3.1415927) / 6.2831853 * 56.0);
-      vec2 cid = vec2(ai, ri) + sd;
-      float pr = .3 * (1.0 + 1.5 * skew * max(cos(th), 0.0)) * (1.0 - ri / 10.0);
-      if (hash(cid) < pr) {
-        float rr = R * 1.15 + (ri + .2 + .6 * hash(cid + 1.0)) * band, aa = (ai + .2 + .6 * hash(cid + 2.0)) / 56.0 * 6.2831853 - 3.1415927;
-        float rs = R * (.012 + .03 * hash(cid + 3.0)) * sp;
-        float ds = length(l - rr * vec2(cos(aa), sin(aa))) - rs;
-        if (ds < dist) { dist = ds; part = 1.0; hh = .45; }
+      // The spray: fine drops thrown out beyond the fingers (more of them downrange).
+      float sp = smoothstep(.6, 1.4, s);
+      if (sp > 0.0 && r > R * 1.15 && r < R * 2.6) {
+        float band = R * .16, ri = floor((r - R * 1.15) / band), ai = floor((th + 3.1415927) / 6.2831853 * 56.0);
+        vec2 cid = vec2(ai, ri) + sd;
+        float pr = .3 * (1.0 + 1.5 * skew * max(cos(th), 0.0)) * (1.0 - ri / 10.0);
+        if (hash(cid) < pr) {
+          float rr = R * 1.15 + (ri + .2 + .6 * hash(cid + 1.0)) * band, aa = (ai + .2 + .6 * hash(cid + 2.0)) / 56.0 * 6.2831853 - 3.1415927;
+          float rs = R * (.012 + .03 * hash(cid + 3.0)) * sp;
+          float ds = length(l - rr * vec2(cos(aa), sin(aa))) - rs;
+          if (ds < dist) { dist = ds; part = 1.0; hh = .45; }
+        }
       }
+      // Drawing back, after it lands, onto its own kind of land: its edge slides along the contours.
+      float own = smoothstep(A.z + PT_OWN0, A.z + PT_OWN1, P);
+      float off = ptOff(floor(C.w), ft, wet), thr = 3200.0 * pow(1.0 - own, 1.6);
+      float keep = 1.0 - smoothstep(thr, thr + 380.0, off);
+      float cov = smoothstep(fp * 1.2, -fp * .8, dist) * keep;
+      // The rim's shadow on whatever is beneath, away from the light.
+      if (dist > 0.0 && part < .5) shadow = max(shadow, (1.0 - smoothstep(0.0, R * .1 + fp * 2.0, dist)) * max(dot(normalize(d), -normalize(PT_L.xy)), 0.0) * .45 * keep);
+      if (cov <= 0.0) continue;
+      // Its colour: the paint, unevenly mixed, then the land's own as it settles.
+      vec3 pc = C.rgb * (.86 + .28 * noise(l / R * 2.5 + sd));
+      float melt = smoothstep(A.z + PT_OWN1 - .02, A.z + PT_OWN1 + PT_MELT, P);
+      pc = mix(pc, land, melt);
+      col = mix(col, pc, cov);
+      float edge = smoothstep(.0, R * .06 + fp * 2.0, -dist), settle = 1.0 - melt;
+      h = mix(h, max(h * .45, 0.0) + hh * (.35 + .65 * edge) * 1.25 * settle * keep, cov);
+      gloss = mix(gloss, mix(.9, .06, smoothstep(.0, .1, age)) * (1.0 - melt), cov);
     }
-    // Drawing back, after it lands, onto its own kind of land: its edge slides along the contours.
-    float own = smoothstep(A.z + PT_OWN0, A.z + PT_OWN1, P);
-    float off = ptOff(floor(C.w), ft, wet), thr = 3200.0 * pow(1.0 - own, 1.6);
-    float keep = 1.0 - smoothstep(thr, thr + 380.0, off);
-    float cov = smoothstep(fp * 1.2, -fp * .8, dist) * keep;
-    // The rim's shadow on whatever is beneath, away from the light.
-    if (dist > 0.0 && part < .5) shadow = max(shadow, (1.0 - smoothstep(0.0, R * .1 + fp * 2.0, dist)) * max(dot(normalize(d), -normalize(PT_L.xy)), 0.0) * .45 * keep);
-    if (cov <= 0.0) continue;
-    // Its colour: the paint, unevenly mixed, then the land's own as it settles.
-    vec3 pc = C.rgb * (.86 + .28 * noise(l / R * 2.5 + sd));
-    float melt = smoothstep(A.z + PT_OWN1 - .02, A.z + PT_OWN1 + PT_MELT, P);
-    pc = mix(pc, land, melt);
-    col = mix(col, pc, cov);
-    float edge = smoothstep(.0, R * .06 + fp * 2.0, -dist), settle = 1.0 - melt;
-    h = mix(h, max(h * .45, 0.0) + hh * (.35 + .65 * edge) * 1.25 * settle * keep, cov);
-    gloss = mix(gloss, mix(.9, .06, smoothstep(.0, .1, age)) * (1.0 - melt), cov);
+    if (done) break;
   }
 }
 // The painting at map point xz, lit in the studio (the top view, before it rises): colour (linear).

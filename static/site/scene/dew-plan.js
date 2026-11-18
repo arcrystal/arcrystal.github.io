@@ -20,18 +20,14 @@
 //   volume-weighted centroid and mixing their colours by volume.
 //   Stars. Science's small stars condense too, each into a bead of clear water with its light at its
 //   heart (the plan repeats the sky's hash, so each bead is where its star was).
-//   The burst cascade. When the field stirs the drops hold still. The drop nearest Racing's card
-//   freezes; freezing from the outside in, its shell traps the water inside, which swells as it
-//   freezes until the shell cracks and bursts (Wildeman et al. 2017), the larger later; its splinters
-//   freeze the drops they reach, which burst in turn (a shortest-path wave out from the card; a front
-//   from the card catches the isolated). Lightning leaps between neighbours until either freezes.
-//   Science's chrome drops go last. Every drop breaks into wedges between its cracks; each piece is
-//   flung out, then moves along the electric field line (the frame +, the card −) into the card
-//   (makeFragments). A click bursts each drop as its own radial front reaches it instead.
-//   Artistic, and said so on the algorithms page: liquid water and coloured ice from stardust, the
-//   lightning, the speeds.
-// The drop simulation runs on a 1 px label grid: 0 bare glass, k+1 drop k.
+//   Accretion. The base fracture plan is immediately available to clicks. dew-worker.js then adds
+//   the gravitational/cooling bake from accretion-plan.js: cached polar histories, measured collection,
+//   lens tables and a circle-to-stadium settlement. Only scroll progress evaluates the finished plan.
+//   The compact cubic entries below remain the base plan used by the static share-card tools.
 
+import { packAccretion } from './accretion-plan.js';
+import { packOptics } from './accretion-optics.js';
+import { TRACK, trackFrame, trackLocal, trackToWorld, trackPoint, trackTangent, trackDistance, trackShardAt } from './track-plan.js';
 import { HOLD, holdFor, glassEase, transitP } from '../lerp.js';
 import { GIANTS, giantCount } from './giants.js';
 import { PALETTE, lineRGB, rgb, toLinear } from './palette.js';
@@ -225,7 +221,7 @@ export const paneAt = (plan, q) => shockAt(plan, q) + 0.02;
 export function holdStartP(phone) {
   const pin = phone ? HOLD.pinTouch : HOLD.pin, L = holdFor('glass', pin);
   const R = pin * L.pin, p = L.leadIn / (R + L.leadIn + L.leadOut);
-  return transitP(glassEase(p));
+  return transitP(glassEase(p, pin));
 }
 export const KIND = Object.freeze({ drop: 0, merged: 1, slider: 2, pearl: 3, stopped: 4 });
 
@@ -459,7 +455,7 @@ export function makeClumps(plan, random) {
 // Racing's card has moved (the same screen): what depends on where it is, redone (dew-worker.js).
 export function aimShards(plan, card) {
   plan.cardRect = card.map(Number);
-  makeShards(plan);
+  if (!plan.accretion) makeShards(plan);
 }
 
 // ---- the plan ---------------------------------------------------------------------------------------------
@@ -514,87 +510,27 @@ export function makeDewPlan(W, H, { seed = DEW.seed, phone = W < 700, card = nul
 // singularity, Marín et al. 2014); a moment later (cleave) it splits along ice's prism planes, 60°
 // apart (ice Ih is hexagonal), into a few sectors: shards.
 export const FREEZE = Object.freeze({ f0: 0.52, f1: 0.78, stefan: 1.1e-4, through: 0.024, cleave: 0.006, wobble: 0.03 });
-// Distance from q to the card (0 inside it): its signed-distance box, clamped.
-export const cardDistance = (q, card) => {
-  const dx = Math.abs(q[0] - card[0] - card[2] / 2) - card[2] / 2, dy = Math.abs(q[1] - card[1] - card[3] / 2) - card[3] / 2;
-  return Math.max(0, Math.hypot(Math.max(dx, 0), Math.max(dy, 0)));
-};
-export const frontSpeed = (W, H, card) => Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(q => cardDistance(q, card))) / (FREEZE.f1 - FREEZE.f0);
+export const frontSpeed = (W, H, card) => Math.max(...[[0, 0], [W, 0], [0, H], [W, H]].map(q => trackDistance(q, trackFrame(W, H, card)))) / (FREEZE.f1 - FREEZE.f0);
 // (Its waviness: two crossed swells, nothing at the card's edge.)
 export const frontWave = q => 0.6 * Math.sin(q[0] * 0.0061 + q[1] * 0.0037) * Math.sin(q[1] * 0.0053 - q[0] * 0.0029) + 0.4 * Math.sin(q[0] * 0.0113 - q[1] * 0.0071 + 1.3);
-export const freezeTime = (plan, q) => { const d = cardDistance(q, plan.cardRect); return FREEZE.f0 + d / plan.vFreeze + FREEZE.wobble * frontWave(q) * Math.min(1, d / 160); };
+export const freezeTime = (plan, q) => { const d = trackDistance(q, trackFrame(plan.W, plan.H, plan.cardRect)); return FREEZE.f0 + d / plan.vFreeze + FREEZE.wobble * frontWave(q) * Math.min(1, d / 160); };
 // How its crack lines are chosen of the six prism directions θ₀ + 60°k, by how many pieces it splits
-// into (a star's bead stays whole).
+// into (a star's bead cleaves in two).
 export const CLEAVE = Object.freeze({ 1: [], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4], 6: [0, 1, 2, 3, 4, 5] });
-export const pieceCount = (r, k, sky) => sky ? 1 : clamp(Math.floor(r / (3.2 * k)) + 2, 2, 6);
+export const pieceCount = (r, k, sky) => sky ? 2 : clamp(Math.floor(r / (3.2 * k)) + 2, 2, 6);
 // A large drop also cracks across its sectors (concentric, where its freezing front paused): the radii
 // its pieces are cut at, as shares of its radius.
 export const ringsOf = (r, k, sci) => sci ? [0, 0.32, 0.58, 0.8, 1] : r > 9 * k ? [0, 0.55, 1] : [0, 1];
 
-// ---- the vacuum ----------------------------------------------------------------------------------------
-// Racing's card draws everything in. The frame is charged one way and the card the other, a little more
-// strongly, so every field line ends on the card (a two-dimensional Coulomb field, E = Σ qᵢ (x − xᵢ) / |x −
-// xᵢ|², softened). Each shard, overdamped, moves along the line through where it split at a speed in
-// proportion to the field (slow at first, quick as it nears the card); its path is traced with RK4 and
-// kept at equal steps of time, so the shader's straight-line steps between them are its speed. The
-// field grid: each point's line direction, how long its gas takes to reach the card, and when the
-// vacuum has emptied it (Racing's world shows there). The fuse clock: when the card's glass at each
-// point has taken in its shards.
-//   path: points a shard's path is kept at; sink: the card's charge over the frame's; lag: from its
-//   split to its pull; fly: the shortest and longest flights, median the usual; grid, fuse: the cells
-//   (px); evac: from a point's freezing to its emptying, plus its gas's flight (evacK of it): a place
-//   is empty once what was there has reached the card.
-export const FIELD = Object.freeze({ path: 16, sink: 1.4, lag: 0.012, fly: Object.freeze([0.045, 0.15]), median: 0.09, grid: 32, fuse: 10, spread: 1100, evac: 0.035, evacK: 1 });
-export function makeField(W, H, card) {
-  const m = 0.06 * Math.min(W, H), src = [], sink = [];
-  for (let k = 0; k < 40; k++) {
-    const P2 = 2 * (W + H + 4 * m), t = k / 40 * P2, x0 = -m, y0 = -m, w = W + 2 * m, h = H + 2 * m;
-    src.push(t < w ? [x0 + t, y0] : t < w + h ? [x0 + w, y0 + t - w] : t < 2 * w + h ? [x0 + w - (t - w - h), y0 + h] : [x0, y0 + h - (t - 2 * w - h)]);
-  }
-  for (let j = 0; j < 3; j++) for (let i = 0; i < 4; i++) sink.push([card[0] + card[2] * (i + 0.5) / 4, card[1] + card[3] * (j + 0.5) / 3]);
-  for (let k = 0; k < 12; k++) { const t = k / 12 * 2 * (card[2] + card[3]); sink.push(t < card[2] ? [card[0] + t, card[1]] : t < card[2] + card[3] ? [card[0] + card[2], card[1] + t - card[2]] : t < 2 * card[2] + card[3] ? [card[0] + card[2] - (t - card[2] - card[3]), card[1] + card[3]] : [card[0], card[1] + card[3] - (t - 2 * card[2] - card[3])]); }
-  const N = src.length + sink.length, cx = new Float64Array(N), cy = new Float64Array(N), cq = new Float64Array(N), e2 = 64;
-  src.forEach((p, i) => { cx[i] = p[0]; cy[i] = p[1]; cq[i] = 1 / src.length; });
-  sink.forEach((p, i) => { cx[src.length + i] = p[0]; cy[src.length + i] = p[1]; cq[src.length + i] = -FIELD.sink / sink.length; });
-  const Ex = (x, y) => { let ex = 0, ey = 0; for (let i = 0; i < N; i++) { const dx = x - cx[i], dy = y - cy[i], r2 = dx * dx + dy * dy + e2; ex += cq[i] * dx / r2; ey += cq[i] * dy / r2; } return [ex, ey]; };
-  // Tabulated on an 8 px grid over the screen (and a margin), read bilinearly.
-  const g = 8, gx0 = -2 * g, gy0 = -2 * g, gw = Math.ceil((W + 4 * g) / g) + 1, gh = Math.ceil((H + 4 * g) / g) + 1, tab = new Float64Array(gw * gh * 2);
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) { const e = Ex(gx0 + i * g, gy0 + j * g); tab[(j * gw + i) * 2] = e[0]; tab[(j * gw + i) * 2 + 1] = e[1]; }
-  const E = (x, y) => {
-    const u = clamp((x - gx0) / g, 0, gw - 1.001), v = clamp((y - gy0) / g, 0, gh - 1.001), i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
-    const o = (j * gw + i) * 2, o2 = o + gw * 2;
-    return [0, 1].map(c => (tab[o + c] * (1 - fu) + tab[o + 2 + c] * fu) * (1 - fv) + (tab[o2 + c] * (1 - fu) + tab[o2 + 2 + c] * fu) * fv);
-  };
-  // A line ends where it meets the card (its edge, or inside it).
-  const inside = (x, y) => cardDistance([x, y], card) < 1.5;
-  // A line from start to the card: its points and the (raw) time to each, ∫ ds / |E|.
-  const trace = start => {
-    let [x, y] = start, t = 0;
-    const pts = [[x, y]], ts = [0];
-    for (let k = 0; k < 400 && !(k > 0 && inside(x, y)); k++) {
-      const h = clamp(0.08 * cardDistance([x, y], card), 3, 36);
-      const dir = (x, y) => { const e = E(x, y), l = Math.hypot(e[0], e[1]) || 1; return [e[0] / l, e[1] / l, l]; };
-      const a = dir(x, y), b = dir(x + a[0] * h / 2, y + a[1] * h / 2), c = dir(x + b[0] * h / 2, y + b[1] * h / 2), d = dir(x + c[0] * h, y + c[1] * h);
-      x += h * (a[0] + 2 * b[0] + 2 * c[0] + d[0]) / 6; y += h * (a[1] + 2 * b[1] + 2 * c[1] + d[1]) / 6;
-      t += h / ((a[2] + 2 * b[2] + 2 * c[2] + d[2]) / 6);
-      pts.push([x, y]); ts.push(t);
-    }
-    // A line that has not reached the card ends straight into its middle.
-    if (!inside(x, y)) { const e = [card[0] + card[2] / 2, card[1] + card[3] / 2], L = Math.hypot(e[0] - x, e[1] - y); t += L / Math.hypot(...E(x, y)); pts.push(e); ts.push(t); }
-    return { pts, ts, T: t };
-  };
-  return { E, trace };
-}
-// A traced line kept at n equal steps of its time.
-function byTime(line, n) {
-  const { pts, ts, T } = line, out = [];
-  for (let i = 0, k = 0; i < n; i++) {
-    const t = T * i / (n - 1);
-    while (k + 1 < ts.length - 1 && ts[k + 1] < t) k++;
-    const u = ts[k + 1] > ts[k] ? clamp((t - ts[k]) / (ts[k + 1] - ts[k])) : 0, a = pts[k], b = pts[Math.min(k + 1, pts.length - 1)];
-    out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
-  }
-  return out;
+// ---- the track: prepared entries, analytic lane circulation ------------------------------------------
+export const FIELD = Object.freeze({ path: 16, lag: 0.012, grid: 32, evac: 0.035 });
+export const SHARD_TEXELS = 6;
+// Find an entry near the drop, then advance a little so the bend draws it into counterclockwise flow.
+function entryPhase(q, frame, lane) {
+  const p = trackLocal(q, frame);
+  let phase = 0, best = Infinity;
+  for (let i = 0; i < 128; i++) { const t = i / 128, v = trackPoint(t, lane), d = (v[0]-p[0])**2+(v[1]-p[1])**2; if(d<best){best=d;phase=t;} }
+  return phase + .035;
 }
 // The freeze, the shards and their flights, the field grid and the fuse clock, for Racing's card where
 // it is (redone alone when the card moves: aimShards).
@@ -602,12 +538,12 @@ export function makeShards(plan) {
   const { W, H, records } = plan, card = plan.cardRect, k = clamp(H / 900, 0.8, 1.5);
   const random = rng(plan.seed * 131 + W * 5 + H * 3);
   plan.vFreeze = frontSpeed(W, H, card);
-  const field = makeField(W, H, card), shards = [], lines = [];
+  const frame = trackFrame(W, H, card), shards = [];
   // Each drop's freezing and its pieces.
   records.forEach((r, id) => {
     const sci = r.science !== undefined, rr = sci ? Math.cbrt(r.V0) : radiusAt(r, 9);
     r.freeze = null;
-    if (!sci && rr < 0.9) return;
+    if (rr <= 0 || r.end <= FREEZE.f0) return;
     const tf = freezeTime(plan, r.c), tc = tf + Math.min(FREEZE.stefan * (rr / k) ** 2, FREEZE.through) + FREEZE.cleave;
     const n = sci ? 6 : pieceCount(rr, k, !!r.sky), th0 = random() * Math.PI / 3, dirs = CLEAVE[n];
     r.freeze = { tf, tc, th0, n, first: shards.length };
@@ -622,54 +558,41 @@ export function makeShards(plan) {
       const r1 = rings[b] * rr, r2 = rings[b + 1] * rr, D = a1 - a0, mid = (a0 + a1) / 2;
       const dc = n === 1 && r1 === 0 ? 0 : 4 * Math.sin(D / 2) * (r2 ** 3 - r1 ** 3) / (3 * D * (r2 ** 2 - r1 ** 2));
       const start = [r.c[0] + Math.cos(mid) * dc, r.c[1] + Math.sin(mid) * dc];
-      const line = field.trace(start);
-      lines.push(line);
-      shards.push({ rec: id, c: r.c, r: r2, rin: r1, a0, a1, start, line, t0: tc + FIELD.lag + 0.0015 * si + 0.005 * (rings.length - 2 - b), kind: sci ? 1 : r.sky ? 2 : 0, col: r.col ?? [1, 1, 1], spin: (random() < 0.5 ? -1 : 1) * (1.5 + 3 * random()), seed: random() });
+
+      shards.push({ rec: id, c: r.c, r: r2, rin: r1, a0, a1, start, t0: tc + FIELD.lag + 0.0015 * si + 0.005 * (rings.length - 2 - b), kind: sci ? 1 : r.sky ? 2 : 0, col: r.col ?? [1, 1, 1], spin: (random() < 0.5 ? -1 : 1) * (1.5 + 3 * random()), seed: random() });
     } });
   });
-  // Its flight: the line's time, its spread eased (a far shard's would be very long), the usual flight
-  // median (within fly).
-  const raw = shards.map(s => s.line.T).sort((a, b) => a - b), Tm = Math.max(raw[raw.length >> 1] ?? 1, 1e-9);
-  const flight = T => clamp(FIELD.median * Math.pow(T / Tm, 0.3), FIELD.fly[0], FIELD.fly[1]);
-  for (const s of shards) {
-    s.fly = flight(s.line.T);
-    s.t1 = s.t0 + s.fly;
-    s.path = byTime(s.line, FIELD.path);
-    delete s.line;
+  // A cubic approach, then constant arc-length circulation. No per-frame integration or lookup paths.
+  for (let i = 0; i < shards.length; i++) {
+    const s = shards[i];
+    s.lane = i % TRACK.lanes + (s.seed - .5) * .28;
+    s.phase = entryPhase(s.start, frame, s.lane);
+    s.join = s.t0 + .085 + .025 * s.seed;
+    s.t1 = .995 + .14 * s.seed;
+    s.fly = s.t1 - s.t0;
+    s.laps = (s.t1 - s.join) * (4.2 + .5 * s.seed);
+    s.entry = trackToWorld(trackPoint(s.phase, s.lane), frame);
+    const tangent = trackTangent(s.phase, s.lane), origin = trackToWorld([0,0],frame), td = trackToWorld(tangent,frame).map((v,j)=>v-origin[j]);
+    const L = 4*TRACK.straight+2*Math.PI*(TRACK.inner+(s.lane+.5)*TRACK.lane);
+    const arm = L*s.laps/(s.t1-s.join)*(s.join-s.t0)/3;
+    s.control2 = s.entry.map((v,j)=>v-td[j]*arm);
+    s.control = s.start.map((v,j)=>v+(s.control2[j]-v)*.36);
+    // Reference samples only for the static share-card tool; never uploaded or read by the renderer.
+    s.path = Array.from({length: FIELD.path},(_,k)=>trackShardAt(s,s.t0+s.fly*k/(FIELD.path-1),W,H,card));
   }
   plan.shards = shards;
-  // The field grid: each point's line, its gas's flight, when it is emptied.
-  const G = FIELD.grid * k, gc = Math.ceil(W / G) + 1, gr = Math.ceil(H / G) + 1, grid = [];
-  for (let j = 0; j < gr; j++) for (let i = 0; i < gc; i++) {
-    const q = [i * G, j * G], e = field.E(q[0], q[1]), l = Math.hypot(e[0], e[1]) || 1;
-    const T = flight(field.trace(q).T);
-    grid.push([e[0] / l, e[1] / l, T, freezeTime(plan, q) + FIELD.evac + FIELD.evacK * T]);
+  const G = FIELD.grid*k, gc = Math.ceil(W/G)+1, gr = Math.ceil(H/G)+1, grid=[];
+  for(let j=0;j<gr;j++)for(let i=0;i<gc;i++){
+    const q=[i*G,j*G], phase=entryPhase(q,frame,3.5), end=trackToWorld(trackPoint(phase,3.5),frame);
+    const d=end.map((v,c)=>v-q[c]), l=Math.hypot(...d)||1, flight=.10;
+    grid.push([d[0]/l,d[1]/l,flight,freezeTime(plan,q)+FIELD.evac+flight]);
   }
-  plan.field = { cols: gc, rows: gr, cell: G, grid };
-  // The fuse clock over the card: from where each shard lands, its light spreading through the glass
-  // (each point lit by the first to reach it), its colour the arriving shards' near it.
-  const fc = FIELD.fuse * k, cols = Math.ceil(card[2] / fc) + 1, rows = Math.ceil(card[3] / fc) + 1, t = new Float64Array(cols * rows).fill(9), rgb = new Float64Array(cols * rows * 3);
-  const lands = shards.map(s => { const e = s.path.at(-1); return [e[0] - card[0], e[1] - card[1], s.t1, s.col, s.kind]; });
-  const B = 40 * k, bc = Math.ceil(card[2] / B) + 1, near = new Map();
-  for (const l of lands) { const key = Math.floor(l[1] / B) * bc + Math.floor(l[0] / B); if (!near.has(key)) near.set(key, []); near.get(key).push(l); }
-  const lx = Float64Array.from(lands, l => l[0]), ly = Float64Array.from(lands, l => l[1]), lt = Float64Array.from(lands, l => l[2]), sp = FIELD.spread * k;
-  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    const x = i * fc, y = j * fc, m = j * cols + i;
-    let best = 9;
-    for (let n = 0; n < lx.length; n++) { const dx = x - lx[n], dy = y - ly[n], v = lt[n] + Math.sqrt(dx * dx + dy * dy) / sp; if (v < best) best = v; }
-    t[m] = best;
-    // (Its colour: the shards landing within a few cells, nearer counting more.)
-    let wsum = 0;
-    const bx = Math.floor(x / B), by = Math.floor(y / B);
-    for (let yy = by - 2; yy <= by + 2; yy++) for (let xx = bx - 2; xx <= bx + 2; xx++) for (const [px, py, , col, kind] of near.get(yy * bc + xx) ?? []) {
-      const dx = x - px, dy = y - py, w = Math.exp(-Math.sqrt(dx * dx + dy * dy) / (40 * k)) * (kind === 2 ? 0.3 : 1);
-      for (let c = 0; c < 3; c++) rgb[m * 3 + c] += w * col[c];
-      wsum += w;
-    }
-    const mx = Math.max(rgb[m * 3], rgb[m * 3 + 1], rgb[m * 3 + 2], 1e-9);
-    for (let c = 0; c < 3; c++) rgb[m * 3 + c] = wsum > 1e-6 ? rgb[m * 3 + c] / mx : 1;
-  }
-  plan.fuse = { cols, rows, cell: fc, t, rgb };
+  plan.field={cols:gc,rows:gr,cell:G,grid};
+  // A small lane/arc-length atlas: when each patch receives its first shard.
+  const cols=128,rows=8,t=new Float64Array(cols*rows).fill(9),rgb=new Float64Array(cols*rows*3).fill(1);
+  for(const s of shards){const lane=Math.max(0,Math.min(7,Math.round(s.lane))),phase=((s.phase+s.laps)%1+1)%1;
+    for(let x=0;x<cols;x++){const d=Math.abs(x/cols-phase),arrival=s.t1+Math.min(d,1-d)*.10;const i=lane*cols+x;t[i]=Math.min(t[i],arrival);}}
+  plan.fuse={cols,rows,cell:1,t,rgb};
   return plan;
 }
 
@@ -728,16 +651,16 @@ export function packDew(plan) {
   }
   // Cold from the card and the vacuum (glsl/units.js drops, shards, fieldlines; glsl/dew.js): a texel a
   // record (when the front reaches it, when it splits, its first crack's angle, how many pieces); then
-  // eleven texels a shard (where its drop is, its radius and first edge; its last edge, when it is
+  // six texels a shard (where its drop is, its radius and first edge; its last edge, when it is
   // pulled, when it fuses, its spin; its colour and kind (0 a drop's, 1 a chrome drop's, 2 a star's); its
-  // path's sixteen points, two a texel); then the field grid; then the fuse clock.
+  // cubic entry controls, lane, phase, laps and join time); then the field grid; then the fuse clock.
   const freezeBase = cells.length, SH = plan.shards ?? [];
   records.forEach(r => cells.push(r.freeze ? [r.freeze.tf, r.freeze.tc, r.freeze.th0, r.freeze.n] : [9, 9, 0, 0]));
   const shardBase = cells.length;
   for (const sh of SH) {
     // (Its kind's fraction: its inner radius over a thousand.)
     cells.push([sh.c[0], sh.c[1], sh.r, sh.a0], [sh.a1, sh.t0, sh.t1, sh.spin], [...sh.col, sh.kind + Math.min(sh.rin, 999) / 1000]);
-    for (let i = 0; i < FIELD.path; i += 2) cells.push([sh.path[i][0], sh.path[i][1], sh.path[i + 1][0], sh.path[i + 1][1]]);
+    cells.push([...sh.start, ...sh.control], [...sh.control2, ...sh.entry], [sh.lane, sh.phase, sh.laps, sh.join]);
   }
   const fieldBase = cells.length, fd = plan.field ?? { cols: 0, rows: 0, cell: 1, grid: [] };
   for (const g of fd.grid) cells.push(g);
@@ -748,27 +671,36 @@ export function packDew(plan) {
   cells[19] = [...cardR];
   cells[20] = [fieldBase, fd.cols, fd.rows, fd.cell];
   cells[21] = [fuseBase, fu.cols, fu.rows, fu.cell];
-  cells[22] = [FREEZE.f0, FREEZE.wobble, SH.length ? Math.max(...SH.map(x => x.t1)) : 9, 0];
+  cells[22] = [plan.accretion?.55:FREEZE.f0, plan.accretion?.004:FREEZE.wobble, SH.length ? Math.max(...SH.map(x => x.t1)) : 9, 0];
   // The nebulae: five texels each: where and when, how long it grows; its size, which giant, its
   // brightness, a seed; its turn, aspect, temperature, kind; its phases; when its gas drains away and
   // which way its gas turns.
   const eventBase = cells.length;
   for (const e of plan.events) cells.push([e.S[0], e.S[1], e.t, e.span], [e.Rmax, e.giant, e.L, e.seed], [e.angle, e.aspect, e.T / 10000, e.type], e.phase, [e.drain[0], e.drain[1], e.spin, 0]);
-  // Gravity's spots (glsl/dew.js dewSpots): which clumps' cells reach each tile.
+  // Gravity's spots (glsl/dew.js dewSpots): which clumps' cells reach each tile, a texel a tile (where its
+  // list starts, how long it is), then the lists, each clump in them written out whole in three texels
+  // (the shader reads a tile's clumps over and over, so no record is looked up on the way): where it is,
+  // its Jeans length, how far its cell reaches; when it starts to fall, when its drop snaps in, its drop's
+  // radius once grown (the cube root of its record's volume then, from the float32 values the record's
+  // texels hold), its record; its colour.
   const sp = spotLists(plan), spotHead = cells.length;
   const spotEntries = [];
   for (const l of sp.lists) { cells.push([spotEntries.length, l.length, 0, 0]); for (const id of l) spotEntries.push(id); }
-  const spotEntry = cells.length;
-  for (let k = 0; k < spotEntries.length; k += 4) cells.push([spotEntries[k] ?? 0, spotEntries[k + 1] ?? 0, spotEntries[k + 2] ?? 0, spotEntries[k + 3] ?? 0]);
+  const spotEntry = cells.length, f32 = Math.fround;
+  for (const id of spotEntries) {
+    const r = records[id], cl = plan.clumps[r.core], gEnd = Math.min(r.tg, r.tf, 9);
+    cells.push([r.c[0], r.c[1], cl.ell, cl.R], [cl.ts, cl.tsnap, Math.cbrt(Math.max(f32(r.V0) + f32(r.q) * (f32(gEnd) - f32(r.t0)), 0)), id], [...(r.col ?? [1, 1, 1]), 0]);
+  }
   cells[16] = [spotHead, spotEntry, sp.T, sp.cols];
   cells[17] = [sp.rows, sp.last, sp.max, 0];
   cells[meta] = [plan.events.length, eventBase, 0, 0];
   cells[meta + 1] = [0, 0, SN.cool, 0];
   cells[2] = [recBase, 0, 0, 0];
+  if (plan.accretion) { packAccretion(plan, cells); packOptics(cells); }
   const width = 1024, height = Math.ceil(cells.length / width), data = new Float32Array(width * height * 4);
   cells.forEach((v, i) => data.set(v, i * 4));
   return {
     width, height, data,
-    stats: { shards: SH.length, records: records.length, spots: sp.max, bytes: data.byteLength },
+    stats: { shards: SH.length, records: records.length, spots: sp.max, bytes: data.byteLength, accretion: plan.accretion?.stats },
   };
 }

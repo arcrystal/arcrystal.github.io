@@ -7,7 +7,9 @@
 // perspective of a camera FOCAL px in front of the screen's centre.
 import { NOISE } from './common.js';
 import { FLIGHT, SEAM_TEX } from './flight.js';
-import { DEW, FIELD, FREEZE, CLICK, SKY } from '../dew-plan.js';
+import { ACCRETION_COMMON } from './accretion.js';
+import { TRACK_GLSL } from '../track-plan.js';
+import { DEW, FIELD, FREEZE, CLICK, SKY, SHARD_TEXELS } from '../dew-plan.js';
 import { PALETTE, rgb } from '../palette.js';
 import { FIRE_UNITS } from './fire.js';
 const pv3 = h => `vec3(${rgb(h).map(x => x.toFixed(4)).join(', ')})`;
@@ -554,7 +556,7 @@ uniform sampler2D uGas;
 vec3 snowLin(vec3 c) { return c * c; }
 vec3 snowDisp(vec3 c) { return sqrt(max(c, 0.0)); }
 `;
-const SNOW_HEAD = /* glsl */ `
+const SNOW_HEAD = TRACK_GLSL + ACCRETION_COMMON + /* glsl */ `
 vec4 dd(int i) { return texelFetch(uReach, ivec2(i % 1024, i / 1024), 0); }
 int shardBase() { return int(dd(18).y); }
 // A click's clocks (dew-plan.js CLICK): how far out from the click (0 .. 1 at the farthest corner).
@@ -563,20 +565,32 @@ float clickSpots(float up) { return ${CLICK.echo[0].toFixed(4)} + ${CLICK.echo[1
 float clickFreeze(float up) { return ${CLICK.freeze[0].toFixed(4)} + ${CLICK.freeze[1].toFixed(4)} * up; }
 float clickFlight(float up) { return ${CLICK.fly[0].toFixed(4)} + ${CLICK.fly[1].toFixed(4)} * up * up; }
 int shardCount() { return int(dd(18).z); }
-// Point i (0..15) of shard k's path (equal steps of its time), plan px.
-vec2 shardPt(int base, int i) { vec4 t = dd(base + 3 + i / 2); return (i & 1) == 0 ? t.xy : t.zw; }
-// Where it is u of the way through its flight, its direction there and its speed (Catmull–Rom through
-// the points; their spacing is its speed).
-vec2 shardAt(int base, float u, out vec2 tang, out float speed) {
-  float f = clamp(u, 0.0, 1.0) * 15.0;
-  int i = int(min(floor(f), 14.0));
-  float t = f - float(i);
-  vec2 p0 = shardPt(base, max(i - 1, 0)), p1 = shardPt(base, i), p2 = shardPt(base, i + 1), p3 = shardPt(base, min(i + 2, 15));
-  vec2 a = 2.0 * p1, b = p2 - p0, c = 2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3, d = -p0 + 3.0 * p1 - 3.0 * p2 + p3;
-  tang = .5 * (b + 2.0 * c * t + 3.0 * d * t * t);
-  speed = length(tang);
-  tang = speed > 1e-4 ? tang / speed : vec2(1.0, 0.0);
-  return .5 * (a + b * t + c * t * t + d * t * t * t);
+// Cubic capture, then exact arc-length circulation in the moving track frame.
+bool acSecondary=false;
+vec2 shardAt(int base,float P,out vec2 tang,out float speed) {
+ if(dd(23).w>.5){
+  int k=(base-shardBase())/6;vec2 p=acPosition(k,P,acSecondary),d=acPosition(k,P+.00002,acSecondary)-p;
+  speed=length(d)/.00002;tang=length(d)>.000001?normalize(d):vec2(1,0);return p;
+ }
+ vec4 S1=dd(base+1),A=dd(base+3),B=dd(base+4),C=dd(base+5);
+ vec2 pos,d;
+ if(P<C.w){
+   float u=clamp((P-S1.y)/(C.w-S1.y),0.0,1.0),v=1.0-u;
+   pos=v*v*v*A.xy+3.0*v*v*u*A.zw+3.0*v*u*u*B.xy+u*u*u*B.zw;
+   d=3.0*(v*v*(A.zw-A.xy)+2.0*v*u*(B.xy-A.zw)+u*u*(B.zw-B.xy))/(C.w-S1.y);
+ }else{
+   float u=clamp((P-C.w)/(S1.z-C.w),0.0,1.0);
+   vec4 sample0=trSample(C.y+C.z*u,C.x);
+   vec3 frame=trFrame(dd(0).xy,dd(19),P);
+   pos=trWorld(sample0.xy,frame);
+   float L=4.0*TR_A+TAU*(TR_IN+(C.x+.5)*TR_LANE);
+   d=trRotate(sample0.zw*vec2(1.0,.86))*frame.z*L*C.z/(S1.z-C.w);
+   float x=clamp((P-.96)/.18,0.0,1.0),rate=30.0*x*x*(x-1.0)*(x-1.0)/.18;
+   vec3 df=(trFrame(dd(0).xy,dd(19),1.2)-trFrame(dd(0).xy,dd(19),0.0))*rate;
+   d+=df.xy+trRotate(sample0.xy*vec2(1.0,.86))*df.z;
+ }
+ speed=length(d);tang=speed>.00001?d/speed:vec2(1.0,0.0);
+ return pos;
 }
 `;
 // The drops: water lenses (each a spherical cap: what is behind it, inverted and minified, its colour
@@ -765,10 +779,13 @@ out vec4 vSec;
 out vec3 vN;
 out vec4 vCol;
 out vec2 vU;
+out float vImage;
+out vec2 vEmission;
 void main() {
-  int k = gl_InstanceID;
+  int k = gl_InstanceID<shardCount()?gl_InstanceID:(gl_InstanceID-shardCount())*8;
+  acSecondary=gl_InstanceID>=shardCount();
   if (k >= shardCount()) { gl_Position = GONE; return; }
-  int base = shardBase() + k * 11;
+  int base = shardBase() + k * ${SHARD_TEXELS};
   vec4 S0 = dd(base), S1 = dd(base + 1), S2 = dd(base + 2);
   float P = transitP(uH), lag = ${FIELD.lag.toFixed(4)};
   vec2 WH = dd(0).xy, toS = uRegion.zw / WH;
@@ -782,6 +799,9 @@ void main() {
     t0 = clickFreeze(up) + ${CLICK.split.toFixed(4)} + lag + fract(float(k) * .618034) * ${CLICK.stagger.toFixed(4)};
     t1 = t0 + clickFlight(up);
   }
+  vEmission=vec2(0,1);
+  vImage=acSecondary?.23*smoothstep(.62,.76,P)*(1.0-smoothstep(.99,1.04,P)):1.0;
+  if(acSecondary&&(dd(int(dd(23).x)+k*2).z<0.0||P<.62||P>1.04)){gl_Position=GONE;return;}
   float u = (P - t0) / max(t1 - t0, 1e-4);
   if (P < t0 - lag || u > 1.04) { gl_Position = GONE; return; }
   float r = S0.z, a0 = S0.w, a1 = S1.x, D = a1 - a0, mid = .5 * (a0 + a1), kind = floor(S2.w + .0001), r1 = (S2.w - kind) * 1000.0;
@@ -796,7 +816,7 @@ void main() {
   vec2 l = bd * bb + nd * nn;
   vL = l + bd * dc;
   // Before its pull: where it split, the crack opening a little.
-  float open = smoothstep(-lag, 0.0, P - t0) * 1.2;
+  float open = smoothstep(-lag, 0.0, P - t0) * (uClick>.5?1.2:0.0);
   vec2 tang = bd, home = S0.xy + bd * (dc + open);
   float speed = 0.0;
   vec2 pos = home;
@@ -808,7 +828,7 @@ void main() {
       pos = (uO - to * kk) / toS;
       tang = normalize(to + 1e-4);
       speed = length(to) / (2.0 * max(kk, .15)) / 15.0 / toS.y;
-    } else pos = shardAt(base, u, tang, speed);
+    } else { pos = shardAt(base, P, tang, speed); speed *= (t1-t0)/15.0; }
   }
   float uu = clamp(u, 0.0, 1.0);
   // Turning toward lying along the field (an axis: either way), spinning about it.
@@ -821,14 +841,21 @@ void main() {
   float a = dot(l, T), b = dot(l, Nn);
   float stretch = 1.0 + 1.6 * smoothstep(.45, 1.0, uu) * min(speed / max(15.0 * r, 1.0), 1.5);
   float shrink = (1.0 - .7 * smoothstep(.9, 1.02, u));
-  a *= stretch * shrink; b *= shrink;
+  float enlarge=1.0+.12*smoothstep(0.0,.12,uu);
+  a *= stretch * shrink * enlarge; b *= shrink * enlarge;
   // Lifted toward the camera mid-flight, larger as it comes.
-  float lift = sin(PI * uu);
-  a *= 1.0 + .9 * lift; b *= 1.0 + .9 * lift;
+  float captured = click ? 0.0 : smoothstep(t0,t0+.07,P);
+  float lift = sin(PI * uu) * (1.0-captured) * (click?1.0:0.0);
+  float lanePx=mix(.018,TR_LANE,acMorph(P))*acFrame(WH,dd(19),P).z;
+  float fit=min(1.0,lanePx*.84/max(b1-b0,hw*2.0));
+  float settleScale=mix(1.0,fit,captured);
+  a *= (1.0 + .9 * lift)*settleScale; b *= (1.0 + .9 * lift)*settleScale;
   vec3 p3 = vec3((pos + T * a + Nn * b * cos(roll)) * toS, (b * sin(roll)) * toS.y + 30.0 * lift);
+  vEmission=vec2(min(.4,acHeat*50.0),mix(1.0,clamp(acShift,.55,1.6),captured));
   vN = vec3(-Nn * sin(roll), cos(roll));
   vSec = vec4(r, a0, D, fract(float(k) * .618034));
-  vCol = vec4(S2.rgb, kind + r1 / 1000.0);
+  vec3 material=mix(S2.rgb,vec3(.78,.40,.26),click?0.0:trEase((P-.96)/.075)*.7);
+  vCol = vec4(material, kind + r1 / 1000.0);
   vU = vec2(u, P - t0 + lag);
   gl_Position = project(p3);
 }`;
@@ -838,6 +865,8 @@ in vec4 vSec;
 in vec3 vN;
 in vec4 vCol;
 in vec2 vU;
+in float vImage;
+in vec2 vEmission;
 void main() {
   float r = vSec.x, rr = length(vL) / r, D = vSec.z, kind = floor(vCol.a + .0001), r1 = (vCol.a - kind) * 1000.0;
   float da = mod(atan(vL.y, vL.x) - vSec.y, TAU);
@@ -845,6 +874,7 @@ void main() {
   // How far in from its edges (px): its arc, its inner arc (a ring's piece), its two cleavage faces.
   vec2 e0 = vec2(cos(vSec.y), sin(vSec.y)), e1 = vec2(cos(vSec.y + D), sin(vSec.y + D));
   float dArc = (1.0 - rr) * r;
+  if (kind > 1.5) { float face=floor(atan(vL.y,vL.x)/(PI/3.0)+.5)*(PI/3.0); dArc=r*.8660254-dot(vL,vec2(cos(face),sin(face))); }
   float dCut = whole ? 1e3 : min(dot(vL, vec2(-e0.y, e0.x)), dot(vL, vec2(e1.y, -e1.x)));
   if (r1 > .5) dCut = min(dCut, length(vL) - r1);
   float dIn = min(dArc, dCut);
@@ -861,7 +891,7 @@ void main() {
   float core = exp(-rr * rr * 4.5);
   if (kind > 1.5) {
     // A star's: a point of its light, white-hot at its heart, soft round it (no edge of its own).
-    col = mix(tint, vec3(1.0), .55) * core * 2.6;
+    col = mix(tint,vec3(.88,.94,1.0),.6)*(.42+.4*dif)+vec3(1.0)*spec*1.15;
   } else if (kind > .5) {
     // A chrome drop's: mirror. Each piece keeps the curve of the sphere it was (its normal there),
     // tilted as it turns, so it reflects Science's sky as that part of the sphere did: dark below, teal
@@ -876,7 +906,7 @@ void main() {
   } else {
     // A water drop's: clear ice holding its gas's light, deepest at its middle (the cap's depth), lit
     // as it turns, glassy at its rim.
-    col = tint * (.1 + .85 * dome * dome) * (.75 + .6 * dif) + vec3(.55, .78, 1.0) * pow(rr, 5.0) * .25 + vec3(1.0, .98, .94) * (spec * 1.8 + fres * .2);
+    col = tint * (.1 + .55 * dome * dome) * (.75 + .6 * dif) + vec3(.55, .78, 1.0) * pow(rr, 5.0) * .25 + vec3(1.0, .98, .94) * (spec * 1.8 + fres * .2);
   }
   // The cleavage faces: bright, splitting the light into its colours along them.
   float t = rr * 5.0 + vSec.w * 9.0 + u * 3.0;
@@ -885,8 +915,9 @@ void main() {
   col += vec3(.85, .93, 1.0) * exp(-max(dArc, 0.0) / 1.4) * .25;
   // Its flare as it fuses into the card.
   float fuse = smoothstep(.86, 1.0, u) * (1.0 - smoothstep(1.0, 1.04, u));
-  col += mix(tint, vec3(1.0), .6) * fuse * 1.6;
-  float a = cov * (1.0 - smoothstep(1.0, 1.04, u)) * (kind > 1.5 ? clamp(core * 1.4, 0.0, 1.0) : 1.0);
+  col += mix(tint, vec3(1.0), .6) * fuse * .22;
+  col=col*vEmission.y+vec3(1.0,.48,.14)*vEmission.x;
+  float a = cov * (1.0 - smoothstep(.9, 1.0, u)) * .86 * vImage;
   o = vec4(snowDisp(min(col, vec3(3.0))) * a, a);
 }`;
 // The field lines the shards ride: each shard's path as a ribbon of 15 segments, its glow across it
@@ -897,9 +928,10 @@ out float vAcross;
 out float vB;
 out vec3 vCol;
 void main() {
-  int k = gl_InstanceID;
+  int k = gl_InstanceID<shardCount()?gl_InstanceID:(gl_InstanceID-shardCount())*8;
+  acSecondary=gl_InstanceID>=shardCount();
   if (k >= shardCount()) { gl_Position = GONE; return; }
-  int base = shardBase() + k * 11;
+  int base = shardBase() + k * ${SHARD_TEXELS};
   vec4 S0 = dd(base), S1 = dd(base + 1), S2 = dd(base + 2);
   vec2 WH = dd(0).xy, toS = uRegion.zw / WH;
   float P = transitP(uH), t0 = S1.y, t1 = S1.z;
@@ -910,27 +942,27 @@ void main() {
     t1 = t0 + clickFlight(up);
   }
   float u = (P - t0) / max(t1 - t0, 1e-4);
-  float build = smoothstep(-.06, 0.0, P - t0) * (1.0 - smoothstep(1.0, 1.2, u)) * (k % 4 == 0 ? 1.0 : 0.0);
-  float lit0 = u > 0.0 && u < 1.15 ? 1.0 : 0.0;
-  if (build <= 0.0 && lit0 <= 0.0) { gl_Position = GONE; return; }
-  int seg = gl_VertexID / 6;
-  vec2 q = QUAD[gl_VertexID % 6];
-  float sp = (float(seg) + q.x) / 15.0;
-  vec2 tang, pos;
-  float speed, head = u;
-  if (click) {
-    // (A straight line into the click; the shard is 1 − √(1 − u) of the way along it.)
-    vec2 hs = S0.xy * toS;
-    pos = mix(hs, uO, sp);
-    tang = normalize(uO - hs + 1e-4);
-    head = 1.0 - sqrt(max(1.0 - clamp(u, 0.0, 1.0), 0.0));
-  } else pos = shardAt(base, sp, tang, speed) * toS;
-  pos += vec2(-tang.y, tang.x) * (q.y - .5) * 4.0;
-  float behind = head - sp;
-  float lit = lit0 * smoothstep(0.0, .02, behind + .01) * (1.0 - smoothstep(0.0, .22, behind));
-  vB = build * .03 + lit * (S2.a > 1.5 ? .5 : .32);
-  vAcross = (q.y - .5) * 2.0;
-  vCol = mix(sqrt(S2.rgb / max(max(S2.r, max(S2.g, S2.b)), 1e-3)), vec3(.8, .92, 1.0), .45);
+  if (u<=0.0||u>=1.0) { gl_Position=GONE; return; }
+  int seg=gl_VertexID/6;
+  vec2 q=QUAD[gl_VertexID%6];
+  float along=(float(seg)+q.x)/3.0;
+  vec2 tang,pos;
+  float speed;
+  if(click){
+    vec2 hs=S0.xy*toS,to=uO-hs;
+    float tail=max(0.0,u-(1.0-along)*.10);
+    pos=uO-to*sqrt(max(1.0-tail,0.0));tang=normalize(to+1e-4);
+  }else{
+    float span=dd(23).w>.5?.0025:.006;
+    pos=shardAt(base,max(t0,P-(1.0-along)*span),tang,speed)*toS;
+  }
+  pos+=vec2(-tang.y,tang.x)*(q.y-.5)*2.2;
+  float join=dd(base+5).w;
+  float captured=click?0.0:smoothstep(join-.04,join,P);
+  vB=sin(along*PI)*mix(.065,.045,captured)*(1.0-smoothstep(.94,1.0,u));
+  if(acSecondary)vB*=.23*smoothstep(.62,.76,P)*(1.0-smoothstep(.99,1.04,P));
+  vAcross=(q.y-.5)*2.0;
+  vCol=mix(vec3(.7,.82,.9),vec3(.78,.20,.12),captured);
   gl_Position = project(vec3(pos, 0.0));
 }`;
 const FIELDLINES_FS = FHEAD + /* glsl */ `
@@ -949,7 +981,7 @@ export const UNIT_PROGRAMS = {
   flow: { vs: FLOW_VS, fs: STREAKS_FS, verts: 22 * 6, blend: 'over' },
   sheets: { vs: SHEETS_VS, fs: SHEETS_FS, verts: 30 * 12 * 6, blend: 'opaque' },   // per layer, instances: rows × (cols + 1)
   glitter: { vs: GLITTER_VS, fs: GLITTER_FS, verts: 6, blend: 'add' },
-  fieldlines: { vs: FIELDLINES_VS, fs: FIELDLINES_FS, verts: 15 * 6, blend: 'add' },   // instances: the lines the shards ride
+  fieldlines: { vs: FIELDLINES_VS, fs: FIELDLINES_FS, verts: 3 * 6, blend: 'add' },   // instances: the lines the shards ride
   drops: { vs: DROPS_VS, fs: DROPS_FS, verts: 6, blend: 'over' },                         // instances: the clumps' drops, the stars' beads
   shards: { vs: SHARDS_VS, fs: SHARDS_FS, verts: 6, blend: 'over' },                      // instances: the frozen drops' shards
   // Outdoors → Photography (glsl/fire.js): the embers, the ribbons their paths become, the silver grains.

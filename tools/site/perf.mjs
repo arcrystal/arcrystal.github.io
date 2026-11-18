@@ -28,6 +28,7 @@ for (const run of RUNS) {
     await page.send('Performance.enable');
     await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
     await page.waitFor(() => /\b(no-)?gl\b/.test(document.documentElement.className), { timeout: 20000 }).catch(() => {});
+    await page.waitFor(() => !document.documentElement.classList.contains('site-loading'), { timeout: 125000 });
     await sleep(1200);
     if (run.throttle > 1) await page.setCpuThrottle(run.throttle);
     const info = await page.eval(() => ({

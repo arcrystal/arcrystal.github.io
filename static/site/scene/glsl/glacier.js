@@ -1,7 +1,8 @@
+import { TRACK_GLSL } from '../track-plan.js';
+import { TRACK_SURFACE } from './track.js';
 // Glacier (Racing): high-key ice with moving caustics (sunlight through ice), light shafts, faint
-// contour lines and snow. The resting card is real glass: the scene is drawn again inside it,
-// bent toward the centre near the edge and frosted, with a chromatic rim.
-export const GLACIER = /* glsl */ `
+// contour lines and snow. The resting running track uses the finale's exact analytic surface.
+export const GLACIER = TRACK_GLSL + TRACK_SURFACE + /* glsl */ `
 const vec3 ICE_TOP = vec3(0.957, 0.976, 0.988);
 const vec3 ICE_BOT = vec3(0.737, 0.851, 0.937);
 const vec3 ICE_BLUE = vec3(0.624, 0.847, 1.0);
@@ -55,19 +56,8 @@ vec3 glacierAt(vec2 px, float soft) {
 
 vec3 sceneGlacier(vec2 px) {
   vec3 col = glacierAt(px, 0.0);
-  if (uCard.z > 0.0 && gCardMix > 0.001) {
-    vec2 c = uCard.xy + uCard.zw * 0.5;
-    float sd = sdBox(px - c, uCard.zw * 0.5, uCardR);
-    if (sd < 8.0) {
-      float edge = smoothstep(-70.0, 0.0, sd);
-      vec2 dir = normalize(px - c + 0.001);
-      vec3 frost = glacierAt(px - dir * edge * edge * 30.0, 1.0);
-      frost = mix(frost, vec3(1.0), 0.38);
-      float inside = clamp(0.5 - sd / 1.5, 0.0, 1.0);
-      col = mix(col, frost, inside * gCardMix);
-      float rim = exp(-abs(sd + 1.5) / 1.4);
-      col += gCardMix * (rim * 0.55 + vec3(1.0, 0.25, 0.55) * exp(-abs(sd + 6.0) / 2.2) * 0.13 + vec3(0.1, 0.6, 1.0) * exp(-abs(sd - 2.5) / 2.2) * 0.16);
-    }
+  if (uCard.z > 0.0 && gCardMix > .001) {
+    col = trSurface(col, px, trFrame(R, uCard, 1.2), gCardMix, 1.0, 0.0, T);
   }
   return col;
 }

@@ -1,7 +1,7 @@
 // The site shell. Every URL is a complete static page; this module enhances it once per document:
 // the header controls, the page's modules (the homepage, a destination's hero and its own
 // module from meta.json), and the router, which swaps pages in place behind each style's expand
-// effect. Content never waits for any of it, and if this module cannot load, ordinary links simply
+// effect. The opening screen waits for the visuals; if this module cannot load, ordinary links simply
 // load pages for real.
 import { motion, scope as makeScope } from './lib/util.js';
 import { mountCommon } from './lib/common.js';
@@ -10,14 +10,14 @@ import { createRouter } from './lib/router.js';
 import { mountChrome } from './chrome.js';
 import { createExpand } from './expand.js';
 import { getScene } from './scene/scene.js';
+import { mountLoading } from './loading.js';
 
 let data = {};
 try { data = JSON.parse(document.getElementById('site-data')?.textContent || '{}'); } catch (err) { console.error(err); }
 const { registry, styles } = data;
 
-document.documentElement.classList.add('app-ready');
 // The scene canvas lives for the whole visit, outside <main>; it compiles once the page has painted.
-getScene();
+const scene = getScene();
 const shellScope = makeScope();
 const chrome = mountChrome({ scope: shellScope });
 const expand = createExpand({ motion });
@@ -79,7 +79,9 @@ motion.subscribe(paused => {
 });
 
 // ---- router -------------------------------------------------------------------------------------
-mountPage(document.querySelector('main#main'));
+const mounted = mountPage(document.querySelector('main#main'));
+mountLoading({ scene, mounted, motion });
+document.documentElement.classList.add('app-ready');
 
 try {
   router = createRouter({

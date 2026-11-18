@@ -31,6 +31,7 @@ export const PAINT = Object.freeze({
   seed: 48, grid: 256, desk: 52, phone: 32, canvas: 0.03, start: 0.03, first: -0.04, last: 0.15, quicken: 0.62,
   fall: 0.008, spread: 0.007, fingers: 0.012, pinch: 0.016, own: [0.04, 0.1], melt: 0.06, mold: [0.06, 0.3], lakes: [0.215, 0.255],
   real: [0.26, 0.44], heave: [0.12, 0.4], cross: 2.6, cover: [0.995, 0.28], top: 62, focal: 1.07, exag: 2.0, quota: [0, 0.18, 0.34, 0.48], maxSplash: 80,
+  cells: 32,
 });
 // P at which the hold begins (the strip moving until then).
 export function paintHoldP(phone) {
@@ -204,12 +205,29 @@ const sampleDepth = (field, x, y) => {
   return field.data[k + 1] - field.data[k];
 };
 
+// Which drops can reach each of cells × cells squares of the map: those whose splash, out to three times
+// its radius (as far as glsl/paint.js ptPaint draws anything of it), comes within the square, the squares
+// at the map's edges reaching on past it. A bit a drop, twenty to a channel (whole numbers a float holds
+// exactly); with a little to spare, so a point the shader places a hair off still finds every drop.
+export function paintReach(splashes, cells = PAINT.cells) {
+  const S = TERRAIN.size, c = S / cells, out = new Float32Array(cells * cells * 4);
+  splashes.forEach((s, i) => {
+    const r = 3 * s.R * 1.0001 + 0.01;
+    for (let j = 0; j < cells; j++) for (let k = 0; k < cells; k++) {
+      const x0 = k ? k * c : -Infinity, x1 = k < cells - 1 ? (k + 1) * c : Infinity, z0 = j ? j * c : -Infinity, z1 = j < cells - 1 ? (j + 1) * c : Infinity;
+      const dx = Math.max(x0 - s.x, 0, s.x - x1), dz = Math.max(z0 - s.z, 0, s.z - z1);
+      if (dx * dx + dz * dz <= r * r) out[(j * cells + k) * 4 + Math.floor(i / 20)] += 2 ** (i % 20);
+    }
+  });
+  return out;
+}
 // The plan as float texels (RGBA32F, 256 wide): rows 0..255 the grid (T, r, g, b), row 256 a header
 // (count, first, last, k) then three texels a drop: (x, z, t, R), (N, seed, skew, dir), (r, g, b,
-// family + hue · 0.9).
+// family + hue · 0.9); then the drops each square of the map can be reached by (paintReach), a texel a
+// square, row by row.
 export function makePaint(field, W, H, phone) {
   const splashes = makeSplashes(field, W, H, phone).slice(0, PAINT.maxSplash), mold = makeMold(field, splashes, W, H);
-  const n = PAINT.grid, data = new Float32Array(n * (n + 1) * 4);
+  const n = PAINT.grid, extra = Math.ceil(PAINT.cells * PAINT.cells / n), data = new Float32Array(n * (n + 1 + extra) * 4);
   data.set(mold.grid);
   const row = n * n * 4, [t0, t1] = paintClock(phone);
   data.set([splashes.length, t0, t1, mold.k], row);
@@ -217,6 +235,7 @@ export function makePaint(field, W, H, phone) {
     const o = row + (1 + 3 * i) * 4;
     data.set([s.x, s.z, s.t, s.R, s.N, s.seed, s.skew, s.dir, ...s.colour, s.family + Math.min(0.99, s.hue) * 0.9], o);
   });
-  return { w: n, h: n + 1, data, splashes, mold };
+  data.set(paintReach(splashes), n * (n + 1) * 4);
+  return { w: n, h: n + 1 + extra, data, splashes, mold };
 }
 export const paintKey = (W, H, phone) => `${(W / H).toFixed(2)} ${phone ? 1 : 0}`;

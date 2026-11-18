@@ -1,0 +1,15 @@
+{
+  "fullBakeReadyAtFirstClickTexture": false,
+  "pageSwapMs": 7141.937875,
+  "shardDraws": 43,
+  "problems": {
+    "consoleErrors": [],
+    "exceptions": [],
+    "logErrors": [],
+    "failedRequests": [],
+    "blockedByTest": 0,
+    "httpErrors": [],
+    "external": [],
+    "fixtures": 0
+  }
+}

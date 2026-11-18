@@ -89,7 +89,12 @@ void main() {
   vec2 c = gl_FragCoord.xy, v = at(uVel, c);
   vec2 back = clamp(c - uDt * at(uVel, c - .5 * uDt * v), vec2(.5), uCells - .5);
   vec2 ub = back / uCells;
-  o = vec4(at(uRho, back), 0.0, 1.0);
+  // Explicit molecular diffusion in the advected frame. Positive stencil
+  // weights (D dt / dx² < 1/4) keep the two concentrations bounded.
+  vec2 center = at(uRho, back);
+  vec2 neighbours = at(uRho, back+vec2(1,0)) + at(uRho, back-vec2(1,0))
+                  + at(uRho, back+vec2(0,1)) + at(uRho, back-vec2(0,1));
+  o = vec4(center + .052 * (neighbours - 4.0*center), 0.0, 1.0);
   o2 = vec4(ub + texture(uMap, ub).xy - c / uCells, 0.0, 1.0);
 }`,
   // The start: the ink's density from its picture (read at about the grid's resolution), and the drops'
@@ -105,28 +110,45 @@ void main() { vec2 r = at(uRho, gl_FragCoord.xy); o = vec4(0.0, -uV0 * min(1.0, 
   zero: HEAD + /* glsl */ `void main() { o = vec4(0.0, 0.0, 0.0, 1.0); }`,
   // A frame of the map, kept (into a layer of the keyframes).
   copy: HEAD + /* glsl */ `
-uniform sampler2D uSrc;
-void main() { o = vec4(texelFetch(uSrc, ivec2(gl_FragCoord.xy), 0).xy, 0.0, 1.0); }`,
+uniform sampler2D uSrc, uRho;
+void main() { ivec2 c = ivec2(gl_FragCoord.xy); o = vec4(texelFetch(uSrc,c,0).xy, texelFetch(uRho,c,0).xy); }`,
   // The drops (S1's picture at the start), each a body of ink in nested shells, mottled; R black, G white.
   // uCells here: the grid the drops are placed on; the picture is drawn at uSize.
+  pieces: HEAD + `
+uniform sampler2D uMask;
+uniform vec2 uSize;
+void main() {
+  ivec2 n = textureSize(uMask,0);
+  vec4 mask = texelFetch(uMask,min(n-1,ivec2(gl_FragCoord.xy/uSize*vec2(n))),0);
+  int slot = int(round(mask.b*64.0))-1;
+  bool backRank = (slot>=0 && slot<8) || (slot>=24 && slot<32);
+  o = backRank ? vec4(mask.rg,mask.b,mask.a) : vec4(0);
+}`,
   drops: HEAD + NOISE + /* glsl */ `
 uniform vec2 uSize;
-uniform vec4 uDrop[64];   // its middle (cells), its radius (cells), 1 black / 0 white
+uniform vec4 uDrop[16];   // centre and radius in cells, destination piece slot
 uniform int uN;
 void main() {
   vec2 c = gl_FragCoord.xy / uSize * uCells;
   vec2 ink = vec2(0.0);
-  for (int i = 0; i < 64; i++) {
+  vec2 stamp = vec2(0.0, 1.0);
+  for (int i = 0; i < 16; i++) {
     if (i >= uN) break;
     vec4 d = uDrop[i];
     float r = length(c - d.xy);
     if (r > d.z + 2.0) continue;
-    float body = smoothstep(d.z + .6, d.z - .6, r);
-    float k = r / d.z, shells = .72 + .28 * sin(k * 19.0 + float(i) * 1.7) * sin(k * 7.0 + 2.0);
+    float body = 1.0 - smoothstep(d.z - .18, d.z + .18, r);
+    float k = r / d.z;
+    vec2 local = (c-d.xy)/d.z;
+    float fold = local.y + .32*sin(local.x*3.8 + float(i)) + .16*noise(local*5.0);
+    float shells = .68 + .21*cos(13.0*fold) + .11*cos(32.0*fold);
     float mottle = .78 + .44 * noise(c * 1.3 + float(i) * 11.0);
-    float a = body * clamp(shells * mottle, 0.0, 1.0) * (1.0 - .25 * k * k);
-    if (d.w > .5) ink.x = max(ink.x, a); else ink.y = max(ink.y, a);
+    float chord = sqrt(max(0.0,1.0-k*k));
+    float a = body * clamp(shells * mottle, 0.0, 1.0) * chord;
+    // Destination slot and material radius travel with the pigment through the same flow map.
+    if (body > 0.0) stamp = vec2((d.w + 1.0) / 64.0, min(k, 1.0));
+    if (d.w < 8.0) ink.x = max(ink.x, a); else ink.y = max(ink.y, a);
   }
-  o = vec4(ink, 0.0, 1.0);
+  o = vec4(ink, stamp);
 }`,
 };

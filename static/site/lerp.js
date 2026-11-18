@@ -72,13 +72,13 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 4.0 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 5.0 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 6.0 } },
 };
 // Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
 // each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
 // at which a band's content begins to surface, and over how much of P it comes.
 export const GLASS_RELEASE = 1.2;
-export const HELD = Object.freeze({ glass: [1.02, 0.16], darkroom: [1.08, 0.115], ink: [1.1, 0.098] });
+export const HELD = Object.freeze({ glass: [1.08, 0.10], darkroom: [1.08, 0.115], ink: [1.1, 0.098] });
 export const holdFor = (style, pin = HOLD.pin) => {
   const h = { pin: 1, leadIn: HOLD.leadIn, leadOut: HOLD.leadOut, ...HOLD.by[style] };
   if (HELD[style]) h.leadOut = 0;
@@ -132,18 +132,24 @@ function paceTable(PACE) {
 // longest, on through it into the veil, the waves and their silver a little slower, and the picture
 // developing slowest of all.
 const DARKROOM_PACE = [[-0.2, 3.6], [-0.1, 3.6], [-0.06, 1.3], [0.2, 1.25], [0.3, 1.2], [0.42, 1.3], [0.54, 1.7], [0.63, 1.25], [0.8, 1.3], [0.96, 1.4], [1.02, 1.6], [1.17, 1.7], [1.2, 1.5]];
-// Chess's, likewise (scene/ink-plan.js): the strip coming in slowly (so it is held before the water
-// begins to rise), the plumes entering at an even pace, their folding given room with a slower rest in
-// its middle, the lattice and the squares unhurried, the pieces slowest (there is the most to see), and
-// the settling a little quicker.
-// Chess's (scene/unmix-plan.js): the tray, the rain, the storm, a long still point, the unmixing, the hardening slowest.
-const INK_PACE = [[-0.2, 2.6], [-0.08, 2.6], [-0.03, 1.3], [0.3, 1.3], [0.48, 1.2], [0.55, 1.9], [0.6, 1.6], [0.8, 1.4], [0.86, 2.1], [1.0, 2.1], [1.06, 1.6], [1.2, 1.4]];
+// Linger over the falling heads, folding plumes and the reverse fluid flow.
+const INK_PACE = [[-.2,2.4],[-.05,1.3],[.08,1.7],[.20,2.1],[.42,2.4],[.55,1.8],[.67,2.4],[.80,2.3],[.91,1.4],[1.06,1.5],[1.2,1.4]];
 const GLASS_TABLE = paceTable(GLASS_PACE), FOLIO_TABLE = paceTable(FOLIO_PACE), DARKROOM_TABLE = paceTable(DARKROOM_PACE), INK_TABLE = paceTable(INK_PACE);
-export const glassEase = GLASS_TABLE.ease, glassRaw = GLASS_TABLE.inverse;
+// Add scroll only after condensation. Before .5 the absolute scroll distance is unchanged,
+// on both touch and desktop; the old pace table remains the reference measure.
+export const glassRaw = (P, pin=HOLD.pin) => {
+ const old=4*pin+HOLD.leadIn,extra=1.4*pin,x=clamp01((P-.5)/.7),added=x*x*(3-2*x);
+ return (GLASS_TABLE.inverse(P)*old+extra*added)/(old+extra);
+};
+export const glassEase = (raw,pin=HOLD.pin) => {
+ if(raw<=0)return 0;if(raw>=1)return 1;
+ let lo=-.2,hi=1.2;for(let i=0;i<28;i++){const m=(lo+hi)/2;if(glassRaw(m,pin)<raw)lo=m;else hi=m;}
+ return clamp01(((lo+hi)/2+.2)/1.4);
+};
 export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;
 export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.inverse;
 export const inkEase = INK_TABLE.ease, inkRaw = INK_TABLE.inverse;
-export const easeFor = style => (style === 'glass' ? glassEase : style === 'folio' ? folioEase : style === 'darkroom' ? darkroomEase : style === 'ink' ? inkEase : holdEase);
+export const easeFor = (style,pin=HOLD.pin) => (style === 'glass' ? raw=>glassEase(raw,pin) : style === 'folio' ? folioEase : style === 'darkroom' ? darkroomEase : style === 'ink' ? inkEase : holdEase);
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);

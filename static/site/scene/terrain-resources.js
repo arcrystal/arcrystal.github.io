@@ -7,6 +7,7 @@ import { paintKey } from './paint-plan.js';
 import { toHalf } from './terrain-plan.js';
 export function createTerrainResources(gl, coarse) {
   let tex = null, detail = null, ready = false, asked = false, dead = false, worker = null, info = null;
+  let failed = false;
   const idle = fn => setTimeout(fn, 0);
   // Outdoors' plate (terrain-plan.js makePlate, shipped as data/plate.bin): heights for the art-glass
   // world, on unit 7 from the moment it arrives, for good (nothing else uses that unit).
@@ -30,7 +31,7 @@ export function createTerrainResources(gl, coarse) {
       gl.activeTexture(gl.TEXTURE0);
       plate = t;
     })
-    .catch(e => console.warn('Outdoors plate unavailable', e));
+    .catch(e => { failed = true; console.warn('Outdoors plate unavailable', e); });
   function tile({ dn, detail: levels }) {
     const t = gl.createTexture();
     gl.activeTexture(gl.TEXTURE6);
@@ -95,23 +96,26 @@ export function createTerrainResources(gl, coarse) {
   return {
     // Ask for it (once); it is ready some time later. (W, H: the screen, for the paint's first plan.)
     request(W = innerWidth, H = innerHeight) {
+      if (dead) return;
+      if (asked) { askPaint(W, H); return; }
       pending = [W, H];
-      if (asked || dead) return;
       asked = true;
       try {
         worker = new Worker(new URL('./terrain-worker.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => {
-          if (data.error) { console.warn('Terrain preparation failed', data.error); worker?.terminate(); worker = null; return; }
+          if (data.error) { failed = true; console.warn('Terrain preparation failed', data.error); worker?.terminate(); worker = null; return; }
           if (data.paint) { if (!dead) takePaint(data.paint); return; }
           info = { N: data.N, ms: data.ms };
           fieldDone = true;
           upload(data);
           if (pending) { const [W, H] = pending; pending = null; askPaint(W, H); }
         };
+        worker.onerror = () => { failed = true; };
         worker.postMessage({ N: coarse ? 384 : 512 });
-      } catch (e) { console.warn('Terrain worker unavailable', e); }
+      } catch (e) { failed = true; console.warn('Terrain worker unavailable', e); }
     },
     ready: (W = innerWidth, H = innerHeight) => ready && plans.has(keyOf(W, H)),
+    failed: () => failed,
     plateReady: () => !!plate,
     plateData: () => (plateKm ? { km: plateKm, n: plateN } : null),
     stats: () => info && { ...info, plans: [...plans].map(([k, v]) => ({ key: k, count: v.count, ms: v.ms })) },

@@ -1,0 +1,227 @@
+{
+  "production": [
+    {
+      "size": [
+        1440,
+        900
+      ],
+      "runs": [
+        {
+          "seedParents": [
+            210,
+            88,
+            384,
+            374,
+            202
+          ],
+          "seedMomentum": [
+            7.443047914112988e-17,
+            -4.533726909519697e-16
+          ],
+          "steps": 3500,
+          "maxR": 38.06188553200819,
+          "estimated": 223.07918723480745,
+          "dt": 0.12,
+          "triggerTime": 420.00000000001285,
+          "collectedCount": 0.8502148557397177,
+          "collectedMass": 0.8553779921564558,
+          "discMass": 0.01,
+          "initialL": -0.03497721934142794,
+          "finalL": -0.03497721934142805,
+          "absorbedMass": 0.0003864608056882192,
+          "absorbedL": -0.000985165682660896,
+          "dissipated": 0.00008311570732286924,
+          "radiated": 0.00008170496693682618,
+          "retainedHeat": 0.0000014107403859712717,
+          "initialEnergy": -0.00037531425728584044,
+          "prepareMs": 21979.512625,
+          "bytes": 16138240,
+          "shards": 3275,
+          "lanes": [
+            390,
+            390,
+            389,
+            390,
+            390,
+            389,
+            390,
+            389
+          ],
+          "maxFractureError": 5.662985485392731e-13,
+          "maxFitError": 0.35651205361920557,
+          "maxBin": 16
+        },
+        {
+          "seedParents": [
+            210,
+            88,
+            384,
+            374,
+            202
+          ],
+          "seedMomentum": [
+            7.443047914112988e-17,
+            -4.533726909519697e-16
+          ],
+          "steps": 6940,
+          "maxR": 38.06188553200819,
+          "estimated": 223.07918723480745,
+          "dt": 0.06,
+          "triggerTime": 416.40000000001424,
+          "collectedCount": 0.8505217925107428,
+          "collectedMass": 0.8540282957990891,
+          "discMass": 0.01,
+          "initialL": -0.03497721934142794,
+          "finalL": -0.034977219341427924,
+          "absorbedMass": 0.0003850171119465692,
+          "absorbedL": -0.0009817636409872085,
+          "dissipated": 0.00008243424157214856,
+          "radiated": 0.00008108732480433305,
+          "retainedHeat": 0.0000013469167679717553,
+          "initialEnergy": -0.00037531425728584044,
+          "prepareMs": 43230.01420899999,
+          "bytes": 16121856,
+          "shards": 3275,
+          "lanes": [
+            390,
+            390,
+            390,
+            390,
+            390,
+            390,
+            390,
+            390
+          ],
+          "maxFractureError": 5.662985485392731e-13,
+          "maxFitError": 0.3892636869678018,
+          "maxBin": 18
+        }
+      ],
+      "convergence": {
+        "countDifference": 0.0003069367710251125,
+        "massDifference": 0.0013496963573667031,
+        "eventRelativeDifference": 0.00864553314120672
+      }
+    },
+    {
+      "size": [
+        390,
+        844
+      ],
+      "runs": [
+        {
+          "seedParents": [
+            37,
+            115,
+            97,
+            57,
+            26
+          ],
+          "seedMomentum": [
+            -1.0986694952246079e-16,
+            7.376064548644118e-16
+          ],
+          "steps": 9980,
+          "maxR": 97.96586899336238,
+          "estimated": 921.1615419112585,
+          "dt": 0.12,
+          "triggerTime": 1197.5999999998778,
+          "collectedCount": 0.9328426862925483,
+          "collectedMass": 0.9406750076808212,
+          "discMass": 0.01,
+          "initialL": -0.03615745251891905,
+          "finalL": -0.03615745251891896,
+          "absorbedMass": 0.00008414358434363993,
+          "absorbedL": -0.00021845389992388605,
+          "dissipated": 0.000197634300350862,
+          "radiated": 0.00019693492608773697,
+          "retainedHeat": 6.993742631342331e-7,
+          "initialEnergy": -0.00026472618501044095,
+          "prepareMs": 9575.454834000004,
+          "bytes": 6062080,
+          "shards": 1103,
+          "lanes": [
+            135,
+            135,
+            135,
+            135,
+            135,
+            135,
+            135,
+            134
+          ],
+          "maxFractureError": 3.0212691549237007e-13,
+          "maxFitError": 0.3864884633577187,
+          "maxBin": 15
+        },
+        {
+          "seedParents": [
+            37,
+            115,
+            97,
+            57,
+            26
+          ],
+          "seedMomentum": [
+            -1.0986694952246079e-16,
+            7.376064548644118e-16
+          ],
+          "steps": 19960,
+          "maxR": 97.96586899336238,
+          "estimated": 921.1615419112585,
+          "dt": 0.06,
+          "triggerTime": 1197.5999999993944,
+          "collectedCount": 0.9254829806807727,
+          "collectedMass": 0.932212709627637,
+          "discMass": 0.01,
+          "initialL": -0.03615745251891905,
+          "finalL": -0.03615745251891901,
+          "absorbedMass": 0.00007758320969583846,
+          "absorbedL": -0.00020164630986565325,
+          "dissipated": 0.0001966031286944119,
+          "radiated": 0.00019580893416243274,
+          "retainedHeat": 7.941945319001523e-7,
+          "initialEnergy": -0.00026472618501044095,
+          "prepareMs": 18467.511499999993,
+          "bytes": 6078464,
+          "shards": 1103,
+          "lanes": [
+            135,
+            135,
+            135,
+            135,
+            135,
+            135,
+            135,
+            134
+          ],
+          "maxFractureError": 3.0212691549237007e-13,
+          "maxFitError": 0.3864871708980777,
+          "maxBin": 16
+        }
+      ],
+      "convergence": {
+        "countDifference": 0.007359705611775569,
+        "massDifference": 0.008462298053184214,
+        "eventRelativeDifference": 4.0363763693433184e-13
+      }
+    }
+  ],
+  "tenOrbitConservation": [
+    {
+      "radius": 3.6,
+      "energyRelativeDrift": 8.471221212780208e-7,
+      "angularRelativeDrift": 4.395043379181204e-15
+    },
+    {
+      "radius": 6,
+      "energyRelativeDrift": 5.758192533900087e-9,
+      "angularRelativeDrift": 6.3454531257157525e-15
+    },
+    {
+      "radius": 12,
+      "energyRelativeDrift": 3.607183163278905e-11,
+      "angularRelativeDrift": 9.988722843159067e-15
+    }
+  ]
+}

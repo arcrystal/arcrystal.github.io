@@ -1,25 +1,59 @@
 // The ink's fluid for Photography → Chess, baked once in the background (glsl/ink-sim.js has the solver;
-// glsl/plume.js plays the result back by scroll, so scrubbing it either way is exact).
+// glsl/unmix.js plays the result back by scroll, so scrubbing it either way is exact).
 //   Two runs, each a real 2D flow (incompressible, buoyant, its small curls kept by vorticity
 // confinement), each kept as keyframes of its flow map (where the water at each point was at the start),
 // not of its ink: the ink is then always its first picture carried through the map, sharp at any size.
-//   rain      the screen's shape, and a third more above it: some forty drops of black and white ink
-//             above the surface, falling, entering one after another, rolling up and breaking
+//   rain      the screen's shape, and a third more above it: sixteen drops entering beneath the top edge,
+//             rolling up and breaking
 //   dissolve  the screen's shape: the board's own ink where the board stands (board3d.js renderMask)
 //             dissolved by stirrers that turn harder and harder until it hangs in the whole screen.
 //             Played backward, it is the ink finding the board: every thread retraces its way and lands
 //             where it began.
-// The bake spends a few steps a frame (work), rain first; a run is made again only when its shape changes.
+// The bake spends a few steps a frame (work, paced by createPace), rain first; a run is made again only when
+// its shape changes.
 // Without float targets nothing is baked and ready() stays false (the seam is then the plain one).
 import { VERTEX } from './glsl/index.js';
 import { INKSIM } from './glsl/ink-sim.js';
 
 // The runs' grids (fine pointer, touch), lengths and how they are kept.
 // (The rain's storm: stirrers from storm[0] of the way through, as hard as storm[1] of the dissolve's.)
-export const RAIN = Object.freeze({ cells: [256, 144], above: 0.3, steps: 400, keys: 64, dt: 1 / 50, v0: 120, grav: 460, eps: 10, damp: 0.9995, drops: [80, 44], storm: [0.32, 0.8], stirrers: 7 });
-export const DISSOLVE = Object.freeze({ cells: [224, 144], steps: 350, keys: 36, dt: 1 / 50, grav: 110, eps: 8, damp: 0.9993, stirrers: 7, mask: 1024 });
+export const RAIN = Object.freeze({ cells: [256, 144], above: 0.3, steps: 400, keys: 64, dt: 1 / 50, v0: 120, grav: 460, eps: 10, damp: 0.9995, drops: [16, 16], storm: [0.075, 0.98], stirrers: 7 });
+export const DISSOLVE = Object.freeze({ cells: [224, 144], steps: 350, keys: 48, dt: 1 / 50, grav: 29, eps: 8, damp: 0.9993, stirrers: 7, mask: 1024 });
 // The pressure's iterations a step (each starts from the last step's pressure).
 const JACOBI = 18;
+
+// The bake's pace: steps a frame, quiet while nothing plays, busy while a seam does (never none: steady
+// scrolling is mostly seams, and a bake that waited for the quiet would not be in by Chess), quiet again
+// when the seam that needs it is near and it is not in (urgent). A frame that runs long just after the bake
+// worked halves the pace; it climbs back a quarter each half second once a second has passed calmly, for
+// ten seconds no higher than three quarters of where it hurt. (slow: how much longer than the screen's
+// own frame a frame is, to be long; least: the lowest pace, a share of the rate.)
+export const PACE = Object.freeze({ fine: { quiet: 6, busy: 2 }, coarse: { quiet: 3, busy: 1 }, slow: 1.4, least: 1 / 16 });
+export function createPace({ quiet, busy }) {
+  let period = 1 / 60, scale = 1, ceil = 1, calm = 0, since = Infinity, acc = 0, worked = 0;
+  return {
+    // The steps for this frame, dt (s) since the last.
+    steps(dt, { busy: playing = false, urgent = false } = {}) {
+      if (dt > 0) {
+        // (The screen's own frame: what the quick frames take.)
+        if (dt < period * 1.25) period += (dt - period) * 0.05;
+        if (worked && dt > period * PACE.slow) { ceil = scale; scale = Math.max(PACE.least, scale / 2); calm = 0; since = 0; }
+        else {
+          calm += dt; since += dt;
+          if (calm > 1) { calm = 0.5; scale = Math.min(since < 10 ? Math.max(PACE.least, ceil * 0.75) : 1, scale * 1.25); }
+        }
+      }
+      worked = Math.max(0, worked - 1);
+      acc += (urgent || !playing ? quiet : busy) * scale;
+      const n = Math.floor(acc);
+      acc -= n;
+      return n;
+    },
+    // The bake worked this frame: a long frame in the next two is laid to it.
+    did() { worked = 2; },
+    get scale() { return scale; },
+  };
+}
 
 // A seeded generator (mulberry32), so the bake is the same every visit.
 export function rng(seed) {
@@ -27,15 +61,25 @@ export function rng(seed) {
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 // The rain's drops on its grid (nx × ny cells, y up; the screen's top at ny / (1 + above)): [x, y, radius,
-// black], cells. widthPx: the screen's width, for their sizes (6 … 40 px, most between).
+// black], in square grid cells.
 export function rainDrops(nx, ny, widthPx, n, above = RAIN.above, seed = 7) {
-  const r = rng(seed), top = ny / (1 + above), out = [], px = nx / widthPx;
+  const random = rng(seed), top = ny / (1 + above), out = [];
+  // Two overlapping waves enter the upper half. Stagger adjacent heads so the
+  // wakes have room to split before the counter-rotating cells intercept them.
+  const cols = nx >= top ? 8 : 4, rows = Math.ceil(n / cols);
   for (let i = 0; i < n; i++) {
-    const u = r(), size = u < 0.2 ? 30 + 34 * r() : u < 0.7 ? 16 + 14 * r() : 6 + 8 * r();
-    const rad = Math.max(1.6, size * px);
-    out.push([nx * (0.05 + 0.9 * r()), top + rad + 1 + (ny - top - 2 * rad - 2) * Math.pow(r(), 0.85), rad, r() < 0.5 ? 1 : 0]);
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = (.035 + .93 * (col + .25 + .50 * random()) / cols) * nx;
+    const y = (.51 + .405 * (row + .15 + .70 * random()) / rows) * top;
+    const radius = Math.min(nx / cols, top * .405 / rows) * (.205 + .065 * random());
+    out.push([x, y, radius, (row + col) % 2]);
   }
   return out;
+}
+// Slot IDs follow the opening FEN: black back rank 0–7, white back rank 24–31.
+export function dropSources(drops) {
+  let black = 0, white = 24;
+  return drops.map(([x, y, radius, dark]) => [x, y, radius, dark ? black++ : white++]);
 }
 // Stirrers at time t (s) of a run T long on an nx × ny grid: [x, y, reach, strength]. They wheel slowly round
 // (cx, cy) (the dissolve's: the board's middle), alternately one way and the other, harder as the run goes
@@ -44,9 +88,26 @@ export function stirrers(t, T, nx, ny, n = DISSOLVE.stirrers, cx = nx / 2, cy = 
   const out = [], ramp = gain * Math.min(1, Math.max(0, t / T - start) / 0.45) ** 1.5, k = nx / 200;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + 0.35 * t * (i % 2 ? 1 : -0.7), R = (0.14 + 0.22 * ((i * 37) % 5) / 4) * Math.min(nx, ny);
-    out.push([cx + Math.cos(a) * R, cy + Math.sin(a) * R * 0.9, (26 + 12 * (i % 3)) * k, (i % 2 ? 1 : -1) * (560 + 180 * (i % 3)) * k * ramp]);
+    const reach = (26 + 12 * (i % 3)) * k;
+    out.push([cx + Math.cos(a)*R, cy + Math.sin(a)*R*.9, reach, (i % 2 ? 1 : -1)*(560 + 180*(i % 3))*k*ramp]);
   }
   return out;
+}
+
+// A translating counter-rotating pair peels sheets off the ranks. In forward
+// time its jet travels away from the board; reverse playback braids them back.
+function collectingFlow(t, R) {
+  const [bx, by] = R.mid, u = t/R.T;
+  const cx = bx + (.44*R.nx-bx)*u, cy = by + (.53*R.ny-by)*u;
+  const turns = stirrers(t,R.T,R.nx,R.ny,R.C.stirrers,cx,cy);
+  const reach = .17*Math.min(R.nx,R.ny);
+  const direction = bx > R.nx*.5 ? -1 : 1;
+  const strength = direction*reach*12*Math.sin(Math.PI*u)**.8;
+  const x = bx + direction*.34*R.nx*u;
+  const y = by + .11*R.ny*Math.sin(u*Math.PI*1.4);
+  turns[0] = [x,y+reach*.60,reach,strength];
+  turns[1] = [x,y-reach*.60,reach,-strength];
+  return turns;
 }
 
 export function createInkSim(gl, { coarse = false } = {}) {
@@ -94,7 +155,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
   const dropField = f => { if (!f) return; f.t.forEach(t => gl.deleteTexture(t)); f.fb.forEach(b => gl.deleteFramebuffer(b)); };
 
   // ---- runs ------------------------------------------------------------------------------------------
-  // A run: its grid, its fields, its keyframes (a texture array of the map, D, RG16F), its first picture
+  // A run: its grid, its fields, its keyframes (a texture array of displacement and diffused pigment, RGBA16F), its first picture
   // (dye0), its clock.
   const runs = { rain: null, dissolve: null };
   const wants = { rain: null, dissolve: null };
@@ -109,7 +170,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
   function makeRun(kind, w) {
     const C = kind === 'rain' ? RAIN : DISSOLVE, nx = C.cells[coarse ? 1 : 0];
     const ny = Math.max(16, Math.round(kind === 'rain' ? nx * (1 + C.above) / w.aspect : nx / w.aspect));
-    const R = { kind, C, nx, ny, step: 0, key: 0, every: Math.round(C.steps / (C.keys - 1)), done: false, want: w, begun: false };
+    const R = { kind, C, nx, ny, step: 0, key: 0, done: false, want: w, begun: false };
     // (The dissolve's stirrers wheel round the board, where it is on the screen.)
     if (w.box) R.mid = [(w.box[0] + w.box[2] / 2) / w.W * nx, (1 - (w.box[1] + w.box[3] / 2) / w.H) * ny];
     R.vel = field(nx, ny); R.rho = field(nx, ny); R.pres = field(nx, ny); R.map = field(nx, ny, true);
@@ -124,7 +185,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
     });
     R.curl = tex(nx, ny, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT); R.curlFb = target(R.curl);
     R.div = tex(nx, ny, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT); R.divFb = target(R.div);
-    const keyFmt = full ? [gl.RG16F, gl.RG, gl.HALF_FLOAT] : [gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT];
+    const keyFmt = [gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT]; // inverse flow XY, diffused pigment ZW
     R.keys = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, R.keys);
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, keyFmt[0], nx, ny, C.keys, 0, keyFmt[1], keyFmt[2], null);
@@ -153,7 +214,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
   function keep(R) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, R.keyFb);
     gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, R.keys, 0, R.key);
-    draw(R, 'copy', R.keyFb, (U, bind) => bind('uSrc', R.map.cur));
+    draw(R, 'copy', R.keyFb, (U, bind) => { bind('uSrc', R.map.cur); bind('uRho', R.rho.cur); });
     R.key++;
   }
   // The first picture, and the fields at the start.
@@ -163,6 +224,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
       R.dye0 = tex(W, H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR_MIPMAP_LINEAR); R.ownDye = true;
       R.dyeFb = target(R.dye0);
       R.drops = rainDrops(R.nx, R.ny, R.want.widthPx || 1440, R.C.drops[coarse ? 1 : 0]);
+      R.sources = new Float32Array(dropSources(R.drops).flat());
       const { p, U } = P.drops;
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
       gl.bindFramebuffer(gl.FRAMEBUFFER, R.dyeFb);
@@ -170,13 +232,24 @@ export function createInkSim(gl, { coarse = false } = {}) {
       gl.useProgram(p);
       gl.uniform2f(U.uCells, R.nx, R.ny);
       gl.uniform2f(U.uSize, W, H);
-      gl.uniform4fv(U.uDrop, new Float32Array(R.drops.flat().concat(new Array(Math.max(0, 256 - R.drops.length * 4)).fill(0)).slice(0, 256)));
+      gl.uniform4fv(U.uDrop, R.sources);
       gl.uniform1i(U.uN, R.drops.length);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     } else {
-      R.dye0 = R.want.mask; R.ownDye = false;
-      gl.bindTexture(gl.TEXTURE_2D, R.dye0);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      // Extract only the sixteen recipients before advection and mip generation.
+      // The unfiltered slot ID belongs to the categorical board mask; the resulting dye is filterable.
+      const w = 1024, h = Math.round(w / R.want.aspect);
+      R.dye0 = tex(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR_MIPMAP_LINEAR);
+      R.ownDye = true;
+      R.dyeFb = target(R.dye0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, R.dyeFb);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+      gl.viewport(0,0,w,h);
+      const {p,U} = P.pieces;
+      gl.useProgram(p);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,R.want.mask);
+      gl.uniform1i(U.uMask,0); gl.uniform2f(U.uSize,w,h);
+      gl.drawArrays(gl.TRIANGLES,0,3);
     }
     gl.bindTexture(gl.TEXTURE_2D, R.dye0);
     gl.generateMipmap(gl.TEXTURE_2D);
@@ -193,7 +266,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
     draw(R, 'velocity', R.vel.nextFb, (U, bind) => {
       bind('uVel', R.vel.cur); bind('uRho', R.rho.cur); bind('uCurl', R.curl);
       gl.uniform1f(U.uDt, dt); gl.uniform1f(U.uGrav, C.grav * s); gl.uniform1f(U.uEps, C.eps); gl.uniform1f(U.uDamp, C.damp);
-      const st = R.kind === 'dissolve' ? stirrers(t, R.T, R.nx, R.ny, R.C.stirrers, R.mid[0], R.mid[1])
+      const st = R.kind === 'dissolve' ? collectingFlow(t, R)
         : stirrers(t, R.T, R.nx, R.ny, R.C.stirrers, R.nx / 2, R.ny / (2 * (1 + R.C.above)), R.C.storm[0], R.C.storm[1]);
       gl.uniform4fv(U.uStir, new Float32Array(st.flat().concat(new Array(32).fill(0)).slice(0, 32)));
       gl.uniform1i(U.uNStir, st.length);
@@ -206,7 +279,7 @@ export function createInkSim(gl, { coarse = false } = {}) {
     draw(R, 'carry', R.carryFb[1 - R.rho.i], (U, bind) => { bind('uVel', R.vel.cur); bind('uRho', R.rho.cur); bind('uMap', R.map.cur); gl.uniform1f(U.uDt, dt); });
     R.rho.swap(); R.map.swap();
     R.step++;
-    if (R.step % R.every === 0 && R.key < C.keys) keep(R);
+    if (R.key < C.keys && R.step >= Math.round(R.key * C.steps / (C.keys - 1))) keep(R);
     if (R.step >= C.steps) {
       while (R.key < C.keys) keep(R);
       R.done = true;
@@ -263,10 +336,13 @@ export function createInkSim(gl, { coarse = false } = {}) {
       }
       return false;
     },
+    progress() {
+      return ((runs.rain?.step || 0) + (runs.dissolve?.step || 0)) / (RAIN.steps + DISSOLVE.steps);
+    },
     ready: kind => !!(runs[kind]?.done || kept[kind]),
     // A finished run, for playing back: its keyframes (texture array), how many, its grid, its first
     // picture, its length in seconds, its drops (rain).
-    run(kind) { const R = runs[kind]?.done ? runs[kind] : kept[kind]; return R?.done ? { keys: R.keys, n: R.C.keys, cells: [R.nx, R.ny], dye0: R.dye0, T: R.T, drops: R.drops, above: R.C.above, box: R.want.box } : null; },
+    run(kind) { const R = runs[kind]?.done ? runs[kind] : kept[kind]; return R?.done ? { keys: R.keys, n: R.C.keys, cells: [R.nx, R.ny], dye0: R.dye0, T: R.T, sources: R.sources, drops: R.drops, above: R.C.above, box: R.want.box } : null; },
     dispose() { dead = true; for (const k of ['rain', 'dissolve']) { freeRun(runs[k]); freeRun(kept[k]); runs[k] = kept[k] = null; } Object.values(P).forEach(q => q && gl.deleteProgram(q.p)); },
   };
 }

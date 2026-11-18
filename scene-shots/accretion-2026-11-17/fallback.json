@@ -1,0 +1,21 @@
+{
+  "size": "1440x900",
+  "pacing": null,
+  "card": [
+    582.53125,
+    101.453125,
+    494.75,
+    371.0625
+  ],
+  "warnings": [],
+  "problems": {
+    "consoleErrors": [],
+    "exceptions": [],
+    "logErrors": [],
+    "failedRequests": [],
+    "blockedByTest": 0,
+    "httpErrors": [],
+    "external": [],
+    "fixtures": 0
+  }
+}

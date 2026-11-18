@@ -18,7 +18,7 @@ import { createDewResources } from './dew-resources.js';
 import { createTerrainResources } from './terrain-resources.js';
 import { makeLead } from './lead-plan.js';
 import { FIRE, FIREC, makeIgnition, ignitionTexels } from './fire-plan.js';
-import { createInkSim } from './ink-sim.js';
+import { createInkSim, createPace, PACE } from './ink-sim.js';
 import { UNMIX, rainAt, unmixAt, weightsAt, smoothIn } from './unmix-plan.js';
 import { UNMIX_SEEN } from './glsl/unmix.js';
 import { VERTEX } from './glsl/index.js';
@@ -54,7 +54,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   const terrain = createTerrainResources(gl, coarse);
   // Where Racing's card sits during its hold (home.js measures it and says so): its fragments' field
   // lines end there. Read from the page too, in case that was said before this was listening.
-  document.addEventListener('dew:card', e => { if (Array.isArray(e.detail)) dew.request(innerWidth, innerHeight, e.detail); });
+  const updateCard = e => { if (Array.isArray(e.detail)) dew.request(document.documentElement.clientWidth, innerHeight, e.detail); };
+  document.addEventListener('dew:card', updateCard);
   const heldCard = () => {
     const card = document.querySelector('.seam-wrap > .band--racing .r-band-race'), band = card?.closest('.band--racing');
     if (!card) return undefined;
@@ -151,6 +152,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   });
 
   const kindOf = s => KINDS[`${s.a}-${s.b}`] || null;
+  const tiers = new Map();   // a seam's kind → how it is playing: { whole, seen } (prepare)
   function usable(K) {
     if (K.id === 'unmix' && !(programs.unmixSeen && inkFits())) return false;
     for (const u of K.units) if (!programs[u.split(':')[0]]) return false;
@@ -322,7 +324,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   // Made ahead, while the page is idle, for this screen, so the seams start without the work.
   later(() => {
     if (gl.isContextLost()) return;
-    const w = innerWidth, h = innerHeight;
+    const w = document.documentElement.clientWidth, h = innerHeight;
     planTexture('cubes', w, h, grid('cubes', w, h, { scale: 1 }));
     dew.request(w, h, heldCard());
     terrain.request(w, h);
@@ -356,7 +358,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
       try {
         fire.worker = new Worker(new URL('./fire-worker.js', import.meta.url), { type: 'module' });
         fire.worker.onmessage = ({ data }) => {
-          if (data.error) { console.warn('The fire\'s plan failed', data.error); return; }
+          if (data.error) { fire.failed = true; console.warn('The fire\'s plan failed', data.error); return; }
           if (data.key === fire.asked) fireUpload(data.key, data.w, data.h, data.half);
         };
         fire.worker.onerror = () => { fire.worker = null; fire.asked = null; };
@@ -369,15 +371,12 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   }
   // Asked for ahead, for this screen, once the plate has arrived.
   (function ahead(tries) {
-    later(() => { if (!gl.isContextLost() && !fire.asked && !fireTexture(innerWidth, innerHeight) && !fire.asked && tries > 0) setTimeout(() => ahead(tries - 1), 500); });
+    later(() => { if (!gl.isContextLost() && !fire.asked && !fireTexture(document.documentElement.clientWidth, innerHeight) && !fire.asked && tries > 0) setTimeout(() => ahead(tries - 1), 500); });
   })(20);
 
-  // Float targets (Photography → Chess's ink, seen: below).
-  const floatOK = !!gl.getExtension('EXT_color_buffer_float'), halfOK = floatOK || !!gl.getExtension('EXT_color_buffer_half_float');
-  const floatLinear = !!gl.getExtension('OES_texture_float_linear');
-  function floatTarget(tw, th, mip) {
-    const full = floatOK && floatLinear;
-    const t = texture(tw, th, full ? gl.RGBA32F : gl.RGBA16F, gl.RGBA, full ? gl.FLOAT : gl.HALF_FLOAT);
+  // Concentrations and surface height are normalized. Reserve float textures for the solver.
+  function pigmentTarget(tw, th, mip) {
+    const t = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
     if (mip) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.bindTexture(gl.TEXTURE_2D, null); }
     const fb = target(t), ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -404,7 +403,9 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     const R = sim.ready('rain') && sim.ready('dissolve') && inkB.mask ? sim.run('dissolve') : null;
     return !!R && (!inkB.box || (!!R.box && R.box.every((v, i) => Math.abs(v - inkB.box[i]) < 3)));
   };
-  function bake(n, W, H) {
+  // (Paced: ink-sim.js createPace. busy: a seam is playing; ahead: screens until Chess's seam begins.)
+  const pace = createPace(coarse ? PACE.coarse : PACE.fine);
+  function bake(dt, W, H, { busy = false, ahead = Infinity } = {}) {
     if (gl.isContextLost() || !W || !H) return;
     const b3 = board3d?.();
     if (b3?.ready()) {
@@ -415,8 +416,9 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     // The fluid, for the homepage's seam only.
     if (!inkB.box) return;
     sim.want('rain', { aspect: W / H, widthPx: W });
-    if (inkB.mask && inkB.at === inkB.box) sim.want('dissolve', { aspect: inkB.W / inkB.H, W: inkB.W, H: inkB.H, box: inkB.box, mask: inkB.mask });
-    sim.work(n);
+    if (inkB.mask && inkB.at.every((v,i) => Math.abs(v-inkB.box[i]) < 1)) sim.want('dissolve', { aspect: inkB.W / inkB.H, W: inkB.W, H: inkB.H, box: inkB.box, mask: inkB.mask });
+    const n = document.documentElement.classList.contains('site-loading') ? (coarse ? 2 : 4) : pace.steps(dt, { busy, urgent: ahead < 2.5 && ahead > -8 && !inkFits() });
+    if (n > 0 && sim.work(n)) pace.did();
   }
   function unmixPass(s, f) {
     const [, , w, h] = s.region, P = transitP(s.p ?? 0), R1 = sim.run('rain'), R2 = sim.run('dissolve');
@@ -425,9 +427,9 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     if (unmix.key !== key) {
       if (unmix.seen) { gl.deleteTexture(unmix.seen.t); gl.deleteFramebuffer(unmix.seen.fb); }
       unmix.key = key;
-      // (The ink is soft: seen at no more than about a megapixel.)
-      const sc = Math.min(coarse ? 0.7 : 1, Math.sqrt(1.3e6 / (w * h)));
-      unmix.seen = floatTarget(Math.max(2, Math.round(w * sc)), Math.max(2, Math.round(h * sc)), true);
+      // Resolve fine pigment filaments at display density, within a bounded target.
+      const sc = Math.min(devicePixelRatio || 1, Math.sqrt((coarse ? 1.5e6 : 2.3e6) / (w * h)));
+      unmix.seen = pigmentTarget(Math.max(2, Math.round(w * sc)), Math.max(2, Math.round(h * sc)), true);
     }
     if (!unmix.seen) return false;
     const { p, U } = programs.unmixSeen, [w1, w2] = weightsAt(P), tr = smoothIn(UNMIX.tremble, P);
@@ -442,6 +444,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     gl.uniform2f(U.uK, rainAt(P) * (R1.n - 1), unmixAt(P) * (R2.n - 1));
     gl.uniform2f(U.uW, w1, w2);
     gl.uniform1f(U.uAbove, R1.above);
+    gl.uniform4fv(U.uDrop, R1.sources);
+    gl.uniform1f(U.uProgress, P);
     gl.uniform2f(U.uTremble, 0.0028 * Math.sin(Math.PI * tr) * (1 - tr), f.time);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     tx.forEach(([kind], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(kind, null); });
@@ -460,7 +464,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   const clickGas = {};
   function prepareDewClick(s, f) {
     const w = f.vpW, h = f.vpH;
-    if (!programs.drops || !programs.shards || !programs.fieldlines || !renderPane || !dew.bind(w, h)) return false;
+    if (!programs.drops || !programs.shards || !programs.fieldlines || !renderPane || !dew.bind(w, h, undefined, true)) return false;
     gasPass(clickGas, { ...s, region: [0, 0, w, h] }, w, h, SPOTS.still);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, clickGas.gas.t);
     gl.activeTexture(gl.TEXTURE0);
@@ -470,7 +474,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     const w = f.vpW, h = f.vpH, st = dew.stats(w, h) ?? {};
     const P = -0.2 + 1.04 * (s.e ?? 0);
     gl.disable(gl.SCISSOR_TEST);
-    dew.bind(w, h);
+    dew.bind(w, h, undefined, true);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, clickGas.gas?.t ?? null);
     gl.activeTexture(gl.TEXTURE0);
@@ -523,20 +527,35 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     gl.enable(gl.SCISSOR_TEST);
   }
   return {
+    loadingStatus(w, h, home) {
+      const linked = jobs.filter(j => programs[j.name] !== undefined).length;
+      const compiled = linked === jobs.length;
+      const failed = compiled && jobs.some(j => !programs[j.name]);
+      if (!compiled) return { stage: 'light', ready: false, percent: 4 + (home ? 10 : 94) * linked / jobs.length };
+      if (!home || failed) return { stage: 'ready', ready: !failed, failed };
+      if (terrain.failed() || fire.failed || dew.failed(w, h)) return { stage: 'ready', ready: false, failed: true };
+      if (!dew.ready(w, h)) return { stage: 'motion', ready: false, percent: 14 + .79 * dew.percent(w, h) };
+      terrain.request(w, h);
+      const finished = Number(terrain.ready(w, h)) + Number(!!fireTexture(w, h)) + Number(inkFits());
+      const ready = finished === 3;
+      return { stage: ready ? 'ready' : 'finish', ready, percent: 93 + 2 * finished + (inkFits() ? 0 : 2 * sim.progress()) };
+    },
     // Racing's plan (names kept from the ice transition this replaced; scene.js and the tools use them).
     iceReady: (w, h) => dew.ready(w, h),
+    iceClickReady: (w,h) => !!programs.shards && !!programs.drops && !!programs.fieldlines && dew.clickReady(w,h),
     // Outdoors' plate (its world's heights), on unit 7 once it has arrived.
     plateReady: () => terrain.plateReady(),
-    bindIce: (w, h) => dew.bind(w, h),
+    bindIce: (w, h) => dew.bind(w, h, undefined, true),
     iceStats: (w, h) => dew.stats(w, h),
-    // The ink's fluid, baked a little at a time (scene.js calls this when no seam is playing), and the box
-    // the Chess board waits in during its transition (home.js: CSS px, on a W × H screen).
+    // The ink's fluid, baked a little every frame (bake: dt, the screen, whether a seam is playing and how
+    // near Chess's is), and the box the Chess board waits in during its transition (home.js: CSS px, on a
+    // W × H screen).
     bake,
     inkReady: () => inkFits(),
     // The board for a click into Chess: where it stands, and its ink (null until drawn).
     inkClick: (W, H) => (inkB.mask ? { box: inkB.at || inkBox(W, H), mask: inkB.mask } : null),
     inkBoard(box, W, H) { if (box) { inkB.box = box; inkB.W = W; inkB.H = H; } },
-    dispose() { sim.dispose(); if (unmix.seen) { gl.deleteTexture(unmix.seen.t); gl.deleteFramebuffer(unmix.seen.fb); } unmix.seen = null; dew.dispose(); terrain.dispose(); fire.worker?.terminate(); if (fire.t) gl.deleteTexture(fire.t); fire.t = fire.key = fire.asked = null; fire.worker = undefined; snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
+    dispose() { document.removeEventListener('dew:card', updateCard); sim.dispose(); if (unmix.seen) { gl.deleteTexture(unmix.seen.t); gl.deleteFramebuffer(unmix.seen.fb); } unmix.seen = null; dew.dispose(); terrain.dispose(); fire.worker?.terminate(); if (fire.t) gl.deleteTexture(fire.t); fire.t = fire.key = fire.asked = null; fire.worker = undefined; snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
     // What a click's cover reads (opens.js), made once per click from its origin O and far corner:
     // the maze (house), the lead's run (Outdoors); null for processes computed on the fly.
     bakeEffect(style, O, far, w, h) {
@@ -550,10 +569,16 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     // Before drawing: refresh the snapshots.
     prepare(s, dt, f) {
       const K = kindOf(s);
-      if (!K || !usable(K)) return false;
+      if (!K) return false;
       const [, , w, h] = s.region;
-      // The fire needs its plan (until the plate is in, the seam stays plain).
-      if (K.id === 'fire') return !!fireTexture(w, h);
+      // A seam plays as it began, whole or plain (the fire waits for its plan, Chess for its fluid), until it
+      // is at an end of its hold or has been off the screen: what it needs coming in mid-way must not
+      // change it in front of the visitor.
+      const was = tiers.get(K.id), fresh = !was || f.now - was.seen > 400 || !(s.p > 0.02 && s.p < 0.98);
+      const can = usable(K) && (K.id !== 'fire' || !!fireTexture(w, h));
+      const whole = can && (fresh || was.whole);
+      tiers.set(K.id, { whole, seen: f.now });
+      if (!whole) return false;
       if (K.id === 'unmix') return unmixPass(s, f);
       if (K.live) return true;
       // The dew is seen through drops and frost: its worlds' snapshots can be coarser on big screens.
@@ -617,7 +642,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
       // fused (the drops' lenses read Science's snapshot, unit 0, and its gas, unit 3).
       const P = transitP(s.p ?? 0), st = K.id === 'dew' && iceReady && renderPane ? dew.stats(w, h) : null;
       const nRecords = st && P > 0.15 && P < FREEZE.f1 + 0.05 ? st.records ?? 0 : 0;
-      const nShards = st && P > FREEZE.f0 - 0.01 && P < 1.1 ? st.shards ?? 0 : 0;
+      const nShards = st && P > .49 && P < 1.19 ? st.shards ?? 0 : 0;
       // The gas, while it shows: drawn now (it needs the plan, bound above), sampled by the ground.
       const gas = K.id === 'dew' && iceReady && renderPane && gasOn(P);
       if (gas) { gasPass(snap, s, w, h, P); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, snap.gas.t); gl.activeTexture(gl.TEXTURE0); }
@@ -652,7 +677,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
         const g = name === 'sheets' || snow ? [1, 1, 1, 1] : name === 'cubes' || name === 'embers' ? ground : name === 'ribbons' ? [rib[0], rib[1], 0, 0] : grid(name, w, h, f);
         // The vortex carries its cubes the whole height of the screen, one a cell. The sheets draw a
         // layer at a time, the lowest first.
-        const [first, count] = name === 'sheets' ? [0, 1] : snow ? [0, name === 'drops' ? nRecords : nShards] : name === 'flow' ? [0, g[0] * g[1]]
+        const [first, count] = name === 'sheets' ? [0, 1] : snow ? [0, name === 'drops' ? nRecords : nShards + (name === 'shards' && st?.accretion && P>.62 && P<1.04 ? Math.ceil(nShards/8) : 0)] : name === 'flow' ? [0, g[0] * g[1]]
           : name === 'ribbons' ? [0, 2 * g[0] * g[1]] : name === 'cubes' || fiery ? [0, g[0] * g[1]] : span(g, s, f);
         if (!count) continue;
         const { p, U } = prog;
@@ -660,6 +685,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
         gl.uniform4f(U.uRegion, ...s.region);
         gl.uniform2f(U.uView, f.vpW, f.vpH);
         gl.uniform1f(U.uTime, f.time);
+        if (U.uOrbitSeconds) gl.uniform1f(U.uOrbitSeconds, f.orbitSeconds);
         gl.uniform1f(U.uH, s.p ?? 0);
         gl.uniform1f(U.uVel, s.vel ?? 0);
         gl.uniform4f(U.uGrid, ...g);

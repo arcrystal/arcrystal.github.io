@@ -12,6 +12,7 @@ Google Chrome already on the machine over the DevTools protocol.
 | `og_cards.mjs` | the share cards, `static/og/<page>.jpg`, each drawn by `og/card.html` in its page's style; run it after changing a page's name or line: `node tools/site/og_cards.mjs [id ...]` |
 | `perf.mjs` | wheels down the homepage past the last band and reports frame times, style recalculation and layout, on the GPU, with the CPU throttled 4× and on SwiftShader: `node tools/site/perf.mjs [--strict]` |
 | `scene_check.mjs` | the WebGL scene headless: screenshots of the hero, the crystal filled with each world, each band, each seam with the meeting line at a quarter, half and three quarters of the screen, and each destination's hero: `node tools/site/scene_check.mjs --out DIR [--only NAME] [--preset nowebgl] [--reduced-motion] [--size 390x844]` |
+| `track_check.mjs` | Racing finale: exact progress captures, reverse playback, shard-draw verification and frame pacing; `--lifecycle` also checks rapid resize and click navigation. Supports `--size`, `--out`, `--preset` and `--reduced-motion`. |
 | `tests/*.test.mjs` | unit tests: `node --test tools/site/tests/*.test.mjs` |
 | `trace_route.py` | traces a Strava route screenshot into a vector polyline (`static/site/route-birkie.json`) |
 | `serve.mjs` | static server close to GitHub Pages: `node tools/site/serve.mjs --port 8100` |
@@ -26,3 +27,7 @@ A destination's package is `<dir>/page/`:
 
 The registry, `static/site/destinations.json`, gives the order, URLs and the style of each page.
 `design/README.md` describes the six destinations and their styles, the sentence and the crystal, the seams, and how the homepage and the scene work.
+
+Racing’s gravitational finale: `node tools/site/accretion_check.mjs /tmp/accretion-numerics.json` runs production-size timestep refinement and accounting checks. `node tools/site/accretion_movie.mjs --size 1440x900 --out /tmp/accretion-movies` records slow forward/reverse sequences and a contact sheet. See [the physical and artistic model](../../design/accretion.md).
+
+`node tools/site/accretion_click_check.mjs` verifies the abbreviated Racing click can draw its shards before the full homepage orbit bake completes.

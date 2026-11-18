@@ -148,11 +148,31 @@ test('the fronts: every cell reached once, from a front of its own kind where it
   }
   assert.ok(late / inView <= 1 - PAINT.cover[0] + 1e-3, `${late} of ${inView} late`);
   assert.ok(own / land > 0.75, `${(own / land * 100).toFixed(0)}% painted by their own kind`);
-  // The plan travels as texels: the grid, then a header and the drops.
-  const plan = makePaint(T, W, Hh, false), row = n * n * 4;
-  assert.equal(plan.w, n); assert.equal(plan.h, n + 1);
+  // The plan travels as texels: the grid, then a header and the drops, then which drops can reach each
+  // square of the map (glsl/paint.js reads only those): every point within three radii of a drop, and
+  // past the map's edges, finds it in its square, as the shader finds the square.
+  const plan = makePaint(T, W, Hh, false), row = n * n * 4, C = PAINT.cells;
+  assert.equal(plan.w, n); assert.equal(plan.h, n + 1 + Math.ceil(C * C / n));
   assert.equal(plan.data[row], plan.splashes.length);
   near(plan.data[row + 4 + 2], plan.splashes[0].t, 1e-6);
+  assert.ok(plan.splashes.every((q, i) => !i || q.t >= plan.splashes[i - 1].t), 'the drops in the order they land');
+  const reach = (x, z) => {
+    const cx = Math.min(C - 1, Math.max(0, Math.floor(Math.fround(x / TERRAIN.size * C)))), cz = Math.min(C - 1, Math.max(0, Math.floor(Math.fround(z / TERRAIN.size * C))));
+    return plan.data.subarray(n * (n + 1) * 4 + (cz * C + cx) * 4, n * (n + 1) * 4 + (cz * C + cx) * 4 + 4);
+  };
+  const has = (m, i) => Math.floor(m[Math.floor(i / 20)] / 2 ** (i % 20)) % 2 === 1;
+  let listed = 0, bits = 0;
+  plan.splashes.forEach((q, i) => {
+    for (let k = 0; k < 400; k++) {
+      const r = 3 * q.R * Math.sqrt((k * 0.618) % 1), a = k * 2.39996, x = q.x + r * Math.cos(a), z = q.z + r * Math.sin(a);
+      assert.ok(has(reach(x, z), i), `drop ${i} listed at ${x.toFixed(2)}, ${z.toFixed(2)}`);
+    }
+    for (const [x, z] of [[-5, q.z], [TERRAIN.size + 5, q.z], [q.x, -5], [q.x, TERRAIN.size + 5]]) if (Math.hypot(Math.min(Math.max(x, 0), TERRAIN.size) - q.x, Math.min(Math.max(z, 0), TERRAIN.size) - q.z) < 3 * q.R) assert.ok(has(reach(x, z), i), 'past the edge');
+    listed++;
+  });
+  for (let k = 0; k < C * C; k++) for (let i = 0; i < plan.splashes.length; i++) bits += has(plan.data.subarray(n * (n + 1) * 4 + k * 4), i) ? 1 : 0;
+  assert.equal(listed, plan.splashes.length);
+  assert.ok(bits / (C * C) < plan.splashes.length / 8, `a square lists ${(bits / (C * C)).toFixed(1)} drops on average`);
 });
 
 test('the camera: over the painting looking down, a dive once the paint is moulding, the flight above the ground, then straight down again', () => {

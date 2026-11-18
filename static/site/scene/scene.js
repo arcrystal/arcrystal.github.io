@@ -7,13 +7,14 @@
 // marks the moment the canvas takes over. Effects draw in front of the page (.scene.is-front) for
 // their cover and behind it for their reveal.
 import { onTick, motion } from '../lib/util.js';
+import { transitP } from '../lerp.js';
 import { VERTEX, fragment } from './glsl/index.js';
 import { createTransit } from './transit.js';
 import { createBoard3D } from './board3d.js';
 import { startSlots } from './staunton.js';
 
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
-const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
+const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uOrbitSeconds', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
   'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
@@ -50,12 +51,15 @@ function createScene() {
   const coarse = matchMedia('(pointer: coarse)').matches;
   const quality = coarse || innerWidth < 900 ? 4 : 5;
   const hosts = new Set();
-  let program = null, U = {}, ready = false, drewLast = false, transit = null, board3d = null, inkBoardBox = null;
+  let program = null, U = {}, ready = false, drewLast = false, transit = null, board3d = null, inkBoardBox = null, inkAt = null;
   let effect = null, stopTick = null;
   let cssW = 0, cssH = 0, dpr = 1, scale = 1, slow = 0, fast = 0, iceDetail = 1, slowShare = 0;
   // The viewport, cached: reading innerWidth after the hosts have written styles would force a layout.
-  let vpW = innerWidth, vpH = innerHeight;
-  addEventListener('resize', () => { vpW = innerWidth; vpH = innerHeight; }, { passive: true });
+  let vpW = root.clientWidth, vpH = innerHeight;
+  function measureViewport() { vpW = root.clientWidth; vpH = innerHeight; }
+  addEventListener('resize', measureViewport, { passive: true });
+  document.addEventListener('visuals:ready', measureViewport);
+  let orbitSeconds = 0;
   let time = 7, ptrX = innerWidth * 0.62, ptrY = innerHeight * 0.4, tx = ptrX, ty = ptrY, ptrOn = 0, ptrTarget = 0;
 
   // ---- program ------------------------------------------------------------------------------
@@ -255,6 +259,11 @@ function createScene() {
       return;
     }
     gl.useProgram(program);
+    // Time spent reading other sections must not wind up the disc at first entry.
+    const orbitVisible = list.some(s => s.mode === 6 && s.a === STYLE_ID.cosmos && s.b === STYLE_ID.glass && transitP(s.p) > .72);
+    if (!orbitVisible) orbitSeconds = 0;
+    else if (!paused) orbitSeconds += dt;
+    gl.uniform1f(U.uOrbitSeconds, orbitSeconds);
     gl.uniform1f(U.uTime, time);
     gl.uniform2f(U.uPointer, ptrX, ptrY);
     gl.uniform1f(U.uPtrOn, ptrOn);
@@ -262,7 +271,7 @@ function createScene() {
     // Transits first refresh their snapshots off screen. With reduced motion the
     // seams stay the plain, still ones.
     const now = performance.now();
-    const info = transit && !paused ? { scale, now, time, vpW: cssW, vpH: cssH, ptr: { x: ptrX, y: ptrY, on: ptrOn } } : null;
+    const info = transit && !paused ? { scale, now, time, orbitSeconds, vpW: cssW, vpH: cssH, ptr: { x: ptrX, y: ptrY, on: ptrOn } } : null;
     if (info) {
       for (const u of [0, 1, 2, 5]) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
       gl.activeTexture(gl.TEXTURE0);
@@ -282,9 +291,11 @@ function createScene() {
         }
       }
       transit.sweep(now);
-      // Photography → Chess's fluid, baked a few steps a frame while no seam is playing.
+      // Photography → Chess's fluid, baked a little every frame, at a pace for what is playing and how near
+      // Chess's seam is (transit.js bake).
       if (inkBoardBox) transit.inkBoard(inkBoardBox, cssW, cssH);
-      if (!list.some(s => s.mode === 6 && s.p > 0.01 && s.p < 0.99)) transit.bake(coarse ? 1 : 2, cssW, cssH);
+      const busy = list.some(s => s.mode === 6 && s.p > 0.01 && s.p < 0.99);
+      transit.bake(dt, cssW, cssH, { busy, ahead: inkAt === null ? Infinity : (inkAt - scrollY) / cssH });
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.useProgram(program);
     }
@@ -313,7 +324,8 @@ function createScene() {
     // Chess's board is the band's content, as its card was: over every world, a seam's strip too (with motion
     // paused, the seam into Chess straddles the band's top, where the board is), and not cut to the band's
     // world (that strip's half is not the band's region, though the board's box is in the band).
-    if (boards.length) {
+    const inkOwnsBoard = list.some(s => s.transit && s.mode === 6 && s.b === STYLE_ID.ink);
+    if (boards.length && !inkOwnsBoard) {
       gl.disable(gl.SCISSOR_TEST);
       for (const s of boards) { board3d.blit(s.board.rect, dpr, canvas.height, s.board.alpha ?? 1); restoreMain(); }
       gl.enable(gl.SCISSOR_TEST);
@@ -334,22 +346,11 @@ function createScene() {
     // Drop only fine fractures and secondary glints before reducing principal ice quality.
     if (behind && racing && iceDetail > 0) { iceDetail = 0; slow = 0; slowShare = 0; }
     else if (behind && scale > 0.5) { scale = Math.max(0.5, scale - 0.15); slow = 0; slowShare = 0; }
-    // Still slow at half resolution: hand the pages back to their CSS art.
-    if (slow > 90 && scale <= 0.5) giveUp();
+    // A 30 Hz display or browser power policy also produces long frames. Keep the
+    // prepared scene alive at the minimum scale until the browser schedules it faster.
     // Quick again for a while: the resolution back first, then the fine detail.
     if (fast > 300 && scale < 1) { scale = Math.min(1, scale + 0.1); fast = 0; }
     else if (fast > 300 && iceDetail < 1) { iceDetail = 1; fast = 0; }
-  }
-
-  function giveUp() {
-    effect?.abort?.();
-    transit?.dispose(); transit = null;
-    board3d?.dispose(); board3d = null;
-    ready = false;
-    root.classList.remove('gl');
-    root.classList.add('no-gl');
-    canvas.remove();
-    console.info('The scene runs too slowly here; the pages keep their CSS art.');
   }
 
   function wake() { if (!stopTick) stopTick = onTick(tick); }
@@ -481,15 +482,20 @@ function createScene() {
   const api = {
     get ready() { return ready; },
     compiled: null,
+    loadingStatus: () => ready && transit
+      ? transit.loadingStatus(vpW, vpH, document.body.dataset.page === 'home')
+      : { stage: 'light', ready: false, failed: gl.isContextLost() || root.classList.contains('no-gl') },
     add(host) { hosts.add(host); wake(); return () => { hosts.delete(host); sleepIfIdle(); }; },
     open,
     iceReady: () => !!transit?.iceReady(vpW,vpH),
+    iceClickReady: () => !!transit?.iceClickReady(vpW,vpH),
     iceStats: () => ({ ...transit?.iceStats(vpW,vpH), renderScale: scale, detail: iceDetail, fallback: !ready }),
     get pointer() { return { x: ptrX, y: ptrY, on: ptrOn }; },
     // Whether Chess's board is drawn by the scene (its tile then gives way to it).
     boardDrawn: () => !!board3d?.drawn,
-    // Where Chess's board waits during its transition (CSS px [x, y, w, h] on the screen): its fluid is baked for it.
-    setInkBoard(box) { inkBoardBox = box; },
+    // Where Chess's board waits during its transition (CSS px [x, y, w, h] on the screen): its fluid is baked for
+    // it; and the scroll at which that transition begins (document px), so the bake is in by then.
+    setInkBoard(box, at = null) { inkBoardBox = box; inkAt = at; },
     // Whether that fluid is baked (for the tools).
     inkReady: () => !!transit?.inkReady(),
   };

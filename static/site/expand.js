@@ -71,7 +71,7 @@ export function createExpand({ motion }) {
     const scene = getScene();
     const el = cardOf(link);
     const cardR = el ? parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0 : 24;
-    if (kind === 'glass' && (matchMedia('(prefers-reduced-motion: reduce)').matches || !scene?.iceReady?.())) kind = 'fade';
+    if (kind === 'glass' && (matchMedia('(prefers-reduced-motion: reduce)').matches || !(scene?.iceClickReady?.() ?? scene?.iceReady?.()))) kind = 'fade';
     const run = scene?.ready && kind !== 'fade'
       ? scene.open(kind, { rect, point: at, from, to, cardR })
       : open(kind, { rect, point: at, vw, vh, from, to });

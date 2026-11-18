@@ -1,0 +1,3 @@
+ok   {"run":"gpu","scene":"webgl","frames":1209,"p50":16.7,"p90":16.7,"worst":33.3,"over33":0,"recalcMs":394,"recalcs":1652,"layoutMs":115,"layouts":1261,"scriptMs":351,"taskMs":1841}
+ok   {"run":"gpu, CPU 4×","scene":"webgl","frames":1156,"p50":16.7,"p90":16.7,"worst":100.1,"over33":2,"recalcMs":996,"recalcs":1595,"layoutMs":333,"layouts":1205,"scriptMs":943,"taskMs":4748}
+ok   {"run":"swiftshader (falls back to CSS)","scene":"css","frames":178,"p50":16.7,"p90":16.7,"worst":150,"over33":2,"recalcMs":67,"recalcs":230,"layoutMs":19,"layouts":219,"scriptMs":24,"taskMs":319}

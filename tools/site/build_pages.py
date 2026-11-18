@@ -31,6 +31,7 @@ import math
 import os
 import re
 import sys
+import subprocess
 from urllib.parse import quote, unquote, urlsplit
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -139,10 +140,10 @@ def boot_script():
     visitor paused it: motion is on by default, whatever the system setting). If the shell
     never reports html.app-ready, html.js is dropped after 6 s so JavaScript-only states cannot
     hide content."""
-    return ("(function(){var d=document.documentElement;d.classList.add('js');try{"
+    return ("(function(){var d=document.documentElement;d.classList.add('js','site-loading');try{"
             "if(localStorage.getItem('ac-motion')==='paused')d.classList.add('motion-paused');"
             "}catch(e){}"
-            "setTimeout(function(){if(!d.classList.contains('app-ready'))d.classList.remove('js')},6000)})()")
+            "setTimeout(function(){if(!d.classList.contains('app-ready'))d.classList.remove('js','site-loading')},6000)})()")
 
 
 def site_data():
@@ -275,6 +276,21 @@ def page(*, title, description, canonical, style, styles, current, page_id, main
     theme = style_of(style)['colors']['bg']
     return f'''{head(title, description, canonical, theme, styles, preload, head_extra, card=page_id)}
 <body data-page="{page_id}" data-style="{style}">
+<div class="site-loading-screen" id="site-loading" role="dialog" aria-modal="true" aria-labelledby="loading-title" aria-describedby="loading-description">
+  <div class="loading-brand"><span class="brand-mark" aria-hidden="true"></span> Alex Crystal</div>
+  <div class="loading-center">
+    <div class="loading-art" aria-hidden="true">
+      <span class="loading-orbit"></span>
+      <svg viewBox="0 0 120 140"><path d="M60 8 106 43 93 102 60 132 27 102 14 43Z" fill="#d6e5de"/><path d="m60 8 46 35-46 17-46-17Z" fill="#eff4ec"/><path d="m60 60 46-17-13 59-33 30Z" fill="#91b3ac"/><path d="m60 8 0 124M14 43l46 17 46-17M27 102l33-42 33 42" fill="none" stroke="#426b67" stroke-opacity=".4" stroke-width=".8"/></svg>
+    </div>
+    <h2 id="loading-title">Setting the scene</h2>
+    <p id="loading-description">Preparing the visuals for your visit.</p>
+    <ol class="loading-steps" aria-hidden="true"><li data-loading-step data-state="active">Light</li><li data-loading-step>Motion</li><li data-loading-step>Ready</li></ol>
+    <div class="loading-progress" role="progressbar" aria-label="Visual preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">0%</div>
+    <p class="loading-status" data-loading-status role="status" aria-live="polite">Finding the light</p>
+  </div>
+  <button class="loading-enter" type="button">Enter without motion <span aria-hidden="true">→</span></button>
+</div>
 <a class="skip-link" href="#main">Skip to content</a>
 {header(current)}
 <main id="main" tabindex="-1" data-page="{page_id}" data-style="{style}" data-title="{esc(title)}"{main_attrs}>
@@ -793,12 +809,12 @@ def band_science(pkg):
 def band_racing(pkg):
     p = pkg.meta['preview']
     stats = ''.join(f'<li><b>{esc(a)}</b><span>{esc(b)}</span></li>' for a, b in p['stats'])
+    artwork = subprocess.check_output(['node', '--input-type=module', '-e',
+        "import {trackSVG} from './static/site/scene/track-plan.js'; process.stdout.write(trackSVG());"], cwd=ROOT, text=True)
     return f'''    <div class="band-body r-band">
-      <figure class="r-band-race" data-race-pace>
-        <p class="r-band-cap">{esc(p['caption'])}</p>
-        <p class="r-band-clock"><span data-pace-clock>{esc(p['time'])}</span><small>{esc(p['timeSuffix'])}</small></p>
-        <div class="r-band-route">{route_svg(p['route'], 'r-band-svg')}<span class="r-band-km" data-pace-km>Cable → Hayward · 50 km</span></div>
-        <figcaption class="sr-only">The 2026 Birkebeiner route, Cable to Hayward, with my official time of 2:28:49.04.</figcaption>
+      <figure class="r-band-race" aria-label="An eight-lane running track">
+        {artwork}
+        <figcaption class="sr-only">A terracotta running track with eight white-lined lanes and a green infield.</figcaption>
       </figure>
       <ul class="r-band-stats" role="list">{stats}<li><b>National champion</b><span>club running, from my résumé</span></li></ul>
     </div>'''

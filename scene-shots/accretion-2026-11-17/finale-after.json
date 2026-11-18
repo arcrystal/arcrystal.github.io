@@ -1,0 +1,28 @@
+{
+  "size": "1440x900",
+  "pacing": {
+    "p50": 16.69999998807907,
+    "p90": 17.30000001192093,
+    "worst": 21.80000001192093,
+    "rafP90": 16.700000000000728,
+    "rafWorst": 16.80000000000291,
+    "missedFrames": 0
+  },
+  "card": [
+    582.53125,
+    148.71875,
+    494.75,
+    371.0625
+  ],
+  "warnings": [],
+  "problems": {
+    "consoleErrors": [],
+    "exceptions": [],
+    "logErrors": [],
+    "failedRequests": [],
+    "blockedByTest": 0,
+    "httpErrors": [],
+    "external": [],
+    "fixtures": 0
+  }
+}

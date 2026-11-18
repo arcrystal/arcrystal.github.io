@@ -11,8 +11,9 @@ import {
   SN, SHELL, remnantFrac, remnantInverse, lightCurve, nebDensity, nebulaRadius, shockAt, scienceDrops, hotOf,
   SKY, skyStars, hashG, hash2G, tri, NEB_RGB, hash3G, noise3G, turb3G, fbm3G, sphereGas, gasAt,
   SPOTS, jeansLength, freeFallTime, fallAngle, freeFall, supportAt,
-  FREEZE, FIELD, CLEAVE, cardDistance, frontSpeed, freezeTime, frontWave, pieceCount, ringsOf, aimShards,
+  FREEZE, FIELD, SHARD_TEXELS, CLEAVE, frontSpeed, freezeTime, frontWave, pieceCount, ringsOf, aimShards,
 } from '../../../static/site/scene/dew-plan.js';
+import { TRACK, trackFrame, trackDistance, trackToWorld, trackLocal, trackPoint, trackTangent, trackShardAt } from '../../../static/site/scene/track-plan.js';
 import { PALETTE, lineRGB, rgb } from '../../../static/site/scene/palette.js';
 import { GIANTS, blackbody, lineColour } from '../../../static/site/scene/giants.js';
 import { HOLD, holdFor, holdAt, glassEase, glassRaw, transitP, GLASS_RELEASE, HELD } from '../../../static/site/lerp.js';
@@ -158,18 +159,18 @@ test('gravity\'s spots: clumps about a Jeans length apart (∝ (c²/ρ)^½), the
   assert.match(src, /b = clamp\(b - \(b \+ sin\(b\) \* cos\(b\) - tau \* PI \* \.5\) \/ max\(1\.0 \+ cos\(2\.0 \* b\), \.02\), 0\.0, PI \* \.5\);/);
 });
 
-test('cold from the card: a front out from it, each drop recalescing, freezing through in τ ∝ r², splitting along 60° planes into pieces that cover it', () => {
+test('cold from the track: a front out from it, each drop recalescing, freezing through in τ ∝ r², splitting along 60° planes into pieces that cover it', () => {
   for (const p of plans) {
     const k = kOf(p), card = p.cardRect;
     near(p.vFreeze, frontSpeed(p.W, p.H, card), 1e-9);
     // The front: f0 at the card's edge, f1 at the farthest corner, wavy by at most wobble.
     for (let i = 0; i < 300; i++) {
-      const q = [(i * 0.618 % 1) * p.W, (i * 0.414 % 1) * p.H], d = cardDistance(q, card);
+      const q = [(i * 0.618 % 1) * p.W, (i * 0.414 % 1) * p.H], d = trackDistance(q, trackFrame(p.W,p.H,card));
       near(freezeTime(p, q), FREEZE.f0 + d / p.vFreeze + FREEZE.wobble * frontWave(q) * Math.min(1, d / 160), 1e-12);
       assert.ok(Math.abs(freezeTime(p, q) - FREEZE.f0 - d / p.vFreeze) <= FREEZE.wobble + 1e-12);
     }
-    near(Math.max(...[[0, 0], [p.W, 0], [0, p.H], [p.W, p.H]].map(q => FREEZE.f0 + cardDistance(q, card) / p.vFreeze)), FREEZE.f1, 1e-9);
-    assert.equal(cardDistance([card[0] + 3, card[1] + 3], card), 0);
+    near(Math.max(...[[0, 0], [p.W, 0], [0, p.H], [p.W, p.H]].map(q => FREEZE.f0 + trackDistance(q, trackFrame(p.W,p.H,card)) / p.vFreeze)), FREEZE.f1, 1e-9);
+    near(trackDistance(trackToWorld(trackPoint(.2,3),trackFrame(p.W,p.H,card)),trackFrame(p.W,p.H,card)),0);
     let checked = 0;
     p.records.forEach((r, id) => {
       if (!r.freeze) return;
@@ -203,39 +204,57 @@ test('cold from the card: a front out from it, each drop recalescing, freezing t
   assert.match(units, /bool on = n > 5\.5 \? true : n > 4\.5 \? k < 5 : n > 3\.5 \? \(k != 2 && k != 5\) : n > 2\.5 \? \(k == 0 \|\| k == 2 \|\| k == 4\) : \(k == 0 \|\| k == 3\);/);
 });
 
-test('the vacuum: every shard along its field line into the card, the near first, all fused before dawn; the card\'s fuse clock', () => {
-  for (const p of plans) {
-    const card = p.cardRect, sh = p.shards;
-    for (const s of sh) {
-      assert.equal(s.path.length, FIELD.path);
-      assert.ok(cardDistance(s.path.at(-1), card) < 2, 'its line ends on the card');
-      assert.ok(cardDistance(s.path[0], card) >= cardDistance(s.path.at(-1), card));
-      assert.ok(s.t1 > s.t0 && s.t1 - s.t0 >= FIELD.fly[0] - 1e-12 && s.t1 - s.t0 <= FIELD.fly[1] + 1e-12);
-      assert.ok(s.t1 < 1.02, 'fused before the card gives its light back');
+test('track capture: every droplet fragments, every lane fills, arrivals settle before release, compact packing', () => {
+  for (const [index,p] of plans.entries()) {
+    const card=p.cardRect, sh=p.shards, lanes=new Array(8).fill(0);
+    assert.ok(p.records.every(r=>r.freeze), 'no visible drops omitted');
+    for(const r of p.records.filter(r=>r.sky)) assert.equal(r.freeze.n,2,'star beads cleave');
+    for(const s of sh){
+      assert.ok(s.t0<s.join && s.join<s.t1 && s.t1<1.14);
+      lanes[Math.round(s.lane)]++;
+      assert.ok(s.lane>-.5 && s.lane<7.5);
+      near(dist(trackShardAt(s,s.t0,p.W,p.H,card),s.start),0);
+      const entry=trackShardAt(s,s.join,p.W,p.H,card);
+      near(dist(entry,s.entry),0,1e-6);
+      // The entry has matching first derivatives, so it never snaps sideways into a lane.
+      const before=trackShardAt(s,s.join-1e-6,p.W,p.H,card),after=trackShardAt(s,s.join+1e-6,p.W,p.H,card);
+      const a=entry.map((x,j)=>x-before[j]),b=after.map((x,j)=>x-entry[j]);
+      assert.ok((a[0]*b[0]+a[1]*b[1])/(Math.hypot(...a)*Math.hypot(...b))>.999,'tangent entry');
+      const end=trackShardAt(s,s.t1,p.W,p.H,card),frame=trackFrame(p.W,p.H,card,s.t1);
+      near(trackDistance(end,frame),0,1e-6,'lands on the track');
+      const local=trackLocal(end,frame),want=trackPoint(s.phase+s.laps,s.lane);
+      near(dist(local,want),0,1e-6);
+      assert.deepEqual(trackShardAt(s,.91,p.W,p.H,card),trackShardAt(s,.91,p.W,p.H,card),'seek is stateless');
     }
-    assert.ok(spearman(sh.map(s => cardDistance(s.c, card)), sh.map(s => s.t0)) > 0.6, 'near the card first (the front is wavy)');
-    // The field grid: emptied after the front, before dawn.
-    const f = p.field;
-    for (let j = 0; j < f.rows; j++) for (let i = 0; i < f.cols; i++) {
-      const g = f.grid[j * f.cols + i], q = [i * f.cell, j * f.cell];
-      near(Math.hypot(g[0], g[1]), 1, 1e-9);
-      assert.ok(g[3] >= freezeTime(p, q) + FIELD.evac - 1e-9 && g[3] <= 1.05, `emptied in time at ${q}`);
-    }
-    // The fuse clock: each point lit by the first shard to reach it, in their colours.
-    const fu = p.fuse, t1min = Math.min(...sh.map(s => s.t1));
-    for (let i = 0; i < fu.t.length; i++) { assert.ok(fu.t[i] >= t1min - 1e-9); near(Math.max(fu.rgb[i * 3], fu.rgb[i * 3 + 1], fu.rgb[i * 3 + 2]), 1, 1e-9); }
-    // Aimed again when the card moves (dew-worker.js): as if planned with that card.
-    const moved = [card[0] + 30, card[1] + 24, card[2] - 10, card[3]];
-    const a = makeDewPlan(p.W, p.H, { phone: p.phone }); aimShards(a, moved);
-    const b = makeDewPlan(p.W, p.H, { phone: p.phone, card: moved });
-    assert.deepEqual(JSON.stringify(a.shards), JSON.stringify(b.shards));
-    assert.deepEqual([...a.fuse.t], [...b.fuse.t]);
-    // Packed: each record's freeze, each shard's eleven texels.
-    const cell = pk(p), h = cell(18);
-    assert.equal(h[2], sh.length);
-    p.records.forEach((r, id) => { const v = cell(h[0] + id); if (r.freeze) { near(v[0], r.freeze.tf, 1e-6); near(v[1], r.freeze.tc, 1e-6); assert.equal(v[3], r.freeze.n); } else assert.equal(v[0], 9); });
-    sh.forEach((s, i) => { const b0 = h[1] + i * 11, S1 = cell(b0 + 1), S2 = cell(b0 + 2), P7 = cell(b0 + 10); near(S1[1], s.t0, 1e-6); near(S1[2], s.t1, 1e-6); assert.equal(Math.floor(S2[3] + 1e-4), s.kind); near(P7[2], s.path[15][0], 1e-3); });
+    assert.ok(Math.max(...lanes)-Math.min(...lanes)<=1,'balanced lanes');
+    const peak=sh.filter(s=>s.t0<.95&&s.t1>.95).length;
+    assert.ok(peak>=[879,585][index]*1.5,'at least 1.5 times baseline simultaneous shards');
+    for(const g of p.field.grid){near(Math.hypot(g[0],g[1]),1,1e-9);assert.ok(g[3]<1.02,'old world drains before settlement');}
+    const moved=[card[0]+30,card[1]+24,card[2]-10,card[3]];
+    const a=makeDewPlan(p.W,p.H,{phone:p.phone});aimShards(a,moved);
+    const b=makeDewPlan(p.W,p.H,{phone:p.phone,card:moved});
+    assert.deepEqual(a.shards,b.shards);assert.deepEqual([...a.fuse.t],[...b.fuse.t]);
+    const cell=pk(p),h=cell(18);
+    assert.equal(h[2],sh.length);
+    sh.forEach((s,i)=>{const base=h[1]+i*SHARD_TEXELS,A=cell(base+1),C=cell(base+5);near(A[1],s.t0,1e-6);near(A[2],s.t1,1e-6);near(C[0],s.lane,1e-6);near(C[3],s.join,1e-6);});
+    assert.ok(packDew(p).data.every(Number.isFinite),'finite GPU data');
+    assert.ok(packDew(p).stats.bytes<[1130496,376832][index],'smaller than original packed plan');
   }
+});
+
+test('track geometry: continuous closed lanes, invertible placement, exact final tile fit',()=>{
+ for(let lane=0;lane<8;lane++){
+   near(dist(trackPoint(0,lane),trackPoint(1,lane)),0);
+   const r=TRACK.inner+(lane+.5)*TRACK.lane,L=4*TRACK.straight+2*Math.PI*r;
+   for(const s of [0,2*TRACK.straight,2*TRACK.straight+Math.PI*r,4*TRACK.straight+Math.PI*r,L]){
+     const a=trackTangent(s/L-1e-6,lane),b=trackTangent(s/L+1e-6,lane);
+     assert.ok(a[0]*b[0]+a[1]*b[1]>.99999);
+   }
+ }
+ for(const p of plans){const card=p.cardRect,frame=trackFrame(p.W,p.H,card,1.2);
+   assert.deepEqual(frame,trackFrame(p.W,p.H,card,1.14));
+   for(let i=0;i<100;i++){const q=trackPoint(i/100,7.5),w=trackToWorld(q,frame);near(dist(trackLocal(w,frame),q),0,1e-9);assert.ok(w[0]>card[0]&&w[0]<card[0]+card[2]&&w[1]>card[1]&&w[1]<card[1]+card[3]);}
+ }
 });
 
 test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip comes in as Science; the dawn is the slowest', () => {
@@ -259,10 +278,10 @@ test('the hold lets go as the transition ends (GLASS_RELEASE 1.2); the strip com
   for (let r = 0; r <= 1; r += 0.01) near(glassRaw(transitP(glassEase(r))), r, 1e-6, 'its inverse');
   const home = readFileSync(new URL('../../../static/site/home.js', import.meta.url), 'utf8');
   // (home.js surfaces a held band from HELD: Racing's content from P 1.02 over .16.)
-  assert.deepEqual(HELD.glass, [1.02, 0.16]);
+  assert.deepEqual(HELD.glass, [1.08, 0.10]);
   assert.match(home, /const \[s0, ds\] = HELD\[c\.style\], sf = clamp\(\(transitP\(p\) - s0\) \/ ds\)/);
   assert.match(src, /if \(!click && P >= 1\.18\) \{ gCardMix = 1\.0; return vec4\(sceneGlacier\(px\), 1\.0\); \}/);
-  assert.match(src, /gCardMix = smoothstep\(1\.13, 1\.18, P\);/);
+  assert.match(src, /trSurface\(dewDisplay\(col\),qp,frame/);
 });
 
 test('a click: the old page covered by the light before it changes, every shard home and the night everywhere by then, the dawn the DOM opens behind', () => {
@@ -346,7 +365,7 @@ test('Science\'s stars: the plan\'s are the sky\'s; each condenses into a bead, 
       assert.ok(Math.min(...r.col) > 0.5, 'pale: a star\'s light in clear water');
       assert.ok(p.clumps.every(s => dist(s.c, r.c) >= s.r + radiusAt(r, 9) + 1 - 1e-9), 'not inside a clump\'s drop');
       // It freezes whole and leaves as one point of light.
-      assert.equal(r.freeze.n, 1);
+      assert.equal(r.freeze.n, 2);
     }
     // Packed: a bead's kind code marks it a star (+ 32), its star's data in its third texel.
     const cell = pk(p), recBase = cell(2)[0], k = p.records.indexOf(beads[0]);

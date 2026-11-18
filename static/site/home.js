@@ -12,7 +12,6 @@
 import { onTick, clamp } from './lib/util.js';
 import { approach, smoothstep, HOLD, HELD, holdAt, holdFor, easeFor, transitP } from './lerp.js';
 import { getScene, STYLE_ID } from './scene/scene.js';
-import { racePace } from './race-pace.js';
 import { skyline } from './skyline.js';
 import { powermap } from './powermap.js';
 import { mountSims } from './sims.js';
@@ -93,13 +92,18 @@ export function mount(main, ctx) {
         return { el: b, id: b.dataset.band, style: b.dataset.style, top: wt + span - shift, h: b.offsetHeight, seam: 0,
           hold: { top: wt, h: span + vh }, stick: { top: wt, span, shift }, card: box, board: boardBox };
       }
+      const race = b.querySelector('.r-band-race')?.getBoundingClientRect();
+      const raceBox = race ? [race.left, race.top-r.top, race.width, race.height, 0, 0] : null;
       return { el: b, id: b.dataset.band, style: b.dataset.style, top: r.top + sy, h: r.height, seam: 0,
-        hold: hr ? { top: hr.top + sy, h: hr.height } : null, board: boardBox };
+        hold: hr ? { top: hr.top + sy, h: hr.height } : null, board: boardBox, card: raceBox };
     });
     // Chess's board during its hold, where its band waits (held higher by its shift): its transition's fluid
-    // is baked for it (scene/ink-sim.js).
+    // is baked for it (scene/ink-sim.js), and in by the scroll where that transition begins.
     const chessHeld = sections.find(s => s.stick && s.board && s.style === 'ink');
-    if (chessHeld) getScene()?.setInkBoard?.([chessHeld.board[0], chessHeld.board[1] - chessHeld.stick.shift, chessHeld.board[2], chessHeld.board[3]]);
+    if (chessHeld) {
+      const L = holdFor('ink', coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin);
+      getScene()?.setInkBoard?.([chessHeld.board[0], chessHeld.board[1] - chessHeld.stick.shift, chessHeld.board[2], chessHeld.board[3]], chessHeld.hold.top - L.leadIn * vh);
+    }
     // Racing's card during its hold: the transition's fragments stream into it (scene/transit.js).
     const held = sections.find(s => s.stick && s.card && s.style === 'glass');
     if (held) document.dispatchEvent(new CustomEvent('dew:card', { detail: held.card.slice(0, 4) }));
@@ -120,6 +124,7 @@ export function mount(main, ctx) {
   if (boardCard) ro.observe(boardCard);
   scope.add(() => ro.disconnect());
   scope.on(window, 'resize', measure);
+  scope.on(document, 'visuals:ready', measure);
 
   // ---- the sentence and the crystal --------------------------------------------------------------
   let world = -1, fill = 0, shown = -1, swapTimer = 0, cycleAt = 0, userTouched = false;
@@ -217,7 +222,6 @@ export function mount(main, ctx) {
   // ---- each band's piece -------------------------------------------------------------------------
   const pieceCtx = { scope, motion };
   main.querySelectorAll('[data-pm]').forEach(el => apis.push(powermap(el, pieceCtx)));
-  main.querySelectorAll('[data-race-pace]').forEach(el => apis.push(racePace(el, pieceCtx)));
   main.querySelectorAll('[data-skyline]').forEach(el => apis.push(skyline(el, pieceCtx)));
   mountSims(main, pieceCtx);
 
@@ -336,7 +340,14 @@ export function mount(main, ctx) {
     for (const [i, s] of sections.entries()) {
       if (y >= s.top && y < s.top + s.h) { style = s.style; break; }
       // In a hold, the world that has more of the screen.
-      if (s.hold && y >= s.hold.top && y < s.hold.top + s.hold.h) { style = y < s.hold.top + s.hold.h / 2 ? sections[i - 1].style : s.style; break; }
+      if (s.hold && y >= s.hold.top && y < s.hold.top + s.hold.h) {
+        if(s.style==='glass'){
+          const pin=coarse.matches||vw<700?HOLD.pinTouch:HOLD.pin,L=holdFor('glass',pin);
+          const raw=holdAt(sy,s.hold.top,s.hold.h,vh,L.leadIn,L.leadOut).p;
+          style=transitP(easeFor('glass',pin)(raw))<1.115?'cosmos':'glass';
+        }else style=y<s.hold.top+s.hold.h/2?sections[i-1].style:s.style;
+        break;
+      }
     }
     const ink = inks[style] || null;
     if (ink === headInk) return;
@@ -389,6 +400,10 @@ export function mount(main, ctx) {
         const at = arrived.get(b);
         const e = at && !motion.paused ? clamp((performance.now() - at) / ARRIVE_MS) : 0;
         const st = { region: [0, y, vw, h], mode: 0, a: STYLE_ID[s.style] ?? 0, vel: clamp(vel, -3, 3), e: e < 1 ? e : 0 };
+        // The track remains attached to its tile after the held finale has scrolled away.
+        if (s.style === 'glass' && s.card && !motion.paused && !racingReduced.matches) {
+          st.card = [s.card[0], s.card[1] + s.top - scrollY, s.card[2], s.card[3]];
+        }
         // Chess's board: drawn by the scene where the tile's box is, once it can be (the tile then gives way).
         // (Where the band is: through its hold it waits on the screen, held higher by its shift, as its seam
         // has it.)
@@ -414,7 +429,7 @@ export function mount(main, ctx) {
           if (c.hold) {
             const L = holdFor(c.style, coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin);
             const { y, p: raw } = holdAt(scrollY, c.hold.top, c.hold.h, vh, L.leadIn, L.leadOut);
-            const p = easeFor(c.style)(raw);
+            const p = easeFor(c.style, coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin)(raw);
             if (c.stick) {
               // A band that surfaces in place (Racing, Photography): its content comes as its transition
               // ends (--surface, site.css), wherever the page is (so it is there after a jump past it).
@@ -476,7 +491,7 @@ export function mount(main, ctx) {
   const wantHolds = () => !!scene && root.classList.contains('gl') && !root.classList.contains('motion-paused');
   // Each hold names its transition while it plays, at the foot of the screen, with a thin line
   // for how far it has come: the process (glsl/flight.js) and where it is going.
-  const PROCESS = { cosmos: 'A vortex', glass: 'Stardust, then frost', folio: 'The mountains rise', darkroom: 'Fire becoming memory', ink: 'Ink finding order' };
+  const PROCESS = { cosmos: 'A vortex', glass: 'Gravity becoming a track', folio: 'The mountains rise', darkroom: 'Fire becoming memory', ink: 'Ink finding order' };
   const captions = new Map();   // band index → { el, p }
   function setHolds(on) {
     if (on === holds.size > 0) return;
@@ -507,6 +522,8 @@ export function mount(main, ctx) {
           wrap.className = 'seam-wrap';
           b.before(wrap);
           wrap.append(b, el);
+          // The mobile heading and caption determine the baked board position.
+          if (b.dataset.style === 'ink') b.classList.add('faces');
           b.classList.add('is-held');
           b.style.setProperty('--surface', '0');
         } else b.before(el);

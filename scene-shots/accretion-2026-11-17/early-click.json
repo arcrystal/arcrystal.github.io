@@ -1,0 +1,15 @@
+{
+  "fullOrbitBakeReadyAtClick": false,
+  "pageSwapMs": 1431.07,
+  "shardDraws": 43,
+  "problems": {
+    "consoleErrors": [],
+    "exceptions": [],
+    "logErrors": [],
+    "failedRequests": [],
+    "blockedByTest": 0,
+    "httpErrors": [],
+    "external": [],
+    "fixtures": 0
+  }
+}

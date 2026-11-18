@@ -1,27 +1,27 @@
 // Photography → Chess, "ink, unmixed" (scene/unmix-plan.js, scene/ink-sim.js, scene/glsl/unmix.js): the clock
 // and its hold, the runs' playback (the dissolve played backward lands exactly on the board), the cure's order,
-// the bake's drops and stirrers, a projection like the solver's, the pieces' order, the silhouettes' distances,
+// the bake's drops, stirrers and pace, a projection like the solver's, the pieces' order, the silhouettes' distances,
 // and what the shaders mirror.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { START, SHAPES, GLYPH, pieceAt, distances, signedBytes } from '../../../static/site/scene/ink-plan.js';
 import { UNMIX, rainAt, unmixAt, lodAt, weightsAt, SLOTS, cureAt, smoothIn } from '../../../static/site/scene/unmix-plan.js';
-import { RAIN, DISSOLVE, rng, rainDrops, stirrers } from '../../../static/site/scene/ink-sim.js';
+import { RAIN, DISSOLVE, PACE, createPace, rng, rainDrops, dropSources, stirrers } from '../../../static/site/scene/ink-sim.js';
 import { INKSIM } from '../../../static/site/scene/glsl/ink-sim.js';
 import { UNMIX_SEEN, UNMIX_GLSL } from '../../../static/site/scene/glsl/unmix.js';
 import { PLUME_GLSL } from '../../../static/site/scene/glsl/plume.js';
-import { HOLD, HELD, holdFor, holdAt, inkEase, inkRaw, easeFor, transitP } from '../../../static/site/lerp.js';
+import { HELD, holdFor, inkEase, inkRaw, easeFor, transitP } from '../../../static/site/lerp.js';
 import { TALL, TYPES } from '../../../static/site/scene/staunton.js';
 
 const near = (a, b, e, m = '') => assert.ok(Math.abs(a - b) <= e, `${m} ${a} != ${b}`);
 const U = UNMIX;
 
 test('the clock: tray, rain, diffusion, the still point, the unmixing, the squares, the pieces, the world, in that order', () => {
-  assert.ok(U.water[1] <= U.rain[0] + 0.12, 'the water is up as the rain begins');
+  assert.ok(U.drops[1] < U.rain[0], 'every drop enters before the plumes spread');
   assert.ok(U.rain[0] < U.diffuse[0] && U.diffuse[1] <= U.still[1], 'the rain, then its diffusion, by the still point');
   assert.ok(U.still[0] < U.unmix[0] + 0.05 && U.unmix[0] < U.focus[0] && U.focus[1] <= U.unmix[1], 'the unmixing comes into focus as it lands');
-  assert.ok(U.tremble[1] <= U.squares[0] + 0.04, 'its outline has stilled before it cures');
-  assert.ok(U.unmix[1] <= U.squares[0] + 0.03 && U.squares[1] <= U.harden[1] && U.squares[0] <= U.harden[0], 'it has landed before it cures; the squares first');
+  assert.ok(U.tremble[1] <= U.clear[0], 'the outline stills before the drain');
+  assert.ok(U.squares[1] <= U.harden[1] && U.squares[0] <= U.harden[0], 'the click reveal cures squares first');
   assert.ok(U.harden[1] <= U.clear[1] && U.clear[1] < 1.2, 'cured, and the world clear, before the hold ends');
   const [s0, ds] = HELD.ink;
   assert.ok(s0 >= U.harden[1] - 0.02 && s0 + ds <= 1.2 + 1e-9, 'the band surfaces over the finished board');
@@ -30,17 +30,14 @@ test('the clock: tray, rain, diffusion, the still point, the unmixing, the squar
   for (const P of [-0.1, 0.2, 0.55, 0.9, 1.15]) near(transitP(inkEase(inkRaw(P))), P, 2e-3);
 });
 
-test('the tray\'s surface stays below the strip\'s top edge while the strip comes in', () => {
-  const level = P => 1.06 - 1.14 * smoothIn(U.water, P);
-  for (const pin of [HOLD.pin, HOLD.pinTouch]) for (const vh of [900, 812]) {
-    const L = holdFor('ink', pin), H = vh * (1 + pin * L.pin), T = 5000;
-    for (let sy = T - L.leadIn * vh; sy <= T; sy += 4) {
-      const { y, p } = holdAt(sy, T, H, vh, L.leadIn, L.leadOut);
-      // (Its ripples are a few px high, and the darkroom is drawn to 6 px under it.)
-      assert.ok(level(transitP(inkEase(p))) * vh > y + 24, `pin ${pin} at ${sy}`);
-    }
+test('the dye finishes collecting before the water falls from above the header to below the foot', () => {
+  assert.ok(U.clear[0] > U.unmix[1]);
+  for (const height of [390,844,1080]) {
+    const level = P => -12 + (height+24)*smoothIn(U.clear,P);
+    assert.ok(level(U.clear[0])+4 < 0);
+    assert.ok(level(U.clear[1])-4 > height);
+    near(level((U.clear[0]+U.clear[1])/2),height/2,1e-8);
   }
-  assert.ok(level(U.water[0]) > 1 && level(U.water[1]) < 0, 'from under the foot to over the top');
 });
 
 test('the playback: the rain forward, the dissolve backward, landing exactly where it began', () => {
@@ -87,7 +84,7 @@ test('the cure: the 32 pieces, knights first, each from its foot, all done befor
   assert.equal(SLOTS[31].type, TYPES.indexOf('R'));
 });
 
-test('the bake: seeded drops above the screen, stirrers that wind up', () => {
+test('the bake: sixteen separated drops on the tray, stirrers that wind up', () => {
   const a = rng(7), b = rng(7);
   for (let i = 0; i < 5; i++) assert.equal(a(), b());
   for (const [nx, ny, W] of [[256, 208, 1440], [144, 400, 390]]) {
@@ -96,19 +93,59 @@ test('the bake: seeded drops above the screen, stirrers that wind up', () => {
     assert.deepEqual(drops, rainDrops(nx, ny, W, RAIN.drops[0]), 'the same every visit');
     for (const [x, y, r, black] of drops) {
       assert.ok(x > 0 && x < nx && r > 0, 'across the screen');
-      assert.ok(y - r > top, 'above the surface: they fall in');
+      assert.ok(y - r > 0 && y + r < top, 'the whole drop is visible');
+      assert.ok(y > top*.5, 'drips enter in the upper half');
       assert.ok(y + r < ny, 'inside the grid');
       assert.ok(black === 0 || black === 1);
     }
-    assert.ok(drops.some(d => d[3]) && drops.some(d => !d[3]), 'black and white');
+    const slots = dropSources(drops).map(d => d[3]);
+    assert.deepEqual([...slots].sort((a,b)=>a-b),SLOTS.flatMap((s,i)=>s.type!==TYPES.indexOf('P')?[i]:[]));
+    assert.equal(drops.length,16);
+    assert.equal(drops.filter(d => d[3]).length,8);
+    for (let i=0;i<16;i++) for (const d of drops.slice(i+1)) assert.ok(Math.hypot(d[0]-drops[i][0],d[1]-drops[i][1]) > d[2]+drops[i][2]);
   }
   const T = DISSOLVE.steps * DISSOLVE.dt;
   assert.ok(stirrers(0, T, 224, 140).every(s => s[3] === 0), 'the board at rest as it begins to dissolve (where the unmixing ends)');
   const late = stirrers(T, T, 224, 140);
   assert.equal(late.length, DISSOLVE.stirrers);
   assert.ok(late.some(s => s[3] > 0) && late.some(s => s[3] < 0), 'stirring both ways');
-  assert.ok(stirrers(0.2 * T, T, 256, 208, RAIN.stirrers, 128, 80, RAIN.storm[0], RAIN.storm[1]).every(s => s[3] === 0), 'no storm until the rain has fallen');
+  assert.ok(stirrers(RAIN.storm[0] * T, T, 256, 208, RAIN.stirrers, 128, 80, RAIN.storm[0], RAIN.storm[1]).every(s => s[3] === 0), 'no storm until the rain has fallen');
   assert.ok(RAIN.keys >= 32 && DISSOLVE.keys >= 24 && RAIN.steps % (RAIN.keys - 1) < RAIN.keys);
+});
+
+test('the bake\'s pace: never stopped by a seam, quick when near Chess, halved by a long frame it caused', () => {
+  const F = 1 / 60, run = (pace, frames, opts, dt = () => F) => { let n = 0; for (let i = 0; i < frames; i++) { const k = pace.steps(dt(i), opts); n += k; if (k) pace.did(); } return n; };
+  // Quiet and busy rates, over a second of quick frames.
+  near(run(createPace(PACE.fine), 60, {}), 60 * PACE.fine.quiet, 1, 'quiet');
+  near(run(createPace(PACE.fine), 60, { busy: true }), 60 * PACE.fine.busy, 1, 'busy');
+  near(run(createPace(PACE.coarse), 60, { busy: true }), 60 * PACE.coarse.busy, 1, 'busy, touch');
+  near(run(createPace(PACE.fine), 60, { busy: true, urgent: true }), 60 * PACE.fine.quiet, 1, 'urgent');
+  // The whole bake, steadily scrolling through seams, is in within a few seconds (the old bake stopped).
+  const steps = RAIN.steps + DISSOLVE.steps;
+  for (const [rate, most] of [[PACE.fine, 7], [PACE.coarse, 13]]) {
+    const p = createPace(rate); let n = 0, f = 0;
+    while (n < steps && f < 6000) { const k = p.steps(F, { busy: true }); n += k; if (k) p.did(); f++; }
+    assert.ok(f * F <= most, `${f * F}s`);
+  }
+  // A long frame just after it worked halves it; a long frame it did not cause does not.
+  const p = createPace(PACE.fine);
+  run(p, 30, {});
+  p.did(); p.steps(0.05, {});
+  near(p.scale, 0.5, 1e-9, 'halved');
+  const q = createPace(PACE.fine);
+  for (let i = 0; i < 30; i++) q.steps(F, {});
+  q.steps(0.05, {});
+  near(q.scale, 1, 1e-9, 'not its doing');
+  // It climbs back, for ten seconds no higher than three quarters of where it hurt, and then all the way.
+  run(p, 300, {});
+  assert.ok(p.scale <= 0.75 + 1e-9 && p.scale > 0.5, `${p.scale}`);
+  run(p, 900, {});
+  near(p.scale, 1, 1e-9, 'recovered');
+  // Never below the least pace, however long the frames.
+  const r = createPace(PACE.coarse);
+  for (let i = 0; i < 200; i++) { r.did(); r.steps(0.05, { busy: true }); }
+  assert.ok(r.scale >= PACE.least - 1e-12);
+  assert.ok(run(r, 600, { busy: true }) > 0, 'still baking');
 });
 
 test('the solver\'s projection takes the divergence out (its Jacobi pressure, as glsl/ink-sim.js has it)', () => {
