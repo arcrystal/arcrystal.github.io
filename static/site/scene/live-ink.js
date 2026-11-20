@@ -7,7 +7,7 @@ import { HEADS_MAX, VORTICES_MAX } from './glsl/ink-sim.js';
 import { FORMS, trackAt, solidity } from './living-forms.js';
 import { smooth } from './ink-tank.js';
 
-export const LIVE_PROGRAMS = ['simMoments', 'simInit', 'simAux', 'simForces', 'simAdvect', 'simAdvectCorrect', 'simDivergence', 'simJacobi', 'simProject', 'simCarry', 'simReduce', 'simThermo', 'simSmooth', 'simTension', 'simBodies', 'simThickness', 'simViscous', 'simDome', 'simSlope', 'inkBodies'];
+export const LIVE_PROGRAMS = ['simMoments', 'simInit', 'simAux', 'simForces', 'simAdvect', 'simAdvectCorrect', 'simDivergence', 'simJacobi', 'simProject', 'simCarry', 'simReduce', 'simThermo', 'simSmooth', 'simTension', 'simBodies', 'simThickness', 'simViscous', 'simDome', 'simSlope', 'simConform', 'inkBodies'];
 
 export function createLiveInk(gl, programs, { coarse }) {
   const floats = !!gl.getExtension('EXT_color_buffer_float');
@@ -51,7 +51,7 @@ export function createLiveInk(gl, programs, { coarse }) {
       M: pair(nx, ny, gl.RGBA16F, L), D: pair(nx, ny, gl.RG16F, L), Ds: target(Math.ceil(nx / 4), Math.ceil(ny / 4), gl.RG16F, L),
       // The bodies, at SIM.body.scale× the fluid's cells: black, ivory, depth × share.
       B: pair(Math.round(nx * SIM.body.scale), Math.round(ny * SIM.body.scale), gl.RGBA16F, L), Bf: target(Math.round(nx * SIM.body.scale), Math.round(ny * SIM.body.scale), gl.RGBA16F, L),
-      tension: target(nx, ny, gl.RG16F, N), thick: target(nx, ny, gl.RGBA16F, L), dome: target(nx, ny, gl.RG16F, N), slope: target(nx, ny, gl.RG16F, L),
+      C: pair(nx, ny, gl.RGBA16F, L), tension: target(nx, ny, gl.RG16F, N), thick: target(nx, ny, gl.RGBA16F, L), dome: target(nx, ny, gl.RG16F, N), slope: target(nx, ny, gl.RG16F, L),
       r1: target(32, 18, gl.RGBA32F, N), r2: target(1, 1, gl.RGBA32F, N), thermo: pair(1, 1, gl.RGBA32F, N),
     };
     // The mist and its detail are written together (simCarry): one framebuffer for each of the pair.
@@ -145,7 +145,9 @@ export function createLiveInk(gl, programs, { coarse }) {
     for (let i = 0; i < m; i++) forcing.step();
     pass('simAux', g.aux, { uU: U[0].tex });
     pass('simTension', g.tension, { uB: g.B[0].tex }, u => gl.uniform1f(u.uSigma, m * knob('tension', SIM.body.tension)));
-    pass('simForces', U[1], { uU: U[0].tex, uAux: g.aux.tex, uMist: M[0].tex, uThermo: g.thermo[0].tex, uB: g.B[0].tex, uTension: g.tension.tex }, u => {
+    const Pm = SIM.body.polymer;
+    pass('simForces', U[1], { uU: U[0].tex, uAux: g.aux.tex, uMist: M[0].tex, uThermo: g.thermo[0].tex, uB: g.B[0].tex, uTension: g.tension.tex, uC: g.C[0].tex }, u => {
+      gl.uniform3f(u.uElastic, m * knob('G', Pm.G), Pm.L2, m * Pm.most);
       gl.uniform2f(u.uBodyBuoy, m * SIM.body.black, m * SIM.body.ivory);
       headsUniforms(u);
       gl.uniform4fv(u.uMode, forcing.data); gl.uniform1f(u.uGain, m * (1 + 1.5 * stirNow.amount));
@@ -159,7 +161,7 @@ export function createLiveInk(gl, programs, { coarse }) {
       let from = U[0], to = U[1];
       for (let i = 0; i < SIM.body.sweeps; i++) {
         const out = i % 2 ? g.Uf : U[1];
-        pass('simViscous', out, { uStar: U[0].tex, uU: from.tex, uB: g.B[0].tex }, u => gl.uniform2f(u.uNu, m * knob('nuBlack', SIM.body.nu[0]), m * knob('nuIvory', SIM.body.nu[1])));
+        pass('simViscous', out, { uStar: U[0].tex, uU: from.tex, uB: g.B[0].tex, uAux: g.aux.tex }, u => { gl.uniform2f(u.uNu, m * knob('nuBlack', SIM.body.nu[0]), m * knob('nuIvory', SIM.body.nu[1])); gl.uniform3f(u.uCarreau, ...SIM.body.carreau); gl.uniform1f(u.uNuWater, m * knob('nuWater', SIM.body.water)); });
         from = out; to = out;
       }
       if (to === g.Uf) { const t = U[0]; U[0] = g.Uf; g.Uf = t; } else swap(U);
@@ -175,7 +177,11 @@ export function createLiveInk(gl, programs, { coarse }) {
     }
     pass('simProject', U[1], { uU: U[0].tex, uP: g.P[0].tex });
     swap(U);
-    pass('simCarry', g.carry[1], { uM: M[0].tex, uD: D[0].tex, uU: U[0].tex, uMoments: moments.tex, uB: g.B[0].tex }, u => {
+    // Black ink's memory, from the projected flow.
+    pass('simConform', g.C[1], { uC: g.C[0].tex, uU: U[0].tex, uB: g.B[0].tex, uM: M[0].tex }, u => { gl.uniform3f(u.uPolymer, Pm.lambda, Pm.L2, Pm.diffuse); gl.uniform1f(u.uSteps, m); });
+    swap(g.C);
+    pass('simCarry', g.carry[1], { uM: M[0].tex, uD: D[0].tex, uU: U[0].tex, uMoments: moments.tex, uB: g.B[0].tex, uAux: g.aux.tex }, u => {
+      gl.uniform2f(u.uErode, m * SIM.body.erode[0], SIM.body.erode[1]);
       headsUniforms(u); bakeUniforms(u, ctx);
       const relax = k => 1 - Math.pow(1 - k, m);
       gl.uniform2f(u.uExchange, m * SIM.body.condense, m * SIM.body.melt);
@@ -191,7 +197,8 @@ export function createLiveInk(gl, programs, { coarse }) {
       pass('simAdvect', g.Bf, { uVel: U[0].tex, uSrc: B[0].tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 1); gl.uniform1f(u.uScale, k); gl.uniform1f(u.uSteps, m); gl.uniform2f(u.uCells, B[0].w, B[0].h); });
       pass('simAdvectCorrect', B[1], { uVel: U[0].tex, uSrc: B[0].tex, uFwd: g.Bf.tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 1); gl.uniform1f(u.uScale, k); gl.uniform1f(u.uSteps, m); gl.uniform2f(u.uCells, B[0].w, B[0].h); });
       swap(B);
-      pass('simBodies', B[1], { uB: B[0].tex, uM: M[0].tex }, u => {
+      pass('simBodies', B[1], { uB: B[0].tex, uM: M[0].tex, uAux: g.aux.tex }, u => {
+        gl.uniform2f(u.uErode, m * knob('erode', SIM.body.erode[0]), SIM.body.erode[1]);
         headsUniforms(u); gl.uniform2f(u.uCells, B[0].w, B[0].h); gl.uniform1f(u.uScale, k);
         gl.uniform2f(u.uSharp, m * knob('sharpen', SIM.body.sharpen), knob('width', SIM.body.width)); gl.uniform3f(u.uFeed, m * SIM.body.feed, m * SIM.body.condense, m * SIM.body.melt);
       });
@@ -233,7 +240,7 @@ export function createLiveInk(gl, programs, { coarse }) {
     if (broken) { release(); return false; }
     for (const t of [...grid.U, ...grid.P, ...grid.D, grid.Uf]) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); }
     for (const t of grid.thermo) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 1, 0, 0]); }
-    for (const t of [...grid.B, grid.Bf, grid.tension, grid.thick]) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); }
+    for (const t of [...grid.B, ...grid.C, grid.Bf, grid.tension, grid.thick]) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); }
     simP = from;
     for (const t of grid.M) pass('simInit', t, { uMoments: moments.tex }, u => bakeUniforms(u, ctx));
     forcing = createForcing(1009, ny); impulses = createImpulses(7); was.clear();
@@ -246,12 +253,14 @@ export function createLiveInk(gl, programs, { coarse }) {
   //   Coming in from outside the window, or after a jump, it starts again, hidden: on a page, at P, with a
   // second of flow run ahead (SIM.preroll steps); for the tools (__inkSim.fixed), from the window's start
   // along the standard forward scroll, so a still at P is what a visitor scrolling there would see.
-  let pending = 0, frames = 0, lite = false, calm = 0;
+  let pending = 0, frames = 0, lite = false, calm = 0, changed = true;
   function frame(ctx) {
     const d = dev();
+    changed = true;
     if (broken || d?.off || !moments || !ctx.dt || LIVE_PROGRAMS.some(n => !programs[n])) { shown = 0; running = false; return 0; }
     const fixed = !!d?.fixed, dt = fixed ? SIM.h : ctx.dt, P = ctx.P;
     if (!live(P) && !(running && shown > 0)) { running = false; lastP = P; shown = 0; return 0; }
+    changed = catching || shown < 1 || !running;
     const jumped = running && Math.abs(P - (lastP ?? P)) > SIM.jump;
     if (!running || jumped) {
       if (!live(P)) { running = false; shown = 0; lastP = P; return 0; }
@@ -265,7 +274,7 @@ export function createLiveInk(gl, programs, { coarse }) {
     if (!fixed && !lite) {
       // (Missed frames, counted over the last couple of seconds.)
       calm = calm * SIM.governor.memory + (ctx.dt > SIM.governor.late ? 1 : 0);
-      if (calm > SIM.governor.misses) lite = true;
+      if (calm > SIM.governor.misses) { lite = true; if (d) d.liteAt = +P.toFixed(3); }
     }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
     if (catching) {
@@ -278,7 +287,7 @@ export function createLiveInk(gl, programs, { coarse }) {
     } else {
       const m = lite ? 2 : 1;
       acc = Math.min(acc + dt, m * SIM.maxSteps * SIM.h);
-      if (acc + 1e-6 >= m * SIM.h) { simP = P; step(ctx, stirNow, fixed, m); acc = Math.max(0, acc - m * SIM.h); }
+      if (acc + 1e-6 >= m * SIM.h) { simP = P; step(ctx, stirNow, fixed, m); acc = Math.max(0, acc - m * SIM.h); changed = true; }
     }
     lastP = P;
     // The bodies' smoothed thickness, dome and slope, for their shading (every other frame: they change slowly).
@@ -305,7 +314,7 @@ export function createLiveInk(gl, programs, { coarse }) {
       for (let i = 0; i < n; i++) pass('simAux', grid.aux, { uU: grid.U[0].tex }); sync();
       return { step: (t1 - t0) / n, emptyish: (performance.now() - t1) / n };
     };
-    if (d) d.stats = () => ({ steps, simP: +simP.toFixed(4), shown: +shown.toFixed(3), stir: +stir.amount.toFixed(2), lite, catching, settled: running && !catching && Math.abs(shown - showAt(P)) < .02, ...(d.health ? health() : {}) });
+    if (d) d.stats = () => ({ steps, simP: +simP.toFixed(4), shown: +shown.toFixed(3), stir: +stir.amount.toFixed(2), lite, liteAt: d.liteAt ?? null, catching, settled: running && !catching && Math.abs(shown - showAt(P)) < .02, ...(d.health ? health() : {}) });
     return shown;
   }
 
@@ -326,6 +335,7 @@ export function createLiveInk(gl, programs, { coarse }) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, grid.B[0].tex); gl.uniform1i(prog.U.uB, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, grid.thick.tex); gl.uniform1i(prog.U.uThick, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grid.slope.tex); gl.uniform1i(prog.U.uSlope, 2);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, grid.C[0].tex); gl.uniform1i(prog.U.uC, 3);
     gl.uniform2f(prog.U.uSize, w, h); gl.uniform2f(prog.U.uCells, grid.B[0].w, grid.B[0].h);
     gl.uniform1f(prog.U.uLive, shown); gl.uniform1i(prog.U.uDepthOnly, depthOnly ? 1 : 0);
     // (Only round the live heads, where bodies can be: farther out they melt.)
@@ -337,7 +347,7 @@ export function createLiveInk(gl, programs, { coarse }) {
     if (headCount) { gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.max(0, Math.floor(x0)), Math.max(0, Math.floor(y0)), Math.ceil(x1 - x0) + 2, Math.ceil(y1 - y0) + 2); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.disable(gl.SCISSOR_TEST);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
     return true;
   }
   // The carried detail, for the veils (glsl/living-ink.js INK_SHEET_VERTEX).
@@ -349,6 +359,10 @@ export function createLiveInk(gl, programs, { coarse }) {
 
   return {
     buildMoments, frame, bindVolume, bindSheets, drawBodies,
+    // Whether the bodies have changed since they were last drawn (a step, or a fade): if not, last frame's stand.
+    get bodiesChanged() { return changed; },
+    // Whether the governor has eased off (live-ink.js frame): the bodies are then drawn smaller too.
+    get lite() { return lite; },
     get shown() { return shown; },
     get usable() { return !broken; },
     dispose() { release(); drop(moments); moments = null; },

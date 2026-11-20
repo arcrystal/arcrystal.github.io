@@ -304,9 +304,8 @@ export function createLivingInk(gl,coarse,programs){
     gl.disable(gl.BLEND);gl.disable(gl.SCISSOR_TEST);target(figures);
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-    // The live ink's glossy bodies stand in the water as the pieces do: their depth first, so the pieces, the
-    // veils and the mist part round them; their colour into their own target (composited undimmed).
-    gl.colorMask(false,false,false,false);liveInk.drawBodies(W,H,true);gl.colorMask(true,true,true,true);
+    // (The live ink's glossy bodies write no depth: the mist, drawn at a fraction of the screen's resolution,
+    // would split round their edges in steps. They lie over the mist behind the pieces, and hide the veils.)
     const piece=programs.inkFigure;
     gl.useProgram(piece.p);board.bindPieceProfiles(piece.U);gl.enable(gl.SCISSOR_TEST);
     gl.uniform1f(piece.U.uStudies,1);
@@ -325,8 +324,13 @@ export function createLivingInk(gl,coarse,programs){
       gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.drawArrays(gl.TRIANGLES,0,3);
     }
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
-    bodies=resize(bodies,W,H,1);target(bodies);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-    liveInk.drawBodies(W,H,false);
+    // (Only when they have changed: the fluid steps every other frame when its governor has eased off.)
+    // (Eased off, at .7 of the size: their contour is the fluid's own curve, and comes up clean.)
+    const bs=liveInk.lite?.7:1,WB=Math.round(W*bs),HB=Math.round(H*bs);
+    if(liveInk.bodiesChanged||bodies?.w!==WB||bodies?.h!==HB){
+      bodies=resize(bodies,WB,HB,1);target(bodies);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+      liveInk.drawBodies(WB,HB,false);
+    }
     const breath=Math.sin(time*.43);
     const flowPhase=time*.69,spin=spinAt(P,time),Pc=clockP(P,coarse||w<700?HOLD.pinTouch:HOLD.pin);
     const sheetsLive=P>.127 && P<END;

@@ -53,7 +53,14 @@ export const SIM = Object.freeze({
   // melted back to mist as it dissolves.
   body: Object.freeze({ scale: 1.5, sharpen: .02, width: 0, tension: .04, black: -2e-4, ivory: -5e-5, feed: .06, condense: .02, melt: .03,
     // Viscosity (ν per step, cells²) by Jacobi sweeps: black thick, ivory thicker at rest (it thins under shear: step 3).
-    nu: Object.freeze([3, 5]), sweeps: 2 }),
+    nu: Object.freeze([3, 5]), sweeps: 2, water: .06,
+    // Ivory thins under shear (Carreau): ν∞ as a share of ν at rest, λ (steps), n.
+    carreau: Object.freeze([.06, 8, .3]),
+    // Black's memory (FENE-P, in the black bodies only): λ (steps), L², G (the polymer's modulus), the most
+    // a stress may be, and a little diffusion of A (stability).
+    polymer: Object.freeze({ lambda: 45, L2: 30, G: .0015, most: .06, diffuse: .05 }),
+    // Shear strips a body's skin into mist: rate per unit of strain rate over the threshold (per step).
+    erode: Object.freeze([.12, .14]) }),
   // Large-scale forcing: curl noise from a few modes, wavelengths in screen heights.
   forcing: Object.freeze({ modes: 6, wave: Object.freeze([.22, .65]), tau: 3.2, walk: .55, amp: 2.6e-3 }),
   // The scroll's stir: speed in screen heights a second, saturating; quick to rise, slow to settle.

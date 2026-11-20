@@ -83,6 +83,8 @@ try {
       if (bad) over++;
       console.log(`  P ${s.P.padEnd(12)} ${String(s.frames).padStart(4)} frames  p50 ${s.p50}  p90 ${s.p90}  worst ${s.worst}  over 20 ms: ${s.over20}${bad ? '  ←' : ''}`);
     }
+    const sim = await page.eval(() => window.__inkSim?.stats?.() ?? null);
+    if (sim) console.log(`  live ink: ${JSON.stringify(sim)}`);
     for (const sl of res.slow) console.log(`    ${sl.ms} ms ending at P ${sl.P}${sl.near.length ? `: ${sl.near.map(t => `long frame ${t.ms} ms (render ${t.render}) ${t.scripts.join(', ')}`).join('; ')}` : ''}`);
   }
   }

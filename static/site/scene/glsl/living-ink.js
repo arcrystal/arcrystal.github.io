@@ -377,9 +377,11 @@ void main(){
  vec2 uv=gl_FragCoord.xy/uSize;
  float visible=1.;
  if(!uDepthOnly && 1.-texture(uFigureDepth,uv).r>position.z){
-   visible=1.-max(texture(uFigures,uv).a,texture(uBodies,uv).a);
+   visible=1.-texture(uFigures,uv).a;
    if(visible<.002)discard;
  }
+ // (The live ink's bodies lie over the veils: a plume's trunk runs in behind the body at its head.)
+ if(!uDepthOnly){visible*=1.-texture(uBodies,uv).a;if(visible<.002)discard;}
  if(section<3.5){
    float layer=(section-1.5)/1.75,v=cloth.y;
    float phase=seed+uClockP*5.4+.22*uBreath;

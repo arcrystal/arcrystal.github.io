@@ -9,7 +9,7 @@
 export const INK_BODIES = /* glsl */ `#version 300 es
 precision highp float;
 precision highp sampler2D;
-uniform sampler2D uB, uThick, uSlope;
+uniform sampler2D uB, uThick, uSlope, uC;
 uniform vec2 uSize, uCells;        // the target (px); the body grid
 uniform float uLive;
 uniform int uDepthOnly;
@@ -24,6 +24,7 @@ vec4 catmull(vec2 uv) {
        + texture(uB, vec2(t0.x, t12.y)) * w0.x * w12.y + texture(uB, vec2(t12.x, t12.y)) * w12.x * w12.y + texture(uB, vec2(t3.x, t12.y)) * w3.x * w12.y
        + texture(uB, vec2(t0.x, t3.y)) * w0.x * w3.y + texture(uB, vec2(t12.x, t3.y)) * w12.x * w3.y + texture(uB, vec2(t3.x, t3.y)) * w3.x * w3.y;
 }
+float ivory_pre(vec4 b) { return smoothstep(.4, .6, b.g / max(b.r + b.g, 1e-3)); }
 float thick(vec2 uv) { vec2 t = texture(uThick, uv).rg; return t.r + t.g; }
 void main() {
   vec2 uv = gl_FragCoord.xy / uSize;
@@ -56,8 +57,17 @@ void main() {
   float nv = max(dot(n, v), 0.), fres = .04 + .96 * pow(1. - nv, 5.), nl = dot(n, L);
   vec3 chamber = mix(vec3(.09, .10, .11), vec3(.88, .86, .82), smoothstep(-.3, .9, refl.y)) + vec3(.5, .48, .45) * pow(max(0., dot(refl, normalize(vec3(.35, .8, .45)))), 40.);
   float spec = pow(max(0., dot(refl, L)), 90.) * 1.6 + pow(max(0., dot(refl, normalize(vec3(.55, .5, .67)))), 220.) * 1.2;
-  float streak = .5 + .5 * sin(dot(uv * vec2(uSize.x / uSize.y, 1.), vec2(31., 47.)) * 3. + 9. * hx * gain + 7. * hy * gain);
-  vec3 black = vec3(.008, .007, .009) * (.4 + .6 * max(nl, 0.)) + (.06 + fres) * chamber * (.75 + .25 * streak) + spec * vec3(.95, .93, .9)
+  // Where black is stretched (its conformation, A − I) fine lines run along the stretch, as in pulled
+  // taffy: its principal direction from A, the lines' spacing about two pixels.
+  vec4 Cv = texture(uC, uv);
+  float stretch = Cv.x + Cv.z;
+  float ang = .5 * atan(2. * Cv.y, Cv.x - Cv.z);
+  vec2 along = vec2(cos(ang), sin(ang)), px = gl_FragCoord.xy;
+  float lines = .5 + .5 * sin(dot(px, vec2(-along.y, along.x)) * 2.2 + 3. * sin(dot(px, along) * .013));
+  float taut = smoothstep(.3, 3., stretch) * (1. - ivory_pre(b));
+  float streak = mix(.5 + .5 * sin(dot(uv * vec2(uSize.x / uSize.y, 1.), vec2(31., 47.)) * 3. + 9. * hx * gain + 7. * hy * gain), lines, taut);
+  vec3 black = vec3(.008, .007, .009) * (.4 + .6 * max(nl, 0.)) + (.06 + fres) * chamber * (.75 + .25 * streak) + spec * vec3(.95, .93, .9) * (1. + .8 * taut * lines)
+             + .05 * taut * lines * chamber
              + vec3(.11, .08, .085) * pow(1. - nv, 2.2);
   float wrap = max((nl + .5) / 1.5, 0.);
   vec3 milk = mix(vec3(.50, .52, .54), vec3(.94, .925, .88), wrap) * (.92 + .08 * streak);

@@ -109,7 +109,8 @@ void main() {
   // buoyancy, the large-scale curl-noise forcing (its gain the thermostat's), each head's drag on the water
   // toward its own velocity and the scroll's stir turning the water round it, and this step's impulses.
   forces: HEAD + HEADS + /* glsl */ `
-uniform sampler2D uU, uAux, uMist, uB, uTension;
+uniform sampler2D uU, uAux, uMist, uB, uTension, uC;
+uniform vec3 uElastic;          // G (the polymer's modulus), L², the most a stress may be
 uniform vec2 uBodyBuoy;         // black body's and ivory body's buoyancy (cells per step², per unit)
 uniform vec4 uMode[6];          // a mode of the stream function: k (per cell), phase, amplitude
 uniform float uGain;            // the thermostat's gain on the forcing
@@ -119,6 +120,15 @@ uniform sampler2D uThermo;      // the thermostat (thermo): its gain in .y
 uniform float uSwirl;           // the stir's turn round each head (signed: the scroll's direction)
 uniform vec3 uFluid;            // confinement, black's and ivory's buoyancy
 uniform float uSpeed, uDamp, uTarget; // the most |u|, the drag (as a factor), the energy the thermostat holds
+mat2 stress(ivec2 c, vec2 x) {
+  // (From the tensor smoothed over its neighbours: the stress never carries a pattern of the grid's own.)
+  vec4 Bv = .5 * at(uC, c) + .125 * (at(uC, c + ivec2(1, 0)) + at(uC, c - ivec2(1, 0)) + at(uC, c + ivec2(0, 1)) + at(uC, c - ivec2(0, 1)));
+  mat2 A = mat2(1. + Bv.x, Bv.y, Bv.y, 1. + Bv.z);
+  float L2 = uElastic.y, tr = min(A[0][0] + A[1][1], .9 * L2), spring = (L2 - 2.) / max(L2 - tr, .1 * L2);
+  float w = clamp(lin(uB, x).r, 0., 1.);
+  mat2 t = uElastic.x * w * (spring * A - mat2(1));
+  return mat2(clamp(t[0], -uElastic.z, uElastic.z), clamp(t[1], -uElastic.z, uElastic.z));
+}
 void main() {
   vec2 x = gl_FragCoord.xy;
   ivec2 c = ivec2(x);
@@ -129,6 +139,11 @@ void main() {
   vec4 m = at(uMist, c), body = lin(uB, x);
   f.y += uFluid.y * m.r + uFluid.z * m.g + uBodyBuoy.x * body.r + uBodyBuoy.y * body.g;
   f += at(uTension, c).xy;
+  // The polymer's stress, τ = G w (f A − I) (w: how much black ink is there), and its divergence.
+  if (uElastic.x > 0.) {
+    mat2 tl = stress(c - ivec2(1, 0), x - vec2(1, 0)), tr = stress(c + ivec2(1, 0), x + vec2(1, 0)), tb = stress(c - ivec2(0, 1), x - vec2(0, 1)), tt = stress(c + ivec2(0, 1), x + vec2(0, 1));
+    f += .5 * vec2(tr[0][0] - tl[0][0] + tt[0][1] - tb[0][1], tr[1][0] - tl[1][0] + tt[1][1] - tb[1][1]);
+  }
   vec4 th = texelFetch(uThermo, ivec2(0), 0);
   float gain = uGain * th.y;
   // (Over its band the forcing alone cannot bring it back, the kicks keep coming: the water drags more.)
@@ -156,16 +171,52 @@ void main() {
   // The bodies' viscosity: (1 − ν∇²)u = u* by Jacobi sweeps, ν by how much body is here (black's and ivory's
   // own), so a body moves as one thick thing, folding and stretching slowly, while the water round it stays
   // free. (ν per step, in cells²; implicit, so any ν is stable.)
+  // (Ivory thins under shear, Carreau's law: ν = ν∞ + (ν0 − ν∞)(1 + (λγ̇)²)^((n − 1)/2), γ̇ the strain rate.)
   viscous: HEAD + /* glsl */ `
-uniform sampler2D uStar, uU, uB;
-uniform vec2 uNu;               // black's ν, ivory's ν
+uniform sampler2D uStar, uU, uB, uAux;
+uniform vec2 uNu;               // black's ν, ivory's ν at rest
+uniform float uNuWater;         // the water's own (a whisper: it damps any pattern of the grid's own)
+uniform vec3 uCarreau;          // ivory's ν∞ (as a share of its ν at rest), λ (steps), n
 void main() {
   vec2 x = gl_FragCoord.xy;
   ivec2 c = ivec2(x);
   vec4 b = lin(uB, x);
-  float a = uNu.x * b.r + uNu.y * b.g;
+  float shear = at(uAux, c).z, thin = uCarreau.x + (1. - uCarreau.x) * pow(1. + uCarreau.y * uCarreau.y * shear * shear, .5 * (uCarreau.z - 1.));
+  float a = uNuWater + uNu.x * b.r + uNu.y * thin * b.g;
   vec2 n = at(uU, c - ivec2(1, 0)).xy + at(uU, c + ivec2(1, 0)).xy + at(uU, c - ivec2(0, 1)).xy + at(uU, c + ivec2(0, 1)).xy;
   o = clean(vec4((at(uStar, c).xy + a * n) / (1. + 4. * a), 0, 0));
+}`,
+  // Black ink's memory (FENE-P): the conformation tensor A (kept as A − I: near I a half float would lose
+  // a small stretch), carried by the flow (bilinear: anything sharper can break A's positiveness), stretched
+  // by it (A ← F A Fᵀ, F = I + ∇u, a step's deformation, held to ‖∇u‖ ≤ .5) and relaxing toward I, implicitly,
+  // with the FENE-P spring f = (L² − 2)/(L² − tr A): positive weights of positive matrices, so A stays
+  // positive. It remembers only in black ink (bodies, and its mist a little); elsewhere it forgets at once.
+  conform: HEAD + /* glsl */ `
+uniform sampler2D uC, uU, uB, uM;
+uniform vec3 uPolymer;          // λ (steps), L², artificial diffusion
+uniform float uSteps;
+void main() {
+  vec2 x = gl_FragCoord.xy;
+  ivec2 c = ivec2(x);
+  vec2 u = uSteps * at(uU, c).xy;
+  vec4 Bv = lin(uC, x - u);
+  vec4 nb = .25 * (lin(uC, x - u + vec2(1, 0)) + lin(uC, x - u - vec2(1, 0)) + lin(uC, x - u + vec2(0, 1)) + lin(uC, x - u - vec2(0, 1)));
+  Bv = mix(Bv, nb, uPolymer.z);
+  mat2 A = mat2(1. + Bv.x, Bv.y, Bv.y, 1. + Bv.z);
+  vec2 l = at(uU, c - ivec2(1, 0)).xy, r = at(uU, c + ivec2(1, 0)).xy, b = at(uU, c - ivec2(0, 1)).xy, t = at(uU, c + ivec2(0, 1)).xy;
+  // ∇u: column j is ∂u/∂x_j; F = I + ∇u (one step's), mat2 is column-major.
+  mat2 L = uSteps * mat2(.5 * (r - l), .5 * (t - b));
+  float big = max(max(abs(L[0][0]), abs(L[0][1])), max(abs(L[1][0]), abs(L[1][1])));
+  if (big > .5) L *= .5 / big;
+  mat2 F = mat2(1) + L;
+  A = F * A * transpose(F);
+  float L2 = uPolymer.y, tr = min(A[0][0] + A[1][1], .9 * L2);
+  float spring = (L2 - 2.) / max(L2 - tr, .1 * L2);
+  vec4 body = lin(uB, x), mist = lin(uM, x);
+  float black = clamp(body.r, 0., 1.);
+  float lambda = mix(1., uPolymer.x, black) / uSteps;
+  A = (A + mat2(1) / lambda) / (1. + spring / lambda);
+  o = clean(vec4(A[0][0] - 1., A[0][1], A[1][1] - 1., 0));
 }`,
   // Advection, MacCormack: the forward semi-Lagrangian step (this pass), then a correction by the backward
   // one, limited to the values round where it came from (advectCorrect). Materials also ride the heads'
@@ -220,8 +271,9 @@ void main() {
   // (never below 0), and is drawn back toward the bake's own mist: slowly near a live head, faster far from
   // one. The detail: where the flow carried it from, D_t + u·∇D = u − D/τ (screen units), held within uTau.y.
   carry: head('layout(location = 0) out vec4 mist;\nlayout(location = 1) out vec4 detail;') + HEADS + MOMENTS + /* glsl */ `
-uniform sampler2D uM, uD, uU, uB;
+uniform sampler2D uM, uD, uU, uB, uAux;
 uniform vec2 uExchange;         // per step: mist condensing into a congealing head's body, body melting to mist
+uniform vec2 uErode;            // (the bodies pass's shear erosion: what it strips arrives here as mist)
 uniform float uCarry;
 uniform vec2 uKappa;            // along, across
 uniform vec3 uRelax;            // per step: near a head, far from one, and the handoff's floor
@@ -253,8 +305,13 @@ void main() {
     takes += uExchange.y * melt * vec2(1. - ivory, ivory);
   }
   m.rg -= gives * m.rg; m.ba -= gives * m.ba;
-  m.rg += takes * body.rg; m.ba += takes * body.rg * body.b / max(body.r + body.g, 1e-4);
+  float bs = body.r + body.g;
+  // (What the bodies' skins lose to shear, as the bodies pass strips it: rate × 4φ(1 − φ) of each ink.)
+  vec2 stripped = min(.5, uErode.x * max(0., at(uAux, ivec2(x)).z - uErode.y)) * 4. * body.rg * (1. - bs);
+  m.rg += takes * body.rg + stripped; m.ba += takes * body.rg * body.b / max(body.r + body.g, 1e-4);
   m += max(mix(uRelax.y, uRelax.x, near), uRelax.z) * (moments(x / uCells) - m);
+  // (Never denser than the bake's densest mist: nothing here may pile up without end.)
+  m.rg = min(m.rg, vec2(.6)); m.ba = min(m.ba, m.rg);
   mist = clean(m);
   vec2 d = lin(uD, x - u).xy;
   d += u / uCells - uTau.x * d;
@@ -287,7 +344,8 @@ void main() {
   // schedule at each live head's core and by the mist condensing onto it, and melted back to mist as the
   // head dissolves. (.b: the bodies' depth × share.)
   bodies: HEAD + HEADS + /* glsl */ `
-uniform sampler2D uB, uM;
+uniform sampler2D uB, uM, uAux;
+uniform vec2 uErode;            // shear erosion: rate per step per unit of strain rate over the threshold, threshold
 uniform vec2 uSharp;            // the contrast β (per step), unused
 uniform vec3 uFeed;             // per step: toward the schedule's fill at a core, condensing, melting
 uniform float uScale;
@@ -308,7 +366,7 @@ void main() {
     vec4 hb = uHeadB[i];
     held = max(held, uHead[i].w * (1. - hb.z) * exp(-r2 / (9. * R * R)));
     vec2 ink = vec2(1. - hb.x, hb.x);
-    float core = exp(-r2 / (.2 * R * R)), e = exp(-r2 / (R * R)), melt = exp(-r2 / (2.25 * R * R)) * hb.z;
+    float core = exp(-r2 / (.3 * R * R)), e = exp(-r2 / (R * R)), melt = exp(-r2 / (2.25 * R * R)) * hb.z;
     float fill = hb.y * (1. - hb.z) * uHead[i].w;
     // Fed at its core toward the schedule's fill (so the body regrows where its plume is, however the flow
     // has flung it), and by the mist condensing round it; melted as it dissolves.
@@ -320,6 +378,9 @@ void main() {
   }
   // (Flung far from every live head, a body thins back to mist: none outlives the heads.)
   f *= 1. - .006 * (1. - held);
+  // Sheared hard, its skin is stripped into mist (only at the edge: 4φ(1 − φ)).
+  float shear = lin(uAux, x).z;
+  f -= min(.5, uErode.x * max(0., shear - uErode.y)) * 4. * f * (1. - f);
   f = clamp(f, 0., 1.);
   float s = f.r + f.g;
   if (s > 1.) f /= s;
