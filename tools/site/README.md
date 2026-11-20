@@ -12,6 +12,7 @@ Google Chrome already on the machine over the DevTools protocol.
 | `og_cards.mjs` | the share cards, `static/og/<page>.jpg`, each drawn by `og/card.html` in its page's style; run it after changing a page's name or line: `node tools/site/og_cards.mjs [id ...]` |
 | `perf.mjs` | wheels down the homepage past the last band and reports frame times, style recalculation and layout, on the GPU, with the CPU throttled 4× and on SwiftShader: `node tools/site/perf.mjs [--strict]` |
 | `scene_check.mjs` | the WebGL scene headless: screenshots of the hero, the crystal filled with each world, each band, each seam with the meeting line at a quarter, half and three quarters of the screen, and each destination's hero: `node tools/site/scene_check.mjs --out DIR [--only NAME] [--preset nowebgl] [--reduced-motion] [--size 390x844]` |
+| `ink_profiles.mjs` | Chess's solid pieces measured from the ink studies their vapor figures are made of: writes `static/site/scene/staunton-ink.js` (outlines, details, registration charts) and `staunton-relief.js` (the knight's carved relief): `node tools/site/ink_profiles.mjs` (site served) |
 | `track_check.mjs` | Racing finale: exact progress captures, reverse playback, shard-draw verification and frame pacing; `--lifecycle` also checks rapid resize and click navigation. Supports `--size`, `--out`, `--preset` and `--reduced-motion`. |
 | `tests/*.test.mjs` | unit tests: `node --test tools/site/tests/*.test.mjs` |
 | `trace_route.py` | traces a Strava route screenshot into a vector polyline (`static/site/route-birkie.json`) |

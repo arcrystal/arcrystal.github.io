@@ -16,7 +16,7 @@ import { startSlots } from './staunton.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uOrbitSeconds', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom', 'uB3Geo', 'uB3Eye', 'uDrain', 'uDrainO'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -104,6 +104,7 @@ function createScene() {
         gl.uniform1i(U.uFlow, 8);
         gl.uniform1i(U.uB3, 11);
         gl.uniform1i(U.uB3Mask, 12);
+        gl.uniform1i(U.uB3Geo, 13);
         gl.uniform1i(U.uInkAir, 9);
         gl.uniform1i(U.uBathRoom, 10);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
@@ -175,6 +176,10 @@ function createScene() {
     const bb = s.b3box;
     gl.uniform4f(U.uB3Box, bb ? bb[0] : 0, bb ? bb[1] : 0, bb ? bb[2] : 1, bb ? bb[3] : 1);
     gl.uniform1f(U.uB3On, s.b3on ? 1 : 0);
+    // (Photography → Chess's drain, in the board's world: ink-drain.js.)
+    gl.uniform3fv(U.uB3Eye, s.b3eye ?? [0, 16, 13]);
+    gl.uniform4fv(U.uDrain, s.drain ?? [99, 0, 0, 0]);
+    gl.uniform2fv(U.uDrainO, s.drainO ?? [0, 0]);
     // (A click into Chess binds the board's picture and its ink itself; a seam's transit has bound them.)
     if (s.b3on && (s.mode === 2 || s.mode === 3)) {
       const ink = transit?.inkClick(cssW, cssH);
@@ -285,7 +290,7 @@ function createScene() {
       gl.activeTexture(gl.TEXTURE0);
       for (const s of list) {
         s.transit = s.mode === 6 && s.p !== undefined && transit.prepare(s, dt, info);
-        s.revealInk?.(s.transit, s.p);
+        s.revealInk?.(s.transit, s.p, s.board?.rect);
         // What a click's cover reads (opens.js): from the card's centre while covering, the click while revealing.
         if ((s.mode === 2 || s.mode === 3) && !s.h) {
           const c = s.card, O = s.mode === 2 ? (c ? [c[0] + c[2] / 2, c[1] + c[3] / 2] : [cssW / 2, cssH / 2]) : (s.point || [cssW / 2, cssH / 2]);

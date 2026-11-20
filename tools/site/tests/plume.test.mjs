@@ -5,13 +5,16 @@ import { UNMIX, SLOTS, cureAt } from '../../../static/site/scene/unmix-plan.js';
 import { CAMERA, tankCamera, projectTank } from '../../../static/site/scene/ink-tank.js';
 import { UNMIX_GLSL } from '../../../static/site/scene/glsl/unmix.js';
 import { PLUME_GLSL } from '../../../static/site/scene/glsl/plume.js';
-import { HELD, HOLD, holdFor, inkRaw, easeFor, transitP } from '../../../static/site/lerp.js';
-import { TALL, TYPES } from '../../../static/site/scene/staunton.js';
+import { HELD, HOLD, INK_ADDED, INK_FREE, holdFor, inkRaw, inkAdded, easeFor, transitP } from '../../../static/site/lerp.js';
+import { TALL, TYPES, BOARD } from '../../../static/site/scene/staunton.js';
+import { D1, MORPH, TILT, SLOPE, FRONT, drainLevel, drainSlope, waterHeight, dryEdge, emergence, waveFit, boxCamera, screenRay } from '../../../static/site/scene/ink-drain.js';
+import { birthSites } from '../../../static/site/scene/living-ink-plan.js';
+import { MASS } from '../../../static/site/scene/living-mass.js';
 
 const near = (a, b, e, m = '') => assert.ok(Math.abs(a - b) <= e, `${m} ${a} != ${b}`);
 const U = UNMIX;
 
-test('the draining free surface retraces every rising pose and clears the bottom with its perspective intact', () => {
+test('the draining free surface retraces every rising pose and its near meniscus clears the bottom', () => {
   const [begin,end]=U.clear;
   const descendedTo=height=>{
     let low=begin,high=end;
@@ -38,26 +41,73 @@ test('the draining free surface retraces every rising pose and clears the bottom
     const left=(y(opening)-y(opening-dt))/dt,right=(y(opening+dt)-y(opening))/dt;
     assert.ok(left<0 && right<0,'the water continues through its starting level');
     near(left,right,.025,'the surface velocity remains continuous at the starting level');
-    assert.ok(y(end)<-.01,'the entire plane, including its wave crests, clears the viewport');
+  }
+  // (The near meniscus, its chop included: umNear adds at most (.002 + .005 w) of it.)
+  const last=tankCamera(end);
+  assert.ok(projectTank(.5,0,1,last,1)[1]+.002+.005*last[3]<0,'the near meniscus has left the bottom of the screen');
+  assert.deepEqual([...D1],[...U.clear],'the tank drains over D1');
+});
+
+test('the board\'s plane takes the surface over the crowns and drains away behind the board', () => {
+  const crown=Math.max(...Object.values(TALL)),slab=BOARD.slab;
+  for(let P=D1[0];P<1.2;P+=.0005)assert.ok(drainLevel(P+.0005)<=drainLevel(P)+1e-12,'the water only falls');
+  assert.ok(drainLevel(MORPH[0])>crown+.04,'every crown is under water when the plane takes over');
+  const handover=tankCamera(MORPH[0]);
+  assert.ok(handover[0]-.5*handover[1]+.007<0,'the whole screen is surface at the hand-over');
+  assert.equal(drainSlope(MORPH[1]),0,'the surface is level through the hand-over');
+  assert.ok(TILT[0]>MORPH[1]);
+  near(drainSlope(TILT[1]),SLOPE,1e-12);
+  for(const z of [-14,-4.42,0,4.42,12])assert.ok(waterHeight(z,1.196)<-slab-.15,'the whole page is dry at the end, z '+z);
+  // Every piece has landed before its crown is uncovered; the back rank's before the front's.
+  const crowns=emergence(),landed=Math.max(...birthSites(1.6).map(s=>s.land),...birthSites(.46).map(s=>s.land));
+  assert.ok(crowns.every(c=>c.P>landed),'all landed '+landed+' before '+Math.min(...crowns.map(c=>c.P)));
+  for(const c of crowns)near(waterHeight(c.z,c.P),c.top,1e-6,'the surface at the crown');
+  const kings=crowns.filter((c,i)=>i===4||i===28);
+  assert.ok(kings[0].z<kings[1].z && kings[0].P<kings[1].P,'the black king, at the back, is uncovered first');
+  for(const [W,H,box] of [[1280,800,[630,180,550,460]],[390,844,[20,400,350,292]]]){
+    let prev=0;
+    for(let P=1.10;P<=1.2;P+=.0005){
+      const e=dryEdge(P,box,H);
+      assert.ok(e>=prev-1e-9,'the page dries from the top of the screen down');prev=e;
+      if(e>2 && e<H-2){
+        // The row is the waterline: the page point it sees is level with the surface over it.
+        const cam=boxCamera(box),d=screenRay(cam,box,box[0]+box[2]/2,e),t=(-slab-cam.eye[1])/d[1];
+        near(waterHeight(cam.eye[2]+d[2]*t,P),-slab,2e-3,'waterline at row '+e.toFixed(1));
+      }
+    }
+    assert.equal(dryEdge(MORPH[1],box,H),0,'the page is still under water as the plane takes over');
+    assert.equal(dryEdge(1.196,box,H),H,'all of the page is dry at the end');
+    // The board's plane continues the tank's waves: the same place and size at the middle of the screen.
+    const {k,o}=waveFit(box,W,H),cam=boxCamera(box),h=drainLevel(MORPH[0]);
+    const at=y=>{const d=screenRay(cam,box,W/2,(1-y)*H),t=(h-cam.eye[1])/d[1];return (cam.eye[2]+d[2]*t)*k+o[1];};
+    const tank=y=>{const c=tankCamera(MORPH[0]),kk=.66*(1-c[3]),f=(c[0]+.5*c[1]-y)/c[1];return f*(1+kk)/(1+kk*f);};
+    near(at(.5),tank(.5),1e-9,'the plane meets the tank at the middle');
+    const slopeBoard=(at(.55)-at(.45))/.1,slopeTank=(tank(.55)-tank(.45))/.1;
+    assert.ok(Math.abs(slopeBoard/slopeTank-1)<.05,'waves the same size on screen '+slopeBoard/slopeTank);
   }
 });
 
-test('Chess adds scroll below the water and keeps the distance to the falling droplets', () => {
+test('Chess adds scroll below the water and to its drain, and keeps the distance to the falling droplets', () => {
   assert.ok(U.clear[1]<1.2 && HELD.ink[0]>U.clear[0]);
+  near(HOLD.by.ink.pin,7.5+INK_ADDED.free+INK_ADDED.figures+INK_ADDED.drain,1e-9,'the hold is the old clock and what is added');
   // Raw fractions at these landmarks on the previous 7.5-pin clock.
-  const old=[[.416,.4475095854],[.53,.5404670178],[.72,.6943028355],[.74,.7120818015],[1.01,.8952690600]];
+  const old=[[.416,.4475095854],[.53,.5404670178]];
+  near(inkAdded(INK_FREE[1]),INK_ADDED.free,1e-12);
+  assert.ok(INK_ADDED.free>3,'the plumes going under and the living ink gain more than three pins of their own');
+  near(inkAdded(1.01)-inkAdded(INK_FREE[1]),INK_ADDED.figures,1e-12,'the rank-specific formations gain theirs');
+  assert.ok(INK_FREE[1]>=MASS.end,'the living ink is all within the free window');
   for(const pin of [HOLD.pin,HOLD.pinTouch]){
     const hold=holdFor('ink',pin),before=7.5*pin+hold.leadIn,after=hold.pin*pin+hold.leadIn;
     assert.equal(hold.leadOut,0);
     const extra=old.map(([P,raw])=>inkRaw(P,pin)*after - raw*before);
     near(extra[0],0,1e-5,'opening waterline');
     near(extra[1],0,1e-5,'camera starts going under');
-    assert.ok(extra[2]>pin,'the free plumes gain at least one pin of their own');
-    near(extra[2],extra[3],1e-5,'the completed plume interval stays on the clock');
-    assert.ok(extra[4]>extra[3]+.5*pin,'the rank-specific formations gain additional time');
-    near(extra[4],after-before,1e-5,'the drain keeps its previous scroll distance');
+    const raw=P=>inkRaw(P,pin)*after;
+    near(inkAdded(1.04),inkAdded(1.01),1e-12,'nothing is added between the figures and the drain');
+    near(inkAdded(1.2)-inkAdded(1.04),INK_ADDED.drain,1e-12,'the drain gains its own pins');
+    assert.ok(raw(D1[1])-raw(D1[0])>=raw(CAMERA.end)-raw(CAMERA.start),'the water falls over at least the scroll it rose over');
     const playback=easeFor('ink',pin);
-    for(const P of [1.2,.93,.55,-.1,.2,.74,1.01,.69,1.15]){
+    for(const P of [1.2,.93,.55,-.1,.2,.74,1.01,.69,1.15,1.1,1.07,1.19]){
       near(transitP(playback(inkRaw(P,pin))),P,1e-5,'reverse and direct seek');
     }
   }

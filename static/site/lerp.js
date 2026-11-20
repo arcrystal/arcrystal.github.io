@@ -72,13 +72,14 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 11 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 14.65 } },
 };
 // Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
 // each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
 // at which a band's content begins to surface, and over how much of P it comes.
 export const GLASS_RELEASE = 1.2;
-export const HELD = Object.freeze({ glass: [1.08, 0.10], darkroom: [1.08, 0.115], ink: [1.1, 0.098] });
+// (Chess's page dries from the back as its water drains away behind the board: scene/ink-drain.js.)
+export const HELD = Object.freeze({ glass: [1.08, 0.10], darkroom: [1.08, 0.115], ink: [1.15, 0.046] });
 export const holdFor = (style, pin = HOLD.pin) => {
   const h = { pin: 1, leadIn: HOLD.leadIn, leadOut: HOLD.leadOut, ...HOLD.by[style] };
   if (HELD[style]) h.leadOut = 0;
@@ -155,18 +156,25 @@ function invertHold(raw, pin, distanceAt) {
 export const glassEase = (raw,pin=HOLD.pin) => invertHold(raw,pin,glassRaw);
 export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;
 export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.inverse;
-// Insert distance inside the submerged shot. A drop reaches the water at the
-// same scroll position as before. After the last vapor figure, the drain again
-// runs at its original speed. Both joins have zero added slope and curvature.
+// Insert distance inside the submerged shot, and for the drain (scene/ink-drain.js),
+// which falls as the water rose and then sinks through the board. A drop reaches the
+// water at the same scroll position as before. Every join has zero added slope and curvature.
+// Pins of scroll added to Chess's hold, each over its own window of P.
+export const INK_ADDED = Object.freeze({ free: 3.6, figures: 1.15, drain: 2.4 });
+// The free window: the plumes going under and the living ink (scene/living-mass.js).
+export const INK_FREE = Object.freeze([.53, .745]);
 function accumulatedDistance(P, start, end) {
   const t=clamp01((P-start)/(end-start));
   return t*t*t*(10+t*(-15+6*t));
 }
+// The pins added by P.
+export function inkAdded(P) {
+  return INK_ADDED.free*accumulatedDistance(P,...INK_FREE)+INK_ADDED.figures*accumulatedDistance(P,.745,1.01)
+    +INK_ADDED.drain*accumulatedDistance(P,1.04,1.196);
+}
 export function inkRaw(P,pin=HOLD.pin) {
   const original=7.5*pin+HOLD.leadIn;
-  const free=2.35*accumulatedDistance(P,.53,.72);
-  const figures=1.15*accumulatedDistance(P,.74,1.01);
-  return (INK_TABLE.inverse(P)*original+(free+figures)*pin)/(original+3.5*pin);
+  return (INK_TABLE.inverse(P)*original+inkAdded(P)*pin)/(original+inkAdded(1.2)*pin);
 }
 export const inkEase = (raw,pin=HOLD.pin) => invertHold(raw,pin,inkRaw);
 const inkTouchEase=raw=>inkEase(raw,HOLD.pinTouch);

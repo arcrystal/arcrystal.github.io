@@ -17,7 +17,7 @@ import { powermap } from './powermap.js';
 import { mountSims } from './sims.js';
 import { playChess, loadRatings, layoutStart, layoutBuilt } from './previews.js';
 import { scotchAt, scotchBuilt, startSlots, builtAt } from './scene/staunton.js';
-import { tankCamera } from './scene/ink-tank.js';
+import { dryEdge } from './scene/ink-drain.js';
 
 const TAU = Math.PI * 2;
 const CYCLE_MS = 5000;
@@ -434,15 +434,13 @@ export function mount(main, ctx) {
     // top, 1 at the bottom); the seam leans with it.
     bands.forEach((b, i) => {
       if (i === 0) return;
-      // Expose the typography at the far wall as the water leaves the tile.
-      // The live seam reports its actual renderer selection, including fallback.
-      const revealInk = (wet, p) => {
+      // Expose the typography where the page has drained: the waterline across the page under the board,
+      // which sweeps from the back toward the viewer (scene/ink-drain.js). The live seam reports its actual
+      // renderer selection, including fallback, and the board's box it drains.
+      const revealInk = (wet, p, box) => {
         const c = sections[i];
         let edge = null;
-        if (wet && c.surface > 0 && c.surface < 1) {
-          const [center, span] = tankCamera(transitP(p));
-          edge = Math.round(c.stick.shift + vh * (1 - center - span * .5));
-        }
+        if (wet && box && c.surface > 0 && c.surface < 1) edge = Math.round(c.stick.shift + dryEdge(transitP(p), box, vh));
         if (edge === c.dryEdge) return;
         c.dryEdge = edge;
         b.classList.toggle('is-draining', edge !== null);

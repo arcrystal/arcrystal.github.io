@@ -3,10 +3,11 @@
 export const smooth=(a,b,t)=>{const u=Math.max(0,Math.min(1,(t-a)/(b-a)));return u*u*(3-2*u);};
 export const mix=(a,b,t)=>a+(b-a)*t;
 export const CAMERA={start:.416,end:.565,above:[.30,.60,.76,0],below:[1.072,.092,.99,1]};
-export const DRAIN=Object.freeze([1.075,1.19]);
-// A negative level lowers the whole free surface past the opening shot. Its
-// far contact line finishes below the viewport, including the tallest crest.
-const emptyLevel=-.86;
+// The drain's first part (ink-drain.js D1): the surface falls as it rose. A
+// level just below zero carries the near meniscus, crests included, past the
+// bottom of the screen; the board's own plane then takes the surface over.
+export const DRAIN=Object.freeze([1.04,1.105]);
+const emptyLevel=-.04;
 const tiltTakeup=.10;
 const perspective=.66;
 export function tankCamera(P){
@@ -33,6 +34,14 @@ vec3 tankPoint(vec3 p,vec4 cam,float aspect){
 vec2 waterXZ(vec2 uv,vec4 cam,float aspect){
   float fraction=clamp((cam.x+.5*cam.y-uv.y)/cam.y,0.,1.);
   float k=${perspective}*(1.-cam.w),z=fraction*(1.+k)/(1.+k*fraction);
+  return vec2(.5+(uv.x-.5-(z-.5)*.072*cam.w/max(1.,aspect))*tankW(z,cam)/(1.+.22*(1.-cam.w)),z);
+}
+// The same plane continued behind its far wall toward its horizon: the drain's
+// open far side (ink-drain.js). In front of the near meniscus it stops at the glass.
+vec2 waterXZOpen(vec2 uv,vec4 cam,float aspect){
+  float k=${perspective}*(1.-cam.w);
+  float fraction=clamp((cam.x+.5*cam.y-uv.y)/cam.y,-.98/max(k,.001),1.);
+  float z=fraction*(1.+k)/(1.+k*fraction);
   return vec2(.5+(uv.x-.5-(z-.5)*.072*cam.w/max(1.,aspect))*tankW(z,cam)/(1.+.22*(1.-cam.w)),z);
 }
 vec4 waterCamera(float P){
@@ -89,13 +98,27 @@ function sources(){
   }
   return out;
 }
-export const DROPS=sources();
+// Six late heads, black and ivory in turn, fall while the water envelops the screen. They are large and
+// plunge deep, and their plumes come down from the top edge once the camera is under, each the shape of
+// one of the four plume studies (data/ink-density.webp; living-ink-plan.js lateRail), two of them mirrored.
+export const LATE=Object.freeze([{id:8,study:0,flip:0},{id:25,study:1,flip:0},{id:30,study:2,flip:0},
+  {id:19,study:3,flip:0},{id:26,study:1,flip:1},{id:13,study:0,flip:1}].map(Object.freeze));
+function lateHeads(drops){
+  LATE.forEach((late,k)=>{
+    const s=drops[late.id],radius=.027+.0006*k,detach=.40+.0132*k;
+    Object.assign(s,{detach,gather:detach-.04,hit:detach+s.span,radius,...dropVolume(radius),
+      plunge:.85+.015*k,bulk:.11+.004*k});
+  });
+  return drops;
+}
+export const DROPS=lateHeads(sources());
 
 // Viscous paint refills these pores slowly. A pore pinches off and recoils,
 // then the next pendant can swell while the previous drop is already falling.
 function precipitation(){
   const rng=seeded(17715),all=DROPS.slice();
-  for(let pass=1;pass<=2;pass++)for(const s of DROPS){
+  // Two passes as the camera looks at the open water, and a third falling as it envelops the screen.
+  for(let pass=1;pass<=3;pass++)for(const s of DROPS){
     const previous=all[(pass-1)*32+s.id];
     const detach=previous.detach+.042+.021*rng(),gather=previous.detach+.012+.004*rng();
     const radius=s.radius*(.52+.31*rng()),span=s.span*(.96+.08*rng());

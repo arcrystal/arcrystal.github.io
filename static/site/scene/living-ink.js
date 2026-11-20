@@ -4,6 +4,8 @@ import { KEYS,END,piecePoses,ease } from './living-ink-plan.js';
 import { frameCamera } from './staunton.js';
 import { INK_DRIP_INSTANCES } from './glsl/ink-impact.js';
 import { PRECIPITATION } from './ink-tank.js';
+import { MORPH, drainUniforms, emergence } from './ink-drain.js';
+import { MASS, massFrame, massBounds, TENDRILS, POINTS, SATELLITES } from './living-mass.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -17,7 +19,8 @@ export function createLivingInk(gl,coarse,programs){
   let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,queue=[],uploaded=0,failed=false;
   let pigment=null,knightPigment=null,figurePigment=null,bathRoom=null,plates=null,sheetDepth=null,interiorCount=0,sheetCount=0;
   let registration=null,volume=null,mesh=null,grid=null,indices=null,ripples=null,noise=null,noiseData=null,cam=null,camAspect=0;
-  let layers=null,figures=null,threads=null,air=null,warmFence=null,warmed=false,sheetLayout=null;
+  let layers=null,figures=null,threads=null,air=null,warmFence=null,warmed=false,sheetLayout=null,massTraj=null,massTarget=null;
+  const satData=new Float32Array(4*SATELLITES),tenData=new Float32Array(4*TENDRILS*POINTS);
   // Instance zero draws the wet lip. Each other record describes one physical
   // drop for both the airborne silhouette and its water-surface impulse.
   const dripGeometry=gl.createVertexArray(),dripEvents=gl.createBuffer(),dripCorners=gl.createBuffer();
@@ -34,7 +37,26 @@ export function createLivingInk(gl,coarse,programs){
   gl.enableVertexAttribArray(3);
   gl.vertexAttribPointer(3,1,gl.FLOAT,false,0,0);
   gl.bindVertexArray(null);
+  // The drain's crowns: one record a piece (ink-drain.js emergence), rebuilt if the pieces' heights change.
+  const crownGeometry=gl.createVertexArray(),crownRecords=gl.createBuffer();
+  let crownKey='';
+  gl.bindVertexArray(crownGeometry);
+  gl.bindBuffer(gl.ARRAY_BUFFER,crownRecords);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,4,gl.FLOAT,false,0,0);gl.vertexAttribDivisor(0,1);
+  gl.bindBuffer(gl.ARRAY_BUFFER,dripCorners);
+  gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,1,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null);
   gl.bindBuffer(gl.ARRAY_BUFFER,null);
+  function crowns(){
+    const list=emergence(),key=list.map(c=>c.P.toFixed(6)).join();
+    if(key!==crownKey){
+      crownKey=key;
+      gl.bindBuffer(gl.ARRAY_BUFFER,crownRecords);
+      gl.bufferData(gl.ARRAY_BUFFER,Float32Array.from(list.flatMap(c=>[c.x,c.z,c.P,.02])),gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER,null);
+    }
+    return list.length;
+  }
   function texParams(type,filter,wrap=gl.CLAMP_TO_EDGE){
     gl.texParameteri(type,gl.TEXTURE_MAG_FILTER,filter);gl.texParameteri(type,gl.TEXTURE_MIN_FILTER,filter);
     gl.texParameteri(type,gl.TEXTURE_WRAP_S,wrap);gl.texParameteri(type,gl.TEXTURE_WRAP_T,wrap);
@@ -60,7 +82,7 @@ export function createLivingInk(gl,coarse,programs){
     for(const t of [volume,mesh,registration])if(t)gl.deleteTexture(t);
     if(grid)gl.deleteVertexArray(grid);
     if(indices)gl.deleteBuffer(indices);
-    grid=indices=volume=mesh=registration=meta=ledger=noiseData=sheetLayout=null;queue=[];uploaded=0;failed=false;
+    grid=indices=volume=mesh=registration=meta=ledger=noiseData=sheetLayout=massTraj=null;queue=[];uploaded=0;failed=false;
   }
   function prepare(w,h,box,board){
     const aspect=w/h,mobile=coarse||w<700;
@@ -85,6 +107,7 @@ export function createLivingInk(gl,coarse,programs){
             }
             meta=data.meta;noiseData=data.noise;
           }
+          else if(data.mass){massTraj=data.mass;}
           else if(data.ledger){ledger=data.ledger;job.terminate();worker=null;}
           else queue.push(data);
         };
@@ -133,12 +156,14 @@ export function createLivingInk(gl,coarse,programs){
       }
     }
     if(!queue.length){
-      if(uploaded===KEYS && ledger && !warmed && board?.ready() &&
-          programs.inkImpact && programs.inkFigure && programs.unmixSeen && programs.inkWake && programs.inkSheet && programs.inkRipple){
+      if(uploaded===KEYS && ledger && massTraj && !warmed && board?.ready() &&
+          programs.inkImpact && programs.inkFigure && programs.unmixSeen && programs.inkWake && programs.inkSheet && programs.inkRipple && programs.inkEmerge && programs.inkMass && programs.inkMassBlit){
         if(!warmFence){
           // Compile the actual attachment/depth/blend variants under the loader.
           draw(.156,w,h,box,0,board,{});
           draw(.98,w,h,box,0,board,{});
+          draw(1.15,w,h,box,0,board,{});
+          draw(.66,w,h,box,0,board,{});
           warmFence=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);gl.flush();
           if(!warmFence)warmed=true;
         }else{
@@ -202,16 +227,51 @@ export function createLivingInk(gl,coarse,programs){
       for(const p of poses)if(p.flight<1)slots[p.slot]=null;
       s.board.pos={...s.board.pos,slots};
     }
-    const scale=Math.min(devicePixelRatio||1,Math.sqrt((coarse?1.05e6:1.6e6)/(w*h)));
+    // The pieces and veils at the device's own resolution, up to a 4K screen's.
+    const scale=Math.min(devicePixelRatio||1,Math.sqrt((coarse?1.6e6:4.2e6)/(w*h)));
     const W=Math.round(w*scale),H=Math.round(h*scale);
-    figures=resize(figures,W,H,1,'sample');threads=resize(threads,W,H,1);
+    // (The veils are soft: they keep the earlier budget; only the solids are drawn at the device's own.)
+    const scaleT=Math.min(devicePixelRatio||1,Math.sqrt((coarse?1.05e6:1.6e6)/(w*h)));
+    const WT=Math.round(w*scaleT),HT=Math.round(h*scaleT);
+    figures=resize(figures,W,H,1,'sample');threads=resize(threads,WT,HT,1);
+    const massLive=massTraj && P>MASS.start && P<MASS.end;
+    if(massLive){
+      // The living ink (living-mass.js, glsl/living-mass.js): a body a draw within its reach, at a little
+      // over half the figures' resolution, laid into them below with its depth.
+      const ms=Math.max(.36,Math.min(1,(coarse?.75:.85)/scale));
+      massTarget=resize(massTarget,Math.max(1,Math.round(W*ms)),Math.max(1,Math.round(H*ms)),1,'sample');
+      target(massTarget);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
+      gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.disable(gl.SCISSOR_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+      const prog=programs.inkMass;gl.useProgram(prog.p);gl.enable(gl.SCISSOR_TEST);
+      bind(6,gl.TEXTURE_3D,noise,prog.U.uNoise);gl.uniform2f(prog.U.uSize,massTarget.w,massTarget.h);
+      const k=scale*massTarget.h/H;
+      for(const m of massFrame(massTraj,P,time,w/h,coarse?2:3)){
+        if(m.here<.01)continue;
+        const [x0,y0,x1,y1]=massBounds(m,w,h);
+        gl.scissor(Math.floor(x0*k),Math.floor(y0*k),Math.ceil((x1-x0)*k)+2,Math.ceil((y1-y0)*k)+2);
+        gl.uniform4f(prog.U.uBody,...m.c,m.R);
+        gl.uniform4f(prog.U.uState,m.state.smooth,m.state.sharp,m.state.gas,m.spin);
+        gl.uniform4f(prog.U.uClock,m.tau,time,m.white,m.here);
+        m.sat.forEach((g,i)=>satData.set(g,4*i));tenData.fill(0);
+        m.ten.forEach((t,j)=>t.forEach((p,i)=>tenData.set(p,4*(j*POINTS+i))));
+        gl.uniform4fv(prog.U.uSat,satData);gl.uniform4fv(prog.U.uTen,tenData);gl.uniform1i(prog.U.uTens,m.ten.length);
+        gl.drawArrays(gl.TRIANGLES,0,3);
+      }
+      gl.disable(gl.SCISSOR_TEST);
+    }
     const low=Math.min(.83,Math.sqrt((coarse?178000:355000)/(w*h)));
     layers=resize(layers,Math.max(1,Math.round(w*low)),Math.max(1,Math.round(h*low)),2);
     gl.disable(gl.BLEND);gl.disable(gl.SCISSOR_TEST);target(figures);
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    if(massLive){
+      const blit=programs.inkMassBlit;gl.useProgram(blit.p);
+      bind(6,gl.TEXTURE_2D,massTarget.textures[0],blit.U.uMassColor);bind(7,gl.TEXTURE_2D,massTarget.depthTexture,blit.U.uMassDepth);
+      gl.uniform2f(blit.U.uSize,W,H);gl.drawArrays(gl.TRIANGLES,0,3);
+    }
     const piece=programs.inkFigure;
     gl.useProgram(piece.p);board.bindPieceProfiles(piece.U);gl.enable(gl.SCISSOR_TEST);
+    gl.uniform1f(piece.U.uStudies,1);
     bind(3,gl.TEXTURE_2D,registration,piece.U.uRegistration);
     bind(4,gl.TEXTURE_2D,knightPigment,piece.U.uKnightPigment);
     bind(5,gl.TEXTURE_2D,figurePigment,piece.U.uFigurePigment);
@@ -224,7 +284,7 @@ export function createLivingInk(gl,coarse,programs){
       gl.uniform4f(piece.U.uTurn,spin,roll,elev,growth);gl.uniform4f(piece.U.uModel,type,Number(black),tall,z);
       gl.uniform2f(piece.U.uInkOrientation,id,meta.sites[id].piece.spin+meta.sites[id].turn);
       gl.uniform3fv(piece.U.uNuclei,pose.nuclei);gl.uniform1f(piece.U.uSeed,pose.slot);
-      gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.drawArrays(gl.TRIANGLES,0,3);
+      gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.drawArrays(gl.TRIANGLES,0,3);
     }
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
     const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
@@ -237,7 +297,7 @@ export function createLivingInk(gl,coarse,programs){
       bind(1,gl.TEXTURE_2D,figures.textures[0],sheet.U.uFigures);
       bind(7,gl.TEXTURE_2D,figures.depthTexture,sheet.U.uFigureDepth);
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
-      gl.uniform2f(sheet.U.uSize,W,H);gl.uniform1f(sheet.U.uKey,key);
+      gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
       gl.uniform1f(sheet.U.uFlowPhase,flowPhase);
       if(sheetLayout!==meta){
@@ -289,14 +349,14 @@ export function createLivingInk(gl,coarse,programs){
       target(threads);
       const wake=programs.inkWake, past=piecePoses(meta.sites,P-.057,w,h,box,ledger,cam);
       gl.useProgram(wake.p);bind(1,gl.TEXTURE_2D,figures.depthTexture,wake.U.uFigureDepth);
-      gl.uniform2f(wake.U.uSize,W,H);
+      gl.uniform2f(wake.U.uSize,WT,HT);
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
       for(let i=0;i<poses.length;i++){
         const head=poses[i],tail=past[i],site=meta.sites[i];
         const strength=ease(site.depart,site.depart+.015,P)*(1-ease(site.land-.008,site.land+.026,P));
         if(strength<=0)continue;
-        gl.uniform4f(wake.U.uHead,head.x*scale,(head.y-head.pixels*head.tall*.25)*scale,head.z,head.pixels*.32*scale);
-        gl.uniform4f(wake.U.uTail,tail.x*scale,(tail.y-tail.pixels*tail.tall*.30)*scale,tail.z,0);
+        gl.uniform4f(wake.U.uHead,head.x*scaleT,(head.y-head.pixels*head.tall*.25)*scaleT,head.z,head.pixels*.32*scaleT);
+        gl.uniform4f(wake.U.uTail,tail.x*scaleT,(tail.y-tail.pixels*tail.tall*.30)*scaleT,tail.z,0);
         gl.uniform4f(wake.U.uClock,strength,head.flight,head.slot,Number(!head.black));
         gl.drawArraysInstanced(gl.TRIANGLES,0,24*6,7);
       }
@@ -312,6 +372,16 @@ export function createLivingInk(gl,coarse,programs){
       gl.drawArraysInstanced(gl.TRIANGLES,0,6,PRECIPITATION.length+1);
       gl.bindVertexArray(null);gl.disable(gl.BLEND);
     }
+    if(P>MORPH[0] && P<1.2){
+      // Each crown rings the sinking surface as it breaks through (ink-drain.js).
+      const emerge=programs.inkEmerge,{drain}=drainUniforms(P,box,w,h);gl.useProgram(emerge.p);
+      gl.uniform2f(emerge.U.uScreen,w,h);gl.uniform4f(emerge.U.uBox,...box);gl.uniform3fv(emerge.U.uEye,cam.eye);
+      gl.uniform4fv(emerge.U.uDrain,drain);gl.uniform1f(emerge.U.uProgress,P);
+      gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+      const n=crowns();gl.bindVertexArray(crownGeometry);
+      gl.drawArraysInstanced(gl.TRIANGLES,0,6,n);
+      gl.bindVertexArray(null);gl.disable(gl.BLEND);
+    }
     gl.activeTexture(gl.TEXTURE0);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     return true;
   }
@@ -319,9 +389,10 @@ export function createLivingInk(gl,coarse,programs){
     get textures(){return [layers.textures[0],layers.textures[1],figures.textures[0],threads.textures[0],ripples.textures[0],air.textures[0],bathRoom];},
     dispose(){
       stop();
-      for(const target of [ripples,sheetDepth,layers,figures,threads,air])release(target);
+      for(const target of [ripples,sheetDepth,layers,figures,threads,air,massTarget])release(target);
       for(const tex of [pigment,knightPigment,figurePigment,bathRoom,noise])if(tex)gl.deleteTexture(tex);
       gl.deleteVertexArray(dripGeometry);gl.deleteBuffer(dripEvents);gl.deleteBuffer(dripCorners);
+      gl.deleteVertexArray(crownGeometry);gl.deleteBuffer(crownRecords);
     }
   };
 }

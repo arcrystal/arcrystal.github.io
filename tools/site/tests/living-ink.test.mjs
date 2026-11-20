@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { KEYS,END,bakeLivingInk,birthSites,piecePoses,decodePosition,pocketFlow } from '../../../static/site/scene/living-ink-plan.js';
-import { CAMERA,DROPS,PRECIPITATION,PIGMENT_TOTALS,poolsOfPaint,dropDepth,dropLedger,tankCamera,projectTank } from '../../../static/site/scene/ink-tank.js';
+import { CAMERA,DROPS,PRECIPITATION,PIGMENT_TOTALS,LATE,poolsOfPaint,dropDepth,dropLedger,tankCamera,projectTank } from '../../../static/site/scene/ink-tank.js';
 import { INK_DRIP_INSTANCES } from '../../../static/site/scene/glsl/ink-impact.js';
+import { BODIES, MASS, SAMPLES, GLASS, BOX } from '../../../static/site/scene/living-mass.js';
 import { frameCamera,project,TALL,TYPES } from '../../../static/site/scene/staunton.js';
 
 // Four optical rails at the end of each row carry the depth and footprint of
@@ -20,9 +21,9 @@ function railEnvelope(meta,mesh,instance){
   return {left,right,low,high,depth:front-back};
 }
 
-test('discrete viscous drips leave the upper lip and strike the upper three quarters of the perspective pool',()=>{
+test('discrete viscous drips leave the upper lip, strike the pool, and keep falling as the water envelops the screen',()=>{
   assert.equal(DROPS.length,32);
-  assert.equal(PRECIPITATION.length,96);
+  assert.equal(PRECIPITATION.length,128);
   assert.equal(new Set(PRECIPITATION.map(s=>s.hit)).size,PRECIPITATION.length);
   const view=tankCamera(0);
   assert.equal(projectTank(.5,0,0,view,1)[1],.60);
@@ -32,7 +33,7 @@ test('discrete viscous drips leave the upper lip and strike the upper three quar
   assert.equal(poolsOfPaint.length,8);
   for(const side of [0,1]){
     assert.equal(DROPS.filter(s=>s.white===side).length,16);
-    assert.equal(PRECIPITATION.filter(s=>s.white===side).length,48);
+    assert.equal(PRECIPITATION.filter(s=>s.white===side).length,64);
   }
   const landingCells=new Set();
   for(const s of PRECIPITATION){
@@ -45,7 +46,8 @@ test('discrete viscous drips leave the upper lip and strike the upper three quar
     }
     assert.ok(Math.abs(dropDepth(s,s.hit))<1e-12);
     assert.ok(Math.abs(dropDepth(s,s.detach)-dropDepth(s,s.detach+1e-6))<1e-6);
-    for(const aspect of [.46,1.6]){
+    // (Drops landing on the open pool; later ones meet the rising surface or enter above the screen.)
+    if(s.hit<CAMERA.start)for(const aspect of [.46,1.6]){
       const cam=tankCamera(s.hit),[ix,iy]=projectTank(s.x,dropDepth(s,s.hit),s.z,cam,aspect);
       const [x,y]=projectTank(s.nozzleX,-s.ceiling,s.nozzleZ,tankCamera(s.detach),aspect);
       assert.ok(x>.025&&x<.98&&y>.975&&y<1.015,'viscous source is attached to the top border');
@@ -55,6 +57,14 @@ test('discrete viscous drips leave the upper lip and strike the upper three quar
     }
   }
   assert.ok(landingCells.size>=25,'impacts cover many different patches of the pool');
+  const hits=PRECIPITATION.map(d=>d.hit);
+  assert.ok(hits.filter(h=>h>CAMERA.start && h<CAMERA.end).length>=15,'drops keep landing as the surface rises over the camera');
+  assert.ok(hits.filter(h=>h>=CAMERA.end).length>=8 && Math.max(...hits)<.68,'and enter from above once it is under, before the air drops are let go');
+  for(const late of LATE){
+    const d=DROPS[late.id];
+    assert.ok(d.hit>CAMERA.start && d.hit<CAMERA.end && d.radius>=.027 && d.plunge>=.85,'late head '+late.id);
+  }
+  assert.equal(new Set(LATE.map(l=>DROPS[l.id].white)).size,2);
   for(const primary of DROPS){
     const group=PRECIPITATION.filter(d=>d.parent===primary.id);
     assert.ok(Math.abs(PIGMENT_TOTALS[primary.id]-group.reduce((v,d)=>v+d.volume,0))<1e-15);
@@ -106,7 +116,7 @@ test('the hero knight and all other plumes land on their own board squares',()=>
 });
 
 test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces, conserving both pigments',()=>{
-  let meta,issued=0,finished;
+  let meta,issued=0,finished,massPaths;
   const vaporFrames=new Map(),seenSlots=new Set();
   const aspect=.46,dt=END/(KEYS-1);
   const freeFrames=[.55,.62,.69].map(P=>Math.round(P/dt)),freeSheets=[];
@@ -126,6 +136,16 @@ test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces,
       return;
     }
     if(packet.ledger){finished=packet;return;}
+    if(packet.mass){
+      // The living ink's paths: one per body, every sample, in the frame (living-mass.js).
+      assert.equal(issued,Math.ceil(MASS.start/dt),'seeded where the trunks are as it congeals');
+      assert.equal(packet.mass.length,SAMPLES*BODIES.length*4);
+      for(let k=0;k<packet.mass.length;k+=4){
+        const [x,y,z,r]=packet.mass.subarray(k,k+4);
+        assert.ok(x>=BOX.x[0]-1e-6 && x<=BOX.x[1]+1e-6 && y>=BOX.y[0]-1e-6 && y<=BOX.y[1]+1e-6 && z<GLASS-.1 && r>.03 && r<.14,'in view and behind the glass');
+      }
+      massPaths=packet.mass;return;
+    }
     const {frame,density,mesh}=packet;
     assert.equal(frame,issued++);
     assert.equal(mesh.length,4*(meta.cols+4)*meta.rows*32);
@@ -168,6 +188,7 @@ test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces,
     if(thickness)freeSheets.push(thickness);
   });
   assert.equal(issued,KEYS);
+  assert.ok(massPaths,'the living ink was seeded');
   assert.equal(seenSlots.size,32);
   const [enter,current,leave]=freeSheets;
   const knots=current.filter((v,i)=>v>Math.max(enter[i],leave[i])+.06);

@@ -1,0 +1,12 @@
+{
+  "consoleErrors": [],
+  "exceptions": [],
+  "logErrors": [],
+  "failedRequests": [],
+  "blockedByTest": 0,
+  "httpErrors": [],
+  "external": [
+    "https://api.chess.com/pub/player/<user>/stats"
+  ],
+  "fixtures": 0
+}

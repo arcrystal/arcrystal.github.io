@@ -29,7 +29,7 @@ function noiseTile(ease){
 async function prepare(data){
   const {bakeLivingInk,ease}=await import(data.planner);
   bakeLivingInk(data.aspect,data.mobile,packet=>{
-    const transfer=packet.density?[packet.density.buffer,packet.mesh.buffer]:packet.ledger?[packet.ledger.buffer,packet.massBook.buffer]:[];
+    const transfer=packet.density?[packet.density.buffer,packet.mesh.buffer]:packet.ledger?[packet.ledger.buffer,packet.massBook.buffer]:packet.mass?[packet.mass.buffer]:[];
     if(packet.meta && data.needsNoise){packet.noise=noiseTile(ease);transfer.push(packet.noise.buffer);}
     self.postMessage(packet,transfer);
   });

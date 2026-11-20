@@ -1,4 +1,5 @@
 import { PIECE_SHAPES, PIECE_MATERIAL } from './board3d.js';
+import { LATE } from '../ink-tank.js';
 
 
 // Each draw is scissored to one posed piece. Its optical depth travels with
@@ -11,7 +12,7 @@ uniform vec2 uSlope;
 uniform vec3 uNuclei[3];
 uniform float uSeed;
 uniform vec2 uInkOrientation; // index of the pigment study and its birth yaw
-uniform sampler2D uRegistration,uKnightPigment,uFigurePigment;
+uniform vec2 uCure; // the liquid front's radius (model units: living-ink-plan.js fillRadius), how far it has set
 vec3 rotatePiece(vec3 p) {
   float c=cos(uTurn.y), s=sin(uTurn.y);
   p.xy=mat2(c,s,-s,c)*p.xy;
@@ -19,35 +20,41 @@ vec3 rotatePiece(vec3 p) {
   p.xz=mat2(c,s,-s,c)*p.xz;
   return p;
 }
+// The solid fills its own shape as a liquid (living-ink-plan.js FILL): a front leaves the three
+// landmarks (the second and third wet a little later), its radius set by the pigment deposited, so the
+// volume filled is that share of the solid. It seeps: the dense folds of the piece's own study fill ahead,
+// its clear gaps last, and it advances in viscous fingers (a less viscous ink pushing into a more viscous
+// one breaks into lobes, Saffman–Taylor). Where it meets the walls it wets them (a smooth union's
+// meniscus). Then it sets (uCure.y), from the landmarks outward: the rounding goes and every carved edge
+// snaps sharp.
+float frontAt(vec3 c){
+  return min(length(c-uNuclei[0]),min(length(c-uNuclei[1])+.03,length(c-uNuclei[2])+.07));
+}
 float deposit(vec3 p) {
   float t=uModel.x, h=uModel.z;
   vec3 q=rotatePiece(p); q.y+=h*.5;
   float d=shape(int(t),q);
-  if(uTurn.w>.999) return d;
-  // The shell is liquid where the same ink membranes have just laid down.
-  // Surface tension damps the last low relief into the shared carved model.
-  float gel=1.-smoothstep(.18,.90,uTurn.w);
+  if(uCure.y>.999) return d;
+  vec3 c=q-vec3(0.,h*.5,0.);
+  float r=frontAt(c),g=uTurn.w;
+  // Viscous fingers about the piece's axis, winding as they climb, gone as it fills.
+  float ang=atan(c.z,c.x)+2.4*c.y/h+uSeed;
+  float lobes=(pow(max(0.,cos(11.*ang+5.*c.y/h+3.*g)),4.)*.07+pow(max(0.,cos(23.*ang-9.*c.y/h+uSeed)),6.)*.03)*(1.-g);
+  // Its own ink: the study's density (clear gaps fill last).
+  vec2 off,uv=studyUV(int(t),uInkOrientation.x,uInkOrientation.y,q,q.y/h,off);
+  float ink=int(t)==3?textureLod(uKnightPigment,uv,2.).r:textureLod(uFigurePigment,uv,2.).r;
+  float front=r-uCure.x-lobes-.15*(.55-ink)*(1.-g);
+  // Unset, the liquid's tension rounds the carving: a softer surface over a swelling of low ripples.
+  float soft=1.-uCure.y;
   float fold=sin(q.y*15.+4.1*q.x+uSeed*.7+.7*sin(13.*q.z));
   float ridge=cos(17.*q.x-12.*q.z+3.2*fold);
-  return d-gel*(.005+.008*fold+.006*ridge);
+  float liquid=d-soft*(.004+.006*fold+.004*ridge);
+  float k=.045*soft+.004;
+  float hk=clamp(.5-.5*(front-liquid)/k,0.,1.);
+  return mix(front,liquid,hk)+k*hk*(1.-hk);
 }
 vec2 pigmentAt(int type,vec3 q,float y,out vec2 towardLight){
-  float rank=float(type);
-  if(type==5)rank+=mod(floor(uInkOrientation.x*.5),2.);
-  vec2 dims=vec2(textureSize(uRegistration,0));
-  vec2 uv=(vec2(.5+clamp(y,0.,1.)*(dims.x-1.),2.*rank+.5))/dims;
-  vec4 section=texture(uRegistration,uv);
-  float v=texture(uRegistration,uv+vec2(0.,1./dims.y)).r;
-  float across=type==3?q.x:dot(q.xz,vec2(cos(uInkOrientation.y),sin(uInkOrientation.y)));
-  float x=mix(section.z,section.w,clamp((across-section.x)/max(.02,section.y-section.x),0.,1.));
-  vec2 tissue=clamp(vec2(x,v),.002,.998);
-  towardLight=vec2(-.003,-.004);
-  if(type==3)return tissue;
-  float cell=rank-(rank>3.?1.:0.);
-  vec2 grid=vec2(3,2);
-  towardLight/=grid;
-  return (vec2(mod(cell,3.),floor(cell/3.))+tissue)/grid;
-
+  return studyUV(type,uInkOrientation.x,uInkOrientation.y,q,y,towardLight);
 }
 void main(){
   vec2 offset=(gl_FragCoord.xy-uPose.xy)/uPose.z;
@@ -60,45 +67,53 @@ void main(){
   if(chord<=0.) discard;
   float t=along-sqrt(chord),end=along+sqrt(chord),d;
   vec3 p;
-  for(int i=0;i<68;i++){
-    p=origin+t*ray; d=deposit(p); if(d<.0016 || t>end)break;
-    t+=max(.0009,d*(uTurn.w>.98?.78:.62));
+  // Thin tines and the cross's arms need small steps near them; the hit is relative to the pixel's size.
+  float hitAt=max(.0007,.6/uPose.z);
+  for(int i=0;i<96;i++){
+    p=origin+t*ray; d=deposit(p); if(d<hitAt || t>end)break;
+    t+=max(.0006,d*(uTurn.w>.98?.8:.64));
   }
-  if(d>.0018 || t>end)discard;
+  if(d>1.2*hitAt || t>end)discard;
   vec2 e=vec2(.003,0);
   vec3 n=normalize(vec3(deposit(p+e.xyy)-deposit(p-e.xyy),deposit(p+e.yxy)-deposit(p-e.yxy),deposit(p+e.yyx)-deposit(p-e.yyx)));
   vec3 q=rotatePiece(p)+vec3(0.,uModel.z*.5,0.);
   bool black=uModel.y>.5;
   int type=int(uModel.x);
+  // (The same ink under the lacquer as the board's own piece: glsl/board3d.js studyInk.)
+  gInk=studyInk(type,uInkOrientation.x,uInkOrientation.y,q,uModel.z);
   vec3 c=finishPiece(black,q,n,-ray,1.,.9,0.);
-  c*=.82; c=pow(clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.),vec3(1./2.2));
-  float g=uTurn.w,coverage=1.;
-  if(g<.995){
-    vec2 offset;
-    vec2 material=pigmentAt(type,q,q.y/uModel.z,offset);
-    vec2 study=type==3?
-      vec2(texture(uKnightPigment,material).r,texture(uKnightPigment,material+offset).r):
-      vec2(texture(uFigurePigment,material).r,texture(uFigurePigment,material+offset).r);
-    float absorption=-log(max(.012,study.x));
-    vec3 local=q-vec3(0.,uModel.z*.5,0.);
-    float reach=min(length(local-uNuclei[0]),min(length(local-uNuclei[1])+.03,length(local-uNuclei[2])+.07))/uModel.z;
-    // Denser filaments and the three anatomy-specific points wet first.
-    // Use true transmittance through all the intervening solvent. The last
-    // clear windows close locally before lacquer replaces the wet relief.
-    float age=g-.46*reach+.11*min(2.,absorption);
-    float gel=smoothstep(.13,.82,age);
-    float wet=g*(.22+3.6*absorption)*(.55+.45*smoothstep(-.12,.54,age));
-    coverage=mix(1.-exp(-wet),1.,max(gel*smoothstep(.02,.26,g),smoothstep(.68,.97,g)));
-    if(coverage<.004)discard;
-    float crease=clamp(.7+1.6*(study.y-study.x),.05,1.);
-    float edge=pow(1.-max(0.,dot(n,-ray)),2.);
-    vec3 graphite=mix(vec3(.032,.024,.033),vec3(.23,.20,.205),.78*study.y+.18*crease);
-    vec3 pearl=mix(vec3(.53,.59,.61),vec3(.98,.961,.889),.19+.81*(1.-exp(-1.2*absorption)));
-    vec3 film=(black?graphite:pearl)*(.88+.12*crease);
-    film+=vec3(.16,.15,.135)*edge*crease;
-    float polish=smoothstep(.18,.92,age)*smoothstep(.08,.36,g);
-    c=mix(film,c,max(polish,smoothstep(.73,.97,g)));
+  if(uCure.y<.999){
+    // Where the ink has not set it is liquid: wet black ink, or milky ivory (cornstarch, oobleck), its
+    // edge a bright meniscus. The setting front runs out from the landmarks; in a band behind it the
+    // jammed suspension is matte and creased, and a glint rides it. Behind that, the lacquer.
+    vec3 local=q-vec3(0.,uModel.z*.5,0.),v=-ray;
+    float r=frontAt(local),R=uCure.x;
+    float setR=mix(-.05,R+.06,uCure.y);
+    float behind=setR-r;
+    float nv=max(dot(n,v),0.),fres=.04+.96*pow(1.-nv,5.);
+    vec3 refl=env(reflect(-v,n));
+    vec3 wet=black?vec3(.006,.006,.008)*(.4+.6*max(dot(n,LKEY),0.))+fres*refl*.9+lamp(n,v,LKEY,KEY,vec3(.04),.06)*1.5
+                 :vec3(.80,.78,.72)*(.55+.45*max((dot(n,LKEY)+.4)/1.4,0.))+fres*refl*.35+lamp(n,v,LKEY,KEY,vec3(.04),.18)*.6;
+    wet=wet*.82;wet=pow(clamp((wet*(2.51*wet+.03))/(wet*(2.43*wet+.59)+.14),0.,1.),vec3(1./2.2));
+    // A crease network of the jammed suspension (cells over the piece's own surface).
+    vec2 cell=vec2(atan(local.z,local.x)*1.3,local.y*7.)*3.;
+    vec2 fc=fract(cell),ic=floor(cell);float d1=8.,d2=8.;
+    for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+      vec2 g2=vec2(float(i),float(j)),o2=fract(sin(vec2(dot(ic+g2,vec2(127.1,311.7)),dot(ic+g2,vec2(269.5,183.3))))*43758.5453);
+      float dd=length(g2+o2-fc);if(dd<d1){d2=d1;d1=dd;}else if(dd<d2)d2=dd;
+    }
+    float crease=1.-smoothstep(0.,.07,d2-d1);
+    vec3 matte=(black?vec3(.05,.048,.05):vec3(.70,.68,.63))*(.55+.45*max(dot(n,LKEY),0.));
+    matte=mix(matte,black?vec3(.012):vec3(.42,.40,.37),.65*crease);
+    float jam=smoothstep(0.,.025,behind)*(1.-smoothstep(.05,.12,behind));
+    float lacquer=smoothstep(.06,.12,behind);
+    c=mix(mix(wet,matte,jam),c,lacquer);
+    // The glint riding the setting front, and the meniscus where the liquid meets the air.
+    c+=vec3(1.,.96,.88)*exp(-pow(behind/.012,2.))*step(.001,uCure.y)*.55;
+    float edge=pow(1.-nv,3.);
+    c+=(black?vec3(.18,.18,.2):vec3(.12,.11,.1))*edge*(1.-lacquer);
   }
+  float coverage=1.;
   float depth=clamp(uModel.w+.021*dot(p,-fwd),.01,.98);
   gl_FragDepth=1.-depth;
   o=vec4(c*coverage,coverage);
@@ -203,6 +218,10 @@ void main(){
 
 // Material sheets are indexed periodic grids. Their thickness and folds travel
 // with the mesh. Brightness comes from transmission and the grazing wet rim.
+// Each late head's study (ink-tank.js LATE): its tile in data/ink-density.webp and whether it is mirrored;
+// −1 for the other drops.
+const lateStudy=Array.from({length:32},(_,id)=>{const l=LATE.find(l=>l.id===id);return l?l.study+4*l.flip:-1;});
+const LATE_GLSL=`const float LATE[32]=float[32](${lateStudy.map(v=>v.toFixed(1)).join(',')});`;
 export const INK_SHEET_VERTEX=/* glsl */`#version 300 es
 precision highp float;
 uniform highp usampler2DArray uMesh;
@@ -252,6 +271,7 @@ void main(){
 }`;
 export const INK_SHEET_FRAGMENT=/* glsl */`#version 300 es
 precision highp float;
+${LATE_GLSL}
 uniform sampler2D uFigures,uFigureDepth,uMist,uPigment,uKnightPigment,uFigurePigment;
 uniform bool uDepthOnly;
 uniform vec2 uSize;uniform float uProgress,uBreath,uFlowPhase;
@@ -279,6 +299,9 @@ void main(){
    // the other side. Sampling material coordinates keeps the narrow stem
    // connected as the sheet folds and opens.
    float free=smoothstep(.43,.555,uProgress)*(1.-smoothstep(.682,.778,uProgress));
+   // A late head is its study: the rolls only stir it, so it stays the picture it was drawn as.
+   float lateStudy=LATE[int(sourceId)],isLate=lateStudy>=0.?smoothstep(.50,.53,uProgress)*(1.-smoothstep(.635,.70,uProgress)):0.;
+   free*=1.-.6*isLate;
    float turn=(uProgress-.505)*34.+seed*.35+.57*uFlowPhase;
    float left=.33+.077*sin(turn*.64);
    vec2 leftCore=vec2(left,.68+.094*cos(turn*.83+seed));
@@ -294,9 +317,11 @@ void main(){
    dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*l;
    cs=cos(rightRoll);sn=sin(rightRoll);
    dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*r;
-   if(mod(sourceId,3.)>1.5)dyeUV.x=1.-dyeUV.x;
+   bool mirrored=mod(sourceId,3.)>1.5;
    float variant=mod(floor(sourceId*.5)+mod(sourceId,2.)+floor(sourceId*.2),4.);
    if(sourceId==10.)variant=2.;
+   if(lateStudy>=0.){variant=mod(lateStudy,4.);mirrored=lateStudy>=4.;}
+   if(mirrored)dyeUV.x=1.-dyeUV.x;
    vec2 tile=vec2(mod(variant,2.),floor(variant*.5));
    float border=smoothstep(0.,.026,min(min(dyeUV.x,dyeUV.y),min(1.-dyeUV.x,1.-dyeUV.y)));
    vec2 texUV=(tile+clamp(dyeUV,.003,.997))*.5;
@@ -353,7 +378,7 @@ void main(){
    column=mix(column,section>1.5&&section<2.5?1.34:.074,formed);
    float packet=.5+.5*cos(30.*(uProgress-.50)-7.8*v+seed+.53*uFlowPhase);
    float suspending=free*packet*smoothstep(.16,.52,v);
-   float foreground=sourceId<1.5||sourceId==10.||sourceId==23.?1.:0.;
+   float foreground=sourceId<1.5||sourceId==10.||sourceId==23.||lateStudy>=0.?1.:0.;
    // Fewer dense axes keep the water between the four foreground plumes clear.
    share=mix(share,mix(share*.53,max(.98,share)*1.18,foreground),free);
    float thick=amount*border*filling*optical*share*column*mix(1.,.57,suspending);

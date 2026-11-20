@@ -1,11 +1,11 @@
 // Photography → Chess hands over to the tile's own board: the board the transition cures in place must be the
 // board the band then draws. Seeks the seam to moments near its end, photographs each, and compares the
 // board's box in each with the settled band's (P 1.2, the band let go): the mean difference (0 … 255) and the
-// share of pixels off by more than 24. The last held moment (P 1.16) must be close (the band's words are
-// still coming into focus round it, and at 1.2 its game has begun, so not 0).
+// share of pixels off by more than 24. The moment the water has drained off the page (P 1.196, scene/ink-drain.js)
+// must be close (at 1.2 the band's game has begun, so not 0).
 //   node tools/site/handoff_check.mjs [--size 1440x900@2] [--base URL]
 // The photographs go to scene-shots/handoff (served from the repo, for the comparison in the page). Exits 1
-// when P 1.16 is off by a mean of more than 12. Needs the site served.
+// when P 1.196 is off by a mean of more than 12. Needs the site served.
 import fs from 'node:fs';
 import { parseArgs } from 'node:util';
 import { launch, parseSize } from './cdp.mjs';
@@ -15,7 +15,7 @@ const { values: o } = parseArgs({ options: {
   base: { type: 'string', default: 'http://127.0.0.1:8100' },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const OUT = 'scene-shots/handoff', AT = [0.9, 1.0, 1.06, 1.12, 1.16, 1.2], LIMIT = 12;
+const OUT = 'scene-shots/handoff', AT = [0.9, 1.0, 1.06, 1.12, 1.16, 1.18, 1.196, 1.2], LIMIT = 12, LAST = 1.196;
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await launch({ preset: 'gpu' });
 try {
@@ -60,8 +60,8 @@ try {
     }
     return res;
   }, rects, dpr, OUT);
-  for (const P of AT) console.log(`P ${P.toFixed(2)}  box ${res[P].box}  mean ${res[P].mean}  off ${res[P].off}%`);
-  if (res[1.16].mean > LIMIT) { console.log(`P 1.16 is off by ${res[1.16].mean} (> ${LIMIT})`); process.exitCode = 1; }
+  for (const P of AT) console.log(`P ${P.toFixed(3)}  box ${res[P].box}  mean ${res[P].mean}  off ${res[P].off}%`);
+  if (res[LAST].mean > LIMIT) { console.log(`P ${LAST} is off by ${res[LAST].mean} (> ${LIMIT})`); process.exitCode = 1; }
   const pr = page.problems();
   if (pr.exceptions.length || pr.consoleErrors.length) { console.log('problems', JSON.stringify(pr).slice(0, 1500)); process.exitCode = 1; }
 } finally { await browser.close(); }

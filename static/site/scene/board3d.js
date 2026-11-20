@@ -11,13 +11,14 @@
 // SVG board stays.
 import { VERTEX } from './glsl/index.js';
 import { BOARD3D_FS, BOARD3D_BLIT } from './glsl/board3d.js';
-import { LAYERS, PROF, HEAD, bodyOf, profileField, sculptedHeadField, frameCamera, project, TALL, TYPES, startSlots, MARGIN } from './staunton.js';
+import { LAYERS, PROF, HEAD, bodyOf, profileField, sculptedHeadField, decodeRelief, frameCamera, project, TALL, TYPES, startSlots, MARGIN } from './staunton.js';
+import { buildInkRegistration } from './ink-registration.js';
 
 const SAMPLES = [16, 8];       // passes averaged while still (fine pointer, touch)
-const PIXELS = [1.4e6, 0.65e6];  // the target's most pixels
+const PIXELS = [4.2e6, 1.6e6];   // the target's most pixels: the device's own up to a 4K screen's box
 const LOOSE = 6;
 
-const UNITS = { prof: 14, head: 15, tex: 13 };
+const UNITS = { prof: 14, head: 15, tex: 13, reg: 9, knight: 10, figure: 12 };
 // Halton points for the passes' places in their pixels.
 const halton = (i, b) => { let f = 1, r = 0; for (i += 1; i > 0; i = Math.floor(i / b)) { f /= b; r += f * (i % b); } return r; };
 
@@ -51,13 +52,11 @@ export function createBoard3D(gl, { coarse = false } = {}) {
   }
 
   // ---- the profiles ---------------------------------------------------------------------------------
+  // Built in a worker (board3d-worker.js); where a module worker cannot start, a layer per idle moment here.
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 900 }) : cb => setTimeout(cb, 30);
   const fields = [];
-  function buildNext() {
+  function upload(all, head) {
     if (dead || gl.isContextLost()) return;
-    if (fields.length < LAYERS.length) { fields.push(profileField(bodyOf(LAYERS[fields.length]))); later(buildNext); return; }
-    const all = new Float32Array(PROF.w * PROF.h * LAYERS.length);
-    fields.forEach((f, i) => all.set(f, i * PROF.w * PROF.h));
     profTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + UNITS.prof);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, profTex);
@@ -67,32 +66,88 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     headTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + UNITS.head);
     gl.bindTexture(gl.TEXTURE_2D, headTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, HEAD.w, HEAD.h, 0, gl.RG, gl.FLOAT, sculptedHeadField());
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, HEAD.w, HEAD.h, 0, gl.RG, gl.FLOAT, head);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
     gl.activeTexture(gl.TEXTURE0);
   }
-  if (half) later(buildNext);
+  let relief = null;
+  function buildNext() {
+    if (dead || gl.isContextLost()) return;
+    if (!relief) { import('./staunton-relief.js').then(r => { relief = decodeRelief(r.KNIGHT_RELIEF, r.KNIGHT_RELIEF_DATA); later(buildNext); }); return; }
+    if (fields.length < LAYERS.length) { fields.push(profileField(bodyOf(LAYERS[fields.length]))); later(buildNext); return; }
+    const all = new Float32Array(PROF.w * PROF.h * LAYERS.length);
+    fields.forEach((f, i) => all.set(f, i * PROF.w * PROF.h));
+    later(() => upload(all, sculptedHeadField(relief)));
+  }
+  // (Workers have their own module map: the versioned URLs from the page's.)
+  const sibling = rel => { if (import.meta.resolve) return import.meta.resolve(rel); const u = new URL(rel, import.meta.url); u.search = new URL(import.meta.url).search; return u.href; };
+  if (half) {
+    try {
+      const job = new Worker(sibling('./board3d-worker.js'), { type: 'module' });
+      job.onmessage = ({ data }) => { job.terminate(); if (data.failed) { console.warn('The pieces\' fields are built on the page instead.', data.failed); later(buildNext); } else upload(data.all, data.head); };
+      job.onerror = () => { job.terminate(); later(buildNext); };
+      job.postMessage({ staunton: sibling('./staunton.js'), relief: sibling('./staunton-relief.js') });
+    } catch { later(buildNext); }
+  }
+
+  // ---- the ink under the lacquer ---------------------------------------------------------------------
+  // Each piece's own study (living-ink.js draws the vapor figures with the same files; the browser's cache
+  // serves both), registered to its solid. Until they arrive the lacquer keeps its plain grain.
+  const study = { reg: null, knight: null, figure: null, on: false };
+  if (half) {
+    try {
+      const table = buildInkRegistration();
+      study.reg = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, study.reg);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, table.width, table.height, 0, gl.RGBA, gl.FLOAT, table.data);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      const load = name => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = new URL(`./data/${name}`, import.meta.url).href; });
+      Promise.all([load('ink-knight-density.webp'), load('ink-figure-density.webp')]).then(images => {
+        if (dead || gl.isContextLost()) return;
+        [study.knight, study.figure] = images.map(img => {
+          const t = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, t);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, gl.RED, gl.UNSIGNED_BYTE, img);
+          gl.generateMipmap(gl.TEXTURE_2D);
+          for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+          return t;
+        });
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        study.on = true;
+        // (The picture is made again with its ink.)
+        T.n = 0; T.refine = [0, 0, T.w, T.h];
+      }).catch(() => {});
+    } catch { study.on = false; }
+  }
 
   // ---- the target -----------------------------------------------------------------------------------
   // tex/fb: the averaged picture; w, h its pixels; cam the camera that frames it; n the passes averaged
   // over the rectangle being refined (refine), or done.
-  const T = { tex: null, fb: null, w: 0, h: 0, cam: null, n: 0, refine: null, key: '' };
+  // geo: what each pixel sees (world y, z), for the water draining off the board (glsl/unmix.js umSeen).
+  const T = { tex: null, geo: null, fb: null, w: 0, h: 0, cam: null, n: 0, refine: null, key: '' };
   const M = { tex: null, fb: null, w: 0, h: 0, cam: null };   // the starting board mask for click navigation
   function size(w, h) {
-    if (T.tex) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fb); }
-    T.tex = gl.createTexture();
+    if (T.tex) { gl.deleteTexture(T.tex); gl.deleteTexture(T.geo); gl.deleteFramebuffer(T.fb); }
+    const make = () => {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return t;
+    };
     gl.activeTexture(gl.TEXTURE0 + UNITS.tex);
-    gl.bindTexture(gl.TEXTURE_2D, T.tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    T.tex = make(); T.geo = make();
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
     T.fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, T.tex, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, T.geo, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
     const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     // (The camera frames the board in the box; the target sees the margin round it too.)
@@ -173,9 +228,12 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     gl.useProgram(p);
     gl.activeTexture(gl.TEXTURE0 + UNITS.prof); gl.bindTexture(gl.TEXTURE_2D_ARRAY, profTex);
     gl.activeTexture(gl.TEXTURE0 + UNITS.head); gl.bindTexture(gl.TEXTURE_2D, headTex);
+    for (const k of ['reg', 'knight', 'figure']) { gl.activeTexture(gl.TEXTURE0 + UNITS[k]); gl.bindTexture(gl.TEXTURE_2D, study.on ? study[k] : null); }
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(U.uProf, UNITS.prof);
     gl.uniform1i(U.uHead, UNITS.head);
+    gl.uniform1i(U.uRegistration, UNITS.reg); gl.uniform1i(U.uKnightPigment, UNITS.knight); gl.uniform1i(U.uFigurePigment, UNITS.figure);
+    gl.uniform1f(U.uStudies, study.on ? 1 : 0);
     gl.uniform2f(U.uSize, to.w, to.h);
     gl.uniform2f(U.uJit, n ? halton(n, 2) - 0.5 : 0, n ? halton(n, 3) - 0.5 : 0);
     const c = to.cam;
@@ -203,6 +261,8 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     // Whether a picture has been made (for the tile to give way to it).
     get drawn() { return drawn; },
     get texture() { return T.tex; },
+    // What each pixel of the picture sees (world y, z: glsl/board3d.js g).
+    get geometry() { return T.geo; },
     bindPieceProfiles(U) {
       gl.activeTexture(gl.TEXTURE14); gl.bindTexture(gl.TEXTURE_2D_ARRAY, profTex);
       gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, headTex);
@@ -272,10 +332,10 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     dispose() {
       dead = true;
       if (M.tex) { gl.deleteTexture(M.tex); gl.deleteFramebuffer(M.fb); M.tex = M.fb = null; }
-      for (const t of [profTex, headTex, T.tex]) if (t) gl.deleteTexture(t);
+      for (const t of [profTex, headTex, T.tex, T.geo, study.reg, study.knight, study.figure]) if (t) gl.deleteTexture(t);
       if (T.fb) gl.deleteFramebuffer(T.fb);
       for (const P_ of [march, blitP]) if (P_) gl.deleteProgram(P_.p);
-      march = blitP = profTex = headTex = T.tex = T.fb = null;
+      march = blitP = profTex = headTex = T.tex = T.geo = T.fb = null;
     },
   };
 }

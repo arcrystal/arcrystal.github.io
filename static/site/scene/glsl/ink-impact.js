@@ -1,4 +1,5 @@
 import { DROPS,PRECIPITATION,TANK_GLSL,projectTank,tankCamera } from '../ink-tank.js';
+import { BOARD } from '../staunton.js';
 
 // The same instance attributes supply flight and waves. Record zero is the
 // wet edge of the filter. Subdraws use local bounds, even during long falls.
@@ -59,8 +60,10 @@ out vec2 p;
 flat out vec4 life,material;
 flat out vec2 axis;
 flat out int part;
+flat out float below;
 void main(){
  float P=uProgress;
+ below=0.;
  vec2 scale=uSize/min(uSize.x,uSize.y),uv=corner(int(vertexNumber));
  int draw=int(vertexNumber)/6;
  part=draw+1;
@@ -104,6 +107,10 @@ void main(){
    // dimple, crown and submerged wake inherit exactly the same point.
    pivot=contact;
    lo=vec2(-3.5,-3.95);hi=vec2(3.5,2.9);
+   // (Once the camera is under the surface the entry is seen from below, hanging from the waterline:
+   // ink-impact's fourth look.)
+   below=smoothstep(.55,.85,cam.w);
+   pivot.y=mix(pivot.y,min(pivot.y,cam.x-.5*cam.y),below);
  }
  p=mix(lo,hi,uv);
  gl_Position=vec4(2.*(pivot+p*outlet.w/scale)-1.,0.,1.);
@@ -114,6 +121,7 @@ in vec2 p;
 flat in vec4 life,material;
 flat in vec2 axis;
 flat in int part;
+flat in float below;
 uniform vec2 uSize;
 uniform float uProgress;
 uniform sampler2D uBathRoom;
@@ -169,12 +177,49 @@ vec4 wetLip(vec2 uv){
  col*=1.-.30*smoothstep(.60,1.26,h);
  return vec4(col*coverage,coverage);
 }
+// Seen from under the surface, a bead punches through it trailing a cavity of air. The cavity's skin
+// mirrors the lit ceiling of the water (total internal reflection), so it is silver; it stretches,
+// pinches (the varicose Rayleigh–Plateau mode, a wavelength about nine of its radii) and lets go of a few
+// bubbles that rise back to the ceiling, while the bead itself goes on down into its plume.
+vec4 entryFromBelow(float white,float aa,float past,float seed){
+ float t=clamp(past/.05,0.,1.),go=1.-smoothstep(.7,1.,t);
+ if(past<0.)return vec4(0);
+ // The cavity: a soft silver sheath, brightest at its rim, pinching as it stretches.
+ vec2 q=(p-vec2(.08*sin(seed),-1.05-1.9*t))/vec2(.62+.25*(1.-t),1.15+1.5*t*(1.-t));
+ float r=length(q),pinch=smoothstep(.45,.75,t)*(.5+.5*cos(6.2832*(q.y*.5+.5)*1.6));
+ float cav=(1.-smoothstep(.7,1.,r))*(1.-pinch*.85);
+ float rim=exp(-pow((r-.9)/.12,2.))*(1.-pinch*.85);
+ vec3 silver=mix(vec3(.66,.68,.70),vec3(.95,.94,.90),.5+.5*q.y);
+ vec4 c=vec4(silver*(.28*cav+.55*rim),.28*cav+.5*rim)*go;
+ // The bead going on down below it: a lacquered sphere.
+ vec2 b=(p-vec2(0.,-2.1-1.6*t))/.78;
+ float bead=1.-smoothstep(1.-aa*3.,1.,length(b));
+ if(bead>0.){
+   vec3 n=normalize(vec3(b,sqrt(max(.001,1.-dot(b,b)))));
+   vec3 ink=lacquer(n,white,seed);
+   c=vec4(ink*bead+c.rgb*(1.-bead),bead+c.a*(1.-bead));
+ }
+ // Bubbles: let go at the pinch, rising, each a bright ring with a glint.
+ for(int k=0;k<3;k++){
+   float fk=float(k),rise=max(0.,t-.55)*(2.6+.9*fk);
+   vec2 bp=(p-vec2((fk-1.)*.55+.12*sin(seed+fk),-1.6+rise))/(.16+.05*fk);
+   float ring=exp(-pow((length(bp)-.82)/.16,2.))*step(.55,t)*go;
+   float glint=exp(-dot(bp-vec2(-.35,.35),bp-vec2(-.35,.35))*18.)*step(.55,t)*go;
+   c=vec4(c.rgb+vec3(.9)*(ring*.55+glint*.6)*(1.-c.a),c.a+(ring*.5+glint*.4)*(1.-c.a));
+ }
+ return c*go;
+}
 void main(){
  if(part==0){o=wetLip(p);return;}
  float white=material.x,rad=material.y,seed=material.z;
  float fed=life.x,age=life.y,f=life.z,past=life.w;
  float aa=clamp(.78/rad,.012,.55),alpha=0.;
  vec3 col=vec3(0);
+ if(part==3 && below>0.){
+   vec4 e=entryFromBelow(white,aa,past,seed)*below;
+   if(below>.999){o=e;if(o.a<.002)discard;return;}
+   o=e;
+ }
  if(part==3){
    // Before impact the reflected silhouette and its glint tighten under the
    // approaching belly. After crossing, a raised wet collar falls back.
@@ -201,7 +246,8 @@ void main(){
    alpha=mirror+.32*hollow+below;
    vec3 light=vec3(.81,.72,.64)*(.56+.44*max(0.,-rim.x/max(.0001,length(rim))));
    float shine=clamp(.57*lip+.40*tooth,0.,.87);
-   o=vec4(col*alpha*(1.-shine)+light*shine,alpha*(1.-shine)+shine);
+   vec4 crown=vec4(col*alpha*(1.-shine)+light*shine,alpha*(1.-shine)+shine)*(1.-below);
+   o=below>0.?o+crown*(1.-o.a):crown;
    if(o.a<.002)discard;
    return;
  }
@@ -303,4 +349,37 @@ void main(){
  signal*=.75*sqrt(wave.y/(wave.y+r))*exp(-11.*age)*smoothstep(0.,.004,age)*(1.-smoothstep(.18,.245,age));
  vec2 grad=plane/max(.0001,r)*signal;
  o=vec4(max(grad.x,0.),max(-grad.x,0.),max(grad.y,0.),max(-grad.y,0.));
+}`;
+
+// The drain (ink-drain.js): each crown breaking the sinking surface rings it with the same capillary
+// packets as a drop, laid on the board's plane and seen by the board's camera. One record a piece:
+// where it stands (world x, z), the moment its crown is uncovered, a radius in wave units.
+export const INK_EMERGE_VERTEX=/* glsl */`#version 300 es
+precision highp float;
+uniform vec2 uScreen;  // CSS px
+uniform vec4 uBox;     // the board's box, CSS px from the top left
+uniform vec3 uEye;
+uniform vec4 uDrain;   // height, tilt, wave units per world unit, hand-over
+uniform float uProgress;
+layout(location=0) in vec4 crown;
+layout(location=1) in float vertexNumber;
+out vec2 plane;
+flat out vec3 wave;
+const vec3 FWD=vec3(0.,${(-Math.sin(.9)).toFixed(6)},${(-Math.cos(.9)).toFixed(6)}),UP=vec3(0.,${Math.cos(.9).toFixed(6)},${(-Math.sin(.9)).toFixed(6)});
+const float TANY=${Math.tan(.21).toFixed(6)},FRONT=${(BOARD.half+BOARD.frame).toFixed(6)};
+void main(){
+ int k=int(vertexNumber)%6;
+ vec2 c=vec2(k==1||k==2||k==4?1.:-1.,k==2||k==4||k==5?1.:-1.);
+ // A ring spreads over about .04 of the clock: the drop's clock, quickened.
+ float age=(uProgress-crown.z)*6.,extent=.016+1.64*max(0.,age);
+ plane=c*extent;
+ vec3 p=vec3(crown.x,0.,crown.y)+vec3(plane.x,0.,plane.y)/max(uDrain.z,1e-4);
+ p.y=uDrain.x+uDrain.y*(p.z-FRONT);
+ vec3 v=p-uEye;
+ float depth=dot(v,FWD),aspect=uBox.z/uBox.w;
+ vec2 px=uBox.xy+vec2(1.+v.x/(depth*TANY*aspect),1.-dot(v,UP)/(depth*TANY))*.5*uBox.zw;
+ // Keep clip W, so the wave's plane coordinates interpolate on the water.
+ gl_Position=vec4(vec2(2.*px.x/uScreen.x-1.,1.-2.*px.y/uScreen.y)*depth,0.,depth);
+ wave=vec3(age,crown.w,crown.x*3.1+crown.y*1.7);
+ if(age<0. || age>.245 || depth<=0. || uDrain.w<=0.)gl_Position=vec4(-2,-2,0,1);
 }`;
