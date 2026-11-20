@@ -17,6 +17,7 @@ import { powermap } from './powermap.js';
 import { mountSims } from './sims.js';
 import { playChess, loadRatings, layoutStart, layoutBuilt } from './previews.js';
 import { scotchAt, scotchBuilt, startSlots, builtAt } from './scene/staunton.js';
+import { tankCamera } from './scene/ink-tank.js';
 
 const TAU = Math.PI * 2;
 const CYCLE_MS = 5000;
@@ -46,7 +47,10 @@ export function mount(main, ctx) {
   const holds = new Map();   // band index → its hold, just above it
   let holdVh = 0, holdVw = 0;
   function measure() {
-    vw = root.clientWidth; vh = innerHeight; headH = header?.offsetHeight || 64;
+    // The bands and fixed canvas both fit the page's content box. On systems
+    // with a reserved scrollbar gutter this can be narrower than clientWidth
+    // on the root element.
+    vw = main.clientWidth; vh = innerHeight; headH = header?.offsetHeight || 64;
     if (!holdVh || vw !== holdVw || Math.abs(vh - holdVh) > 140) { holdVh = vh; holdVw = vw; }
     const pin = coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin;
     // Some transitions take longer (lerp.js HOLD.by: the vortex into Science).
@@ -98,11 +102,10 @@ export function mount(main, ctx) {
         hold: hr ? { top: hr.top + sy, h: hr.height } : null, board: boardBox, card: raceBox };
     });
     // Chess's board during its hold, where its band waits (held higher by its shift): its transition's fluid
-    // is baked for it (scene/ink-sim.js), and in by the scroll where that transition begins.
+    // uses it as the destination for each independently posed piece.
     const chessHeld = sections.find(s => s.stick && s.board && s.style === 'ink');
     if (chessHeld) {
-      const L = holdFor('ink', coarse.matches || vw < 700 ? HOLD.pinTouch : HOLD.pin);
-      getScene()?.setInkBoard?.([chessHeld.board[0], chessHeld.board[1] - chessHeld.stick.shift, chessHeld.board[2], chessHeld.board[3]], chessHeld.hold.top - L.leadIn * vh);
+      getScene()?.setInkBoard?.([chessHeld.board[0], chessHeld.board[1] - chessHeld.stick.shift, chessHeld.board[2], chessHeld.board[3]]);
     }
     // Racing's card during its hold: the transition's fragments stream into it (scene/transit.js).
     const held = sections.find(s => s.stick && s.card && s.style === 'glass');
@@ -333,10 +336,10 @@ export function mount(main, ctx) {
 
   // ---- header ink: the ink of whatever passes under it ---------------------------------------------
   const inks = Object.fromEntries(Object.entries(ctx.styles?.styles || {}).map(([k, s]) => [k, s.colors.ink]));
-  let headInk = null;
+  let headInk = null, wetEdge = false;
   function headerInk(sy) {
     const y = sy + headH / 2;
-    let style = 'house';
+    let style = 'house', filterOverhead = false;
     for (const [i, s] of sections.entries()) {
       if (y >= s.top && y < s.top + s.h) { style = s.style; break; }
       // In a hold, the world that has more of the screen.
@@ -345,16 +348,25 @@ export function mount(main, ctx) {
           const pin=coarse.matches||vw<700?HOLD.pinTouch:HOLD.pin,L=holdFor('glass',pin);
           const raw=holdAt(sy,s.hold.top,s.hold.h,vh,L.leadIn,L.leadOut).p;
           style=transitP(easeFor('glass',pin)(raw))<1.115?'cosmos':'glass';
+        }else if(s.style==='ink'){
+          const pin=coarse.matches||vw<700?HOLD.pinTouch:HOLD.pin,L=holdFor('ink',pin);
+          const raw=holdAt(sy,s.hold.top,s.hold.h,vh,L.leadIn,L.leadOut).p;
+          const P=transitP(easeFor('ink',pin)(raw));
+          style=P<.545?'darkroom':'ink';
+          filterOverhead=P>0 && P<.545;
         }else style=y<s.hold.top+s.hold.h/2?sections[i-1].style:s.style;
         break;
       }
     }
     const ink = inks[style] || null;
+    if(filterOverhead!==wetEdge){
+      wetEdge=filterOverhead;header?.toggleAttribute('data-wet-filter',wetEdge);
+    }
     if (ink === headInk) return;
     headInk = ink;
     if (style === 'house') header?.style.removeProperty('--l-ink'); else header?.style.setProperty('--l-ink', ink);
   }
-  scope.add(() => header?.style.removeProperty('--l-ink'));
+  scope.add(() => {header?.style.removeProperty('--l-ink');header?.removeAttribute('data-wet-filter');});
 
   // ---- the scene: the hero's crystal, each band's world and the seams ------------------------------
   const scene = getScene();
@@ -422,6 +434,21 @@ export function mount(main, ctx) {
     // top, 1 at the bottom); the seam leans with it.
     bands.forEach((b, i) => {
       if (i === 0) return;
+      // Expose the typography at the far wall as the water leaves the tile.
+      // The live seam reports its actual renderer selection, including fallback.
+      const revealInk = (wet, p) => {
+        const c = sections[i];
+        let edge = null;
+        if (wet && c.surface > 0 && c.surface < 1) {
+          const [center, span] = tankCamera(transitP(p));
+          edge = Math.round(c.stick.shift + vh * (1 - center - span * .5));
+        }
+        if (edge === c.dryEdge) return;
+        c.dryEdge = edge;
+        b.classList.toggle('is-draining', edge !== null);
+        if (edge === null) b.style.removeProperty('--dry-edge');
+        else b.style.setProperty('--dry-edge', edge + 'px');
+      };
       scope.add(scene.add({
         update() {
           const a = sections[i - 1], c = sections[i];
@@ -470,7 +497,7 @@ export function mount(main, ctx) {
             const clipY = science && raw < 1 ? Math.max(0, y) : y;
             // Drawn on the whole screen as if held; the strip's place on screen (clip) reveals it.
             return { region: [0, 0, vw, vh], clip: [0, clipY, vw, vh], card, cardR, cardRot, board, mode: 6, a: STYLE_ID[a.style] ?? 0, b: STYLE_ID[c.style] ?? 0,
-              p, h: 1 - p, vel: clamp(vel, -3, 3) };
+              revealInk: board ? revealInk : null, p, h: 1 - p, vel: clamp(vel, -3, 3) };
           }
           if (!c.seam) return null;
           const S = c.seam;
@@ -499,7 +526,7 @@ export function mount(main, ctx) {
     const before = anchor?.getBoundingClientRect().top ?? 0;
     if (on) {
       bands.forEach((b, i) => {
-        if (!i || bands[i - 1].dataset.style === b.dataset.style || (b.dataset.style === 'glass' && racingReduced.matches)) return;
+        if (!i || bands[i - 1].dataset.style === b.dataset.style || (['glass','ink'].includes(b.dataset.style) && racingReduced.matches)) return;
         const el = document.createElement('div');
         el.className = 'seam-hold';
         el.dataset.to = b.dataset.style;
@@ -534,7 +561,8 @@ export function mount(main, ctx) {
         const wrap = el.parentElement?.classList.contains('seam-wrap') ? el.parentElement : null;
         if (wrap) {
           const b = wrap.querySelector('.band');
-          b.classList.remove('is-held', 'is-surfacing');
+          b.classList.remove('is-held', 'is-surfacing', 'is-draining');
+          b.style.removeProperty('--dry-edge');
           b.style.removeProperty('--surface');
           wrap.before(b);
           wrap.remove();

@@ -24,6 +24,7 @@ try {
   const page = await browser.newPage(parseSize(o.size));
   await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
   await page.waitFor(() => /\bgl\b/.test(document.documentElement.className), { timeout: 20000 });
+  await page.waitFor(() => !document.documentElement.classList.contains('site-loading'), { timeout: 125000 });
   if (o.seam === 'ink') {
     const t0 = Date.now();
     await page.waitFor(async () => (await import('/static/site/scene/scene.js')).getScene()?.inkReady?.(), { timeout: 60000 });

@@ -1,7 +1,7 @@
 // Photography → Chess's water and ink (glsl/unmix.js draws the transition; it reads these), and the click
 // into Chess as it is drawn before the board's picture is in (pmcCover: ink blooming from the click, finding a
 // board of squares; with the board in, glsl/unmix.js umClickCover cures the board itself instead).
-//   uFlow: the ink as the screen sees it (unit 8: unmix.js UNMIX_SEEN), black R, white G, mipmapped.
+// uFlow holds the integrated light behind the figures on the homepage.
 export const PLUME_GLSL = /* glsl */ `
 uniform sampler2D uFlow;
 const vec3 PM_INK = vec3(.11, .102, .09), PM_PEARL = vec3(.984, .973, .945);
@@ -20,16 +20,6 @@ vec3 pmWater(vec2 z, vec2 h, float lit) {
   float tw = hash(id);
   if (tw > .92) col += vec3(.55, .56, .58) * lit * exp(-pow(length(fract(g) - .5 - (hash2(id) - .5) * .6) / .07, 2.0)) * (.3 + .7 * pool) * (.5 + .5 * sin(T * 1.3 + tw * 40.0));
   return col;
-}
-// The ink as seen (uFlow), read smoothly between its texels: it is drawn at a fraction of the screen's
-// pixels, and read linearly a few times its size each texel's own error shows as a dot (a cubic B-spline,
-// in four bilinear reads, is as soft as the ink and has none).
-vec2 pmSeen(vec2 uv) {
-  vec2 n = vec2(textureSize(uFlow, 0)), p = uv * n - .5, f = fract(p), i = p - f, f2 = f * f, f3 = f2 * f;
-  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0, w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0, w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0, w3 = f3 / 6.0;
-  vec2 g0 = w0 + w1, g1 = w2 + w3, a = (i + w1 / g0 - .5) / n, b = (i + w3 / g1 + 1.5) / n;
-  return g0.y * (g0.x * textureLod(uFlow, a, 0.0).rg + g1.x * textureLod(uFlow, vec2(b.x, a.y), 0.0).rg)
-       + g1.y * (g0.x * textureLod(uFlow, vec2(a.x, b.y), 0.0).rg + g1.x * textureLod(uFlow, b, 0.0).rg);
 }
 // ---- A click into Chess (opens.js) ------------------------------------------------------------------
 // The same story at the click, seen from above: black and white ink let fall there bloom out over the

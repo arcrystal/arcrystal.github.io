@@ -1,6 +1,6 @@
 // Chess's pieces in the order Photography → Chess builds them, and the exact distance transform the pieces'
 // shapes are measured with (staunton.js). The transition itself: unmix-plan.js (its clock and story),
-// ink-sim.js (its fluid), board3d.js (its board), glsl/unmix.js (its drawing).
+// living-ink-plan.js (its fluid), board3d.js (its board), glsl/unmix.js (its drawing).
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 
 export const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';

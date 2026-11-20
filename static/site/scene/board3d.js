@@ -11,7 +11,7 @@
 // SVG board stays.
 import { VERTEX } from './glsl/index.js';
 import { BOARD3D_FS, BOARD3D_BLIT } from './glsl/board3d.js';
-import { LAYERS, PROF, HEAD, bodyOf, profileField, headField, frameCamera, project, TALL, TYPES, startSlots, MARGIN } from './staunton.js';
+import { LAYERS, PROF, HEAD, bodyOf, profileField, sculptedHeadField, frameCamera, project, TALL, TYPES, startSlots, MARGIN } from './staunton.js';
 
 const SAMPLES = [16, 8];       // passes averaged while still (fine pointer, touch)
 const PIXELS = [1.4e6, 0.65e6];  // the target's most pixels
@@ -67,7 +67,7 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     headTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + UNITS.head);
     gl.bindTexture(gl.TEXTURE_2D, headTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, HEAD.w, HEAD.h, 0, gl.RED, gl.FLOAT, headField());
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, HEAD.w, HEAD.h, 0, gl.RG, gl.FLOAT, sculptedHeadField());
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
     gl.activeTexture(gl.TEXTURE0);
   }
@@ -77,7 +77,7 @@ export function createBoard3D(gl, { coarse = false } = {}) {
   // tex/fb: the averaged picture; w, h its pixels; cam the camera that frames it; n the passes averaged
   // over the rectangle being refined (refine), or done.
   const T = { tex: null, fb: null, w: 0, h: 0, cam: null, n: 0, refine: null, key: '' };
-  const M = { tex: null, fb: null, w: 0, h: 0, cam: null };   // the board's ink, for the fluid
+  const M = { tex: null, fb: null, w: 0, h: 0, cam: null };   // the starting board mask for click navigation
   function size(w, h) {
     if (T.tex) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fb); }
     T.tex = gl.createTexture();
@@ -203,6 +203,12 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     // Whether a picture has been made (for the tile to give way to it).
     get drawn() { return drawn; },
     get texture() { return T.tex; },
+    bindPieceProfiles(U) {
+      gl.activeTexture(gl.TEXTURE14); gl.bindTexture(gl.TEXTURE_2D_ARRAY, profTex);
+      gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, headTex);
+      gl.uniform1i(U.uProf,14); gl.uniform1i(U.uHead,15);
+      gl.activeTexture(gl.TEXTURE0);
+    },
     get camera() { return T.cam; },
     // Before the frame: brings the picture for a box (CSS px [x, y, w, h]) up to date with a position, a
     // pass at most. Leaves the canvas's framebuffer bound and the scissor test on.
@@ -238,7 +244,7 @@ export function createBoard3D(gl, { coarse = false } = {}) {
     },
     // The board's ink at the start (black pigment R, white G: glsl/board3d.js uMode 1) over a whole screen
     // (W × H CSS px), the board where its box is (CSS px [x, y, w, h]), seen by the box's own camera: the
-    // picture the fluid dissolves (ink-sim.js). w × h pixels. One pass; the tile's own picture is left as it was.
+    // mask for the abbreviated click cure. w × h pixels. One pass; the tile's own picture is left as it was.
     renderMask(box, W, H, w, h) {
       if (!this.ready()) return null;
       if (!M.tex || M.w !== w || M.h !== h) {

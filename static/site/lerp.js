@@ -72,7 +72,7 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 6.0 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 11 } },
 };
 // Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
 // each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
@@ -141,15 +141,39 @@ export const glassRaw = (P, pin=HOLD.pin) => {
  const old=4*pin+HOLD.leadIn,extra=1.4*pin,x=clamp01((P-.5)/.7),added=x*x*(3-2*x);
  return (GLASS_TABLE.inverse(P)*old+extra*added)/(old+extra);
 };
-export const glassEase = (raw,pin=HOLD.pin) => {
- if(raw<=0)return 0;if(raw>=1)return 1;
- let lo=-.2,hi=1.2;for(let i=0;i<28;i++){const m=(lo+hi)/2;if(glassRaw(m,pin)<raw)lo=m;else hi=m;}
- return clamp01(((lo+hi)/2+.2)/1.4);
-};
+function invertHold(raw, pin, distanceAt) {
+  if(raw<=0)return 0;
+  if(raw>=1)return 1;
+  let low=-.2,high=1.2;
+  for(let i=0;i<28;i++){
+    const middle=(low+high)/2;
+    if(distanceAt(middle,pin)<raw)low=middle;
+    else high=middle;
+  }
+  return clamp01(((low+high)/2+.2)/1.4);
+}
+export const glassEase = (raw,pin=HOLD.pin) => invertHold(raw,pin,glassRaw);
 export const folioEase = FOLIO_TABLE.ease, folioRaw = FOLIO_TABLE.inverse;
 export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.inverse;
-export const inkEase = INK_TABLE.ease, inkRaw = INK_TABLE.inverse;
-export const easeFor = (style,pin=HOLD.pin) => (style === 'glass' ? raw=>glassEase(raw,pin) : style === 'folio' ? folioEase : style === 'darkroom' ? darkroomEase : style === 'ink' ? inkEase : holdEase);
+// Insert distance inside the submerged shot. A drop reaches the water at the
+// same scroll position as before. After the last vapor figure, the drain again
+// runs at its original speed. Both joins have zero added slope and curvature.
+function accumulatedDistance(P, start, end) {
+  const t=clamp01((P-start)/(end-start));
+  return t*t*t*(10+t*(-15+6*t));
+}
+export function inkRaw(P,pin=HOLD.pin) {
+  const original=7.5*pin+HOLD.leadIn;
+  const free=2.35*accumulatedDistance(P,.53,.72);
+  const figures=1.15*accumulatedDistance(P,.74,1.01);
+  return (INK_TABLE.inverse(P)*original+(free+figures)*pin)/(original+3.5*pin);
+}
+export const inkEase = (raw,pin=HOLD.pin) => invertHold(raw,pin,inkRaw);
+const inkTouchEase=raw=>inkEase(raw,HOLD.pinTouch);
+export function easeFor(style,pin=HOLD.pin) {
+  if(style==='ink')return pin===HOLD.pinTouch?inkTouchEase:pin===HOLD.pin?inkEase:raw=>inkEase(raw,pin);
+  return style==='glass'?raw=>glassEase(raw,pin):style==='folio'?folioEase:style==='darkroom'?darkroomEase:holdEase;
+}
 
 // Mirrors scene/glsl/flight.js. A seam's progress p → P, past both ends so p = 0 and p = 1 are at rest.
 export const transitP = p => -0.2 + 1.4 * clamp01(p);

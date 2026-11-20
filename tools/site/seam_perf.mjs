@@ -29,7 +29,7 @@ try {
   const page = await browser.newPage({ width, height, deviceScaleFactor: Number(o.dpr), mobile: Math.min(width, height) <= 500 });
   await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
   await page.waitFor(() => /\bgl\b/.test(document.documentElement.className), { timeout: 20000 });
-  // (Chess's transition is baked in the background first: scene/ink-sim.js.)
+  await page.waitFor(() => !document.documentElement.classList.contains('site-loading'), { timeout: 125000 });
   if (o.seam === 'ink') await page.waitFor(async () => (await import('/static/site/scene/scene.js')).getScene()?.inkReady?.(), { timeout: 60000 });
   await sleep(3000);
   for (let pass = 1; pass <= Number(o.passes); pass++) {
@@ -39,7 +39,8 @@ try {
     if (!el) return { error: `no hold for ${style} (is motion on?)` };
     const wrap = el.parentElement.classList.contains('seam-wrap') ? el.parentElement : null, band = wrap?.querySelector('.band');
     const shift = band ? parseFloat(band.style.getPropertyValue('--held-shift')) || 0 : 0;
-    const vh = innerHeight, hold = L.holdFor(style, matchMedia('(pointer: coarse)').matches || innerWidth < 700 ? L.HOLD.pinTouch : L.HOLD.pin), ease = L.easeFor(style);
+    const pin=matchMedia('(pointer: coarse)').matches || innerWidth<700 ? L.HOLD.pinTouch : L.HOLD.pin;
+    const vh=innerHeight, hold=L.holdFor(style,pin), ease=L.easeFor(style,pin);
     const T = (wrap || el).getBoundingClientRect().top + scrollY, R = wrap ? el.offsetHeight + shift : Math.max(1, el.offsetHeight - vh);
     const a = hold.leadIn * vh, b = hold.leadOut * vh, y0 = T - a, y1 = T + R + b + 60;
     scrollTo({ top: y0, behavior: 'instant' });

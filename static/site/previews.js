@@ -13,16 +13,15 @@ const SAVED = 'cinema:chess:v1:stats';   // the copy the Chess page keeps in thi
 // ---- Chess: the Scotch Game, one ply at a time, then a pause and again --------------------------
 
 // The starting position, as markup for the board's pieces (the squares are 45 units; href: the sprite
-// the symbols come from, '' for this page's own). attr: place each by a transform attribute rather than
-// a style (for a copy of the board drawn as an image: scene/ink-resources.js).
-export function startMarkup(href = '', attr = false) {
+// the symbols come from, '' for this page's own).
+function startMarkup(href = '') {
   const frag = [];
   START.split('/').forEach((row, r) => {
     let c = 0;
     for (const ch of row) {
       if (/\d/.test(ch)) { c += Number(ch); continue; }
       const code = (ch === ch.toUpperCase() ? 'w' : 'b') + ch.toUpperCase();
-      const at = attr ? `transform="translate(${c * 45} ${r * 45})"` : `style="transform:translate(${c * 45}px, ${r * 45}px)"`;
+      const at = `style="transform:translate(${c * 45}px, ${r * 45}px)"`;
       frag.push(`<use href="${href}#${code}" width="45" height="45" ${at} data-sq="${FILES[c]}${8 - r}"/>`);
       c++;
     }

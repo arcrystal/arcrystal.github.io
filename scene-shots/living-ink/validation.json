@@ -1,0 +1,348 @@
+{
+  "scene": "Photography to Chess · ink beneath the surface",
+  "primaryDrops": 32,
+  "ivory": 16,
+  "black": 16,
+  "stauntonPieces": 32,
+  "viewportRuns": {
+    "1280x800": {
+      "forward": {
+        "file": "1280x800-forward.mp4",
+        "durationSeconds": 19.68,
+        "codec_name": "h264",
+        "width": 1280,
+        "height": 800
+      },
+      "reverse": {
+        "file": "1280x800-reverse.mp4",
+        "durationSeconds": 19.68,
+        "codec_name": "h264",
+        "width": 1280,
+        "height": 800
+      },
+      "contactSheet": "1280x800-contact.png",
+      "chrome": {
+        "consoleErrors": [],
+        "exceptions": [],
+        "logErrors": [],
+        "failedRequests": [],
+        "blockedByTest": 0,
+        "httpErrors": [],
+        "external": [
+          "https://api.chess.com/pub/player/<user>/stats"
+        ],
+        "fixtures": 0
+      }
+    },
+    "900x800": {
+      "forward": {
+        "file": "900x800-forward.mp4",
+        "durationSeconds": 19.68,
+        "codec_name": "h264",
+        "width": 900,
+        "height": 800
+      },
+      "reverse": {
+        "file": "900x800-reverse.mp4",
+        "durationSeconds": 19.68,
+        "codec_name": "h264",
+        "width": 900,
+        "height": 800
+      },
+      "contactSheet": "900x800-contact.png",
+      "chrome": {
+        "consoleErrors": [],
+        "exceptions": [],
+        "logErrors": [],
+        "failedRequests": [],
+        "blockedByTest": 0,
+        "httpErrors": [],
+        "external": [
+          "https://api.chess.com/pub/player/<user>/stats"
+        ],
+        "fixtures": 0
+      }
+    },
+    "390x844": {
+      "forward": {
+        "file": "390x844-forward.mp4",
+        "durationSeconds": 19.68,
+        "codec_name": "h264",
+        "width": 390,
+        "height": 844
+      },
+      "reverse": {
+        "file": "390x844-reverse.mp4",
+        "durationSeconds": 19.68,
+        "codec_name": "h264",
+        "width": 390,
+        "height": 844
+      },
+      "contactSheet": "390x844-contact.png",
+      "chrome": {
+        "consoleErrors": [],
+        "exceptions": [],
+        "logErrors": [],
+        "failedRequests": [],
+        "blockedByTest": 0,
+        "httpErrors": [],
+        "external": [
+          "https://api.chess.com/pub/player/<user>/stats"
+        ],
+        "fixtures": 0
+      }
+    }
+  },
+  "quarterSpeedDesktop": {
+    "file": "1280x800-quarter.mp4",
+    "durationSeconds": 77.88,
+    "codec_name": "h264",
+    "width": 1280,
+    "height": 800
+  },
+  "dropTriplets": "32-water-entries.jpg",
+  "twoDropDevelopmentCut": {
+    "file": "two-drop-development.mp4",
+    "durationSeconds": 19.68,
+    "codec_name": "h264",
+    "width": 1000,
+    "height": 700
+  },
+  "numericalChecks": {
+    "desktop": {
+      "bakeMs": 2095,
+      "blackDrops": 16,
+      "ivoryDrops": 16,
+      "boardSlots": 32,
+      "keys": 80,
+      "maximumRelativeColorMassError": 1.1219002705307287e-13,
+      "maximumRelativeSolidLedgerError": 2.075287944084701e-06,
+      "allPigmentDepositedBy": 1.0154,
+      "lastLandingP": 1.1316712845921515,
+      "boardProjectionErrorCssPx": 1.1368683772161603e-13,
+      "packedMeshMiB": 31.64,
+      "storedMistMiB": 19.42
+    },
+    "phone": {
+      "bakeMs": 1040,
+      "blackDrops": 16,
+      "ivoryDrops": 16,
+      "boardSlots": 32,
+      "keys": 80,
+      "maximumRelativeColorMassError": 3.27962909771549e-14,
+      "maximumRelativeSolidLedgerError": 1.4440620870470866e-06,
+      "allPigmentDepositedBy": 1.0154,
+      "lastLandingP": 1.1316712845921515,
+      "boardProjectionErrorCssPx": 2.929642751054232e-14,
+      "packedMeshMiB": 16.76,
+      "storedMistMiB": 6.68
+    }
+  },
+  "desktopChrome": {
+    "baseline": {
+      "p90Ms": 16.7,
+      "worstMs": 16.8,
+      "loadMs": 16074
+    },
+    "current": {
+      "loadMs": 12999,
+      "p90Ms": 16.7,
+      "worstMs": 16.8,
+      "frames": 511
+    }
+  },
+  "wholeSite": [
+    {
+      "run": "gpu",
+      "scene": "webgl",
+      "frames": 1128,
+      "p50": 16.7,
+      "p90": 16.7,
+      "worst": 33.4,
+      "over33": 2,
+      "recalcMs": 462,
+      "recalcs": 1546,
+      "layoutMs": 123,
+      "layouts": 1175,
+      "scriptMs": 407,
+      "taskMs": 2108
+    },
+    {
+      "run": "gpu, CPU 4×",
+      "scene": "webgl",
+      "frames": 1103,
+      "p50": 16.7,
+      "p90": 16.7,
+      "worst": 133.4,
+      "over33": 7,
+      "recalcMs": 1164,
+      "recalcs": 1519,
+      "layoutMs": 389,
+      "layouts": 1149,
+      "scriptMs": 1051,
+      "taskMs": 5478
+    },
+    {
+      "run": "swiftshader (falls back to CSS)",
+      "scene": "css",
+      "frames": 164,
+      "p50": 16.7,
+      "p90": 16.7,
+      "worst": 133.4,
+      "over33": 3,
+      "recalcMs": 80,
+      "recalcs": 214,
+      "layoutMs": 23,
+      "layouts": 204,
+      "scriptMs": 26,
+      "taskMs": 381
+    }
+  ],
+  "phoneFrameTimes": [
+    "ink at 390x844 ×2, canvas 488×1055",
+    "  P -0.2 … 0       83 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0",
+    "  P 0 … 0.2        80 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0",
+    "  P 0.2 … 0.4     100 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0",
+    "  P 0.4 … 0.6      93 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0",
+    "  P 0.6 … 0.8     104 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0",
+    "  P 0.8 … 1        75 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0",
+    "  P 1 … 1.2        65 frames  p50 16.7  p90 16.7  worst 16.8  over 20 ms: 0"
+  ],
+  "handoff": [
+    "P 0.90  box 519,142,560,467  mean 43.44  off 53.4%",
+    "P 1.00  box 519,142,560,467  mean 22.82  off 30.2%",
+    "P 1.06  box 519,142,560,467  mean 17.08  off 24.6%",
+    "P 1.12  box 519,142,560,467  mean 7.68  off 9.1%",
+    "P 1.16  box 519,142,560,467  mean 0.98  off 0.4%",
+    "P 1.20  box 519,142,560,467  mean 0  off 0%"
+  ],
+  "nativeWebKit": [
+    {
+      "ready": {
+        "classes": "js app-ready gl visuals-ready",
+        "holds": 5,
+        "inkFrames": 6,
+        "elapsed": 12368,
+        "y": 0
+      }
+    },
+    {
+      "end": {
+        "classes": "js app-ready gl visuals-ready",
+        "holds": 5,
+        "inkFrames": 572,
+        "elapsed": 18897,
+        "y": 32196
+      }
+    }
+  ],
+  "safariWebDriver": "Safari.app has Allow Remote Automation disabled. Native macOS WKWebView was exercised.",
+  "phoneDevice": "Chrome mobile emulation, including DPR 2 for the focused performance test.",
+  "modes": {
+    "reduced": {
+      "loaded": {
+        "status": {
+          "stage": "motion",
+          "ready": false,
+          "percent": 26.64
+        },
+        "ice": false,
+        "ink": false,
+        "inert": false,
+        "paused": false
+      },
+      "probe": null,
+      "errors": []
+    },
+    "paused": {
+      "loaded": {
+        "status": {
+          "stage": "motion",
+          "ready": false,
+          "percent": 25.060000000000002
+        },
+        "ice": false,
+        "ink": false,
+        "inert": false,
+        "paused": true
+      },
+      "probe": null,
+      "errors": []
+    },
+    "no-gl": {
+      "loaded": {
+        "inert": false,
+        "paused": false
+      },
+      "probe": null,
+      "errors": []
+    },
+    "failed-ink": {
+      "loaded": {
+        "status": {
+          "stage": "ready",
+          "ready": false,
+          "failed": true
+        },
+        "ice": false,
+        "ink": false,
+        "inert": false,
+        "paused": false
+      },
+      "probe": null,
+      "errors": []
+    },
+    "interrupted-resize": {
+      "loaded": {
+        "status": {
+          "stage": "ready",
+          "ready": true,
+          "percent": 99
+        },
+        "ice": true,
+        "ink": true,
+        "inert": false,
+        "paused": false
+      },
+      "probe": {
+        "jobs": 3,
+        "cancelled": 2,
+        "packets": 95,
+        "draws": 396
+      },
+      "errors": []
+    },
+    "context-loss-restore": {
+      "loaded": {
+        "status": {
+          "stage": "ready",
+          "ready": true,
+          "percent": 99
+        },
+        "ice": true,
+        "ink": true,
+        "inert": false,
+        "paused": false
+      },
+      "probe": null,
+      "errors": []
+    }
+  },
+  "rapidSeeksAndClick": [
+    "Recorded 32 individual detachments and crossings.",
+    "readyAfterSeeks true",
+    "click /chess/chess.html {\"consoleErrors\":[],\"exceptions\":[],\"logErrors\":[],\"failedRequests\":[],\"blockedByTest\":0,\"httpErrors\":[],\"external\":[\"https://api.chess.com/pub/player/<user>/stats\"],\"fixtures\":0}"
+  ],
+  "tests": {
+    "unit": 189,
+    "failed": 0,
+    "generatedPages": "build_pages.py --check and check_pages.py passed",
+    "whitespace": "git diff --check passed"
+  },
+  "densityTexture": {
+    "file": "static/site/scene/data/ink-density.webp",
+    "bytes": 152728,
+    "source": "Created with the built-in image-generation tool. Its grayscale channel supplies optical thickness for the four curved interior sections.",
+    "generationPrompt": "Use case: photorealistic-natural. Create a square technical photographic material atlas, four sharply resolved different black ink-in-water plumes photographed against absolutely pure white background in 2x2 quadrants with NO dividing lines, text, frames, shadows, gradient, surface or tank. Each distinct cloud occupies the interior of its own quadrant with clean white margins all around, NOTHING touching any border. Vertical descending plumes, narrow stem at TOP and larger, denser rolled head LOWER, aspect nearly 1:1 for each subject including spreading horizontal head. Real macro schlieren-like high-speed ink photography in still water, grayscale. Top left: dense irregular falling India ink jet with a narrow crooked transparent trailing column and a surprisingly wide double-lobed black rounded curled mushroom at its lower tip; ragged skirt wings like thin crumpled silk and very narrow gray scrolls cascading off it. Top right: a small pale, almost see-through, crinkled shell of liquid, with lively curling black fingers and bifurcated head like a jellyfish in reverse. Lower left: starkly dark irregular knotted paint head, with a strong side branch and a fine lace of nearly transparent continuous rippled membranes above and to its left, dense and feathery at once. Lower right: long winding side plume of gray ink partly losing cohesion, like soft mist spiraling around two dense black nuggets, penetrating thin cross currents. Prioritize real continuous variation in optical depth, elegant asymmetry, intimate organic complexity, generous white apertures inside the plumes. No geometric vector look or silky cloth; intricate hydrodynamic rolled ink edges, photochemical black on high-key flat white, no additional objects. All 4 isolated whole subjects well inside separate quarters."
+  }
+}

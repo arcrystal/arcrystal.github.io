@@ -18,9 +18,9 @@ import { createDewResources } from './dew-resources.js';
 import { createTerrainResources } from './terrain-resources.js';
 import { makeLead } from './lead-plan.js';
 import { FIRE, FIREC, makeIgnition, ignitionTexels } from './fire-plan.js';
-import { createInkSim, createPace, PACE } from './ink-sim.js';
-import { UNMIX, rainAt, unmixAt, weightsAt, smoothIn } from './unmix-plan.js';
-import { UNMIX_SEEN } from './glsl/unmix.js';
+import { createLivingInk } from './living-ink.js';
+import { INK_IMPACT_VERTEX, INK_IMPACT_FRAGMENT, INK_RIPPLE_VERTEX, INK_RIPPLE_FRAGMENT } from './glsl/ink-impact.js';
+import { INK_VOLUME, INK_PIECE, INK_SHEET_VERTEX, INK_SHEET_FRAGMENT, INK_THREAD_FRAGMENT, INK_WAKE_VERTEX } from './glsl/living-ink.js';
 import { VERTEX } from './glsl/index.js';
 import { UNIT_PROGRAMS } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
@@ -114,7 +114,12 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   }
   const jobs = [
     ...Object.entries(UNIT_PROGRAMS).map(([name, def]) => ({ name, vs: def.vs, fs: def.fs, def })),
-    { name: 'unmixSeen', vs: VERTEX, fs: UNMIX_SEEN },
+    { name: 'unmixSeen', vs: VERTEX, fs: INK_VOLUME },
+    { name: 'inkImpact', vs: INK_IMPACT_VERTEX, fs: INK_IMPACT_FRAGMENT },
+    { name: 'inkFigure', vs: VERTEX, fs: INK_PIECE },
+    { name: 'inkWake', vs: INK_WAKE_VERTEX, fs: INK_THREAD_FRAGMENT },
+    { name: 'inkSheet', vs: INK_SHEET_VERTEX, fs: INK_SHEET_FRAGMENT },
+    { name: 'inkRipple', vs: INK_RIPPLE_VERTEX, fs: INK_RIPPLE_FRAGMENT },
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
   if (ext) {
@@ -374,38 +379,12 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     later(() => { if (!gl.isContextLost() && !fire.asked && !fireTexture(document.documentElement.clientWidth, innerHeight) && !fire.asked && tries > 0) setTimeout(() => ahead(tries - 1), 500); });
   })(20);
 
-  // Concentrations and surface height are normalized. Reserve float textures for the solver.
-  function pigmentTarget(tw, th, mip) {
-    const t = texture(tw, th, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
-    if (mip) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.bindTexture(gl.TEXTURE_2D, null); }
-    const fb = target(t), ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (!ok) { gl.deleteTexture(t); gl.deleteFramebuffer(fb); return null; }
-    return { t, fb, tw, th };
-  }
-
-
-  // Photography → Chess, "ink, unmixed" (glsl/unmix.js; unmix-plan.js has the clock). The fluid is baked in the
-  // background (ink-sim.js; bake: a few steps a frame), the rain for the screen and the dissolve for the
-  // board where its band waits (inkBoard): the board's ink, drawn once for that box (board3d.js renderMask),
-  // is both the dissolve's first picture and the mask the cure reads. Each frame of the seam the ink as the
-  // screen sees it goes into a float target (UNMIX_SEEN), mipmapped, for unit 8; the board's picture is on
-  // 11, its mask on 12.
-  const sim = createInkSim(gl, { coarse });
+  const liquid = createLivingInk(gl,coarse,programs);
   const inkB = { box: null, W: 0, H: 0, mask: null, key: '' };
-  const unmix = { seen: null, key: '' };
   // (Away from the homepage, a click into Chess still builds the board: the tile's size, in the middle.)
   const inkBox = (W, H) => { if (inkB.box) return inkB.box; const w = Math.min(560, W * 0.86), h = w / 1.2; return [(W - w) / 2, (H - h) / 2, w, h]; };
-  // Whether the baked fluid is for the board where it now is: a dissolve kept while one for a new box bakes
-  // would land its ink where the board was (and the cure reads the new box's mask), so until the new one is
-  // in, the seam is the plain one.
-  const inkFits = () => {
-    const R = sim.ready('rain') && sim.ready('dissolve') && inkB.mask ? sim.run('dissolve') : null;
-    return !!R && (!inkB.box || (!!R.box && R.box.every((v, i) => Math.abs(v - inkB.box[i]) < 3)));
-  };
-  // (Paced: ink-sim.js createPace. busy: a seam is playing; ahead: screens until Chess's seam begins.)
-  const pace = createPace(coarse ? PACE.coarse : PACE.fine);
-  function bake(dt, W, H, { busy = false, ahead = Infinity } = {}) {
+  const inkFits = () => liquid.ready() && !!inkB.mask && !!programs.inkFigure && !!programs.inkSheet && !!programs.inkRipple && !!programs.inkWake;
+  function bake(W,H) {
     if (gl.isContextLost() || !W || !H) return;
     const b3 = board3d?.();
     if (b3?.ready()) {
@@ -415,46 +394,10 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     }
     // The fluid, for the homepage's seam only.
     if (!inkB.box) return;
-    sim.want('rain', { aspect: W / H, widthPx: W });
-    if (inkB.mask && inkB.at.every((v,i) => Math.abs(v-inkB.box[i]) < 1)) sim.want('dissolve', { aspect: inkB.W / inkB.H, W: inkB.W, H: inkB.H, box: inkB.box, mask: inkB.mask });
-    const n = document.documentElement.classList.contains('site-loading') ? (coarse ? 2 : 4) : pace.steps(dt, { busy, urgent: ahead < 2.5 && ahead > -8 && !inkFits() });
-    if (n > 0 && sim.work(n)) pace.did();
+    liquid.prepare(W,H,inkB.box,b3);
   }
-  function unmixPass(s, f) {
-    const [, , w, h] = s.region, P = transitP(s.p ?? 0), R1 = sim.run('rain'), R2 = sim.run('dissolve');
-    if (!R1 || !R2) return false;
-    const key = `${Math.round(w)} ${Math.round(h)}`;
-    if (unmix.key !== key) {
-      if (unmix.seen) { gl.deleteTexture(unmix.seen.t); gl.deleteFramebuffer(unmix.seen.fb); }
-      unmix.key = key;
-      // Resolve fine pigment filaments at display density, within a bounded target.
-      const sc = Math.min(devicePixelRatio || 1, Math.sqrt((coarse ? 1.5e6 : 2.3e6) / (w * h)));
-      unmix.seen = pigmentTarget(Math.max(2, Math.round(w * sc)), Math.max(2, Math.round(h * sc)), true);
-    }
-    if (!unmix.seen) return false;
-    const { p, U } = programs.unmixSeen, [w1, w2] = weightsAt(P), tr = smoothIn(UNMIX.tremble, P);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, unmix.seen.fb);
-    gl.viewport(0, 0, unmix.seen.tw, unmix.seen.th);
-    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
-    gl.useProgram(p);
-    const tx = [[gl.TEXTURE_2D_ARRAY, R1.keys, 'uKeys1'], [gl.TEXTURE_2D_ARRAY, R2.keys, 'uKeys2'], [gl.TEXTURE_2D, R1.dye0, 'uDye1'], [gl.TEXTURE_2D, R2.dye0, 'uDye2']];
-    tx.forEach(([kind, t, name], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(kind, t); gl.uniform1i(U[name], i); });
-    gl.uniform2f(U.uTexel, unmix.seen.tw, unmix.seen.th);
-    gl.uniform2f(U.uN, R1.n, R2.n);
-    gl.uniform2f(U.uK, rainAt(P) * (R1.n - 1), unmixAt(P) * (R2.n - 1));
-    gl.uniform2f(U.uW, w1, w2);
-    gl.uniform1f(U.uAbove, R1.above);
-    gl.uniform4fv(U.uDrop, R1.sources);
-    gl.uniform1f(U.uProgress, P);
-    gl.uniform2f(U.uTremble, 0.0028 * Math.sin(Math.PI * tr) * (1 - tr), f.time);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    tx.forEach(([kind], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(kind, null); });
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, unmix.seen.t);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return true;
+  function unmixPass(s,f) {
+    return liquid.draw(transitP(s.p),s.region[2],s.region[3],s.board?.rect || inkB.box,f.time,board3d?.(),s);
   }
 
   let frame = 0;
@@ -533,12 +476,12 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
       const failed = compiled && jobs.some(j => !programs[j.name]);
       if (!compiled) return { stage: 'light', ready: false, percent: 4 + (home ? 10 : 94) * linked / jobs.length };
       if (!home || failed) return { stage: 'ready', ready: !failed, failed };
-      if (terrain.failed() || fire.failed || dew.failed(w, h)) return { stage: 'ready', ready: false, failed: true };
+      if (liquid.failed() || terrain.failed() || fire.failed || dew.failed(w, h)) return { stage: 'ready', ready: false, failed: true };
       if (!dew.ready(w, h)) return { stage: 'motion', ready: false, percent: 14 + .79 * dew.percent(w, h) };
       terrain.request(w, h);
       const finished = Number(terrain.ready(w, h)) + Number(!!fireTexture(w, h)) + Number(inkFits());
       const ready = finished === 3;
-      return { stage: ready ? 'ready' : 'finish', ready, percent: 93 + 2 * finished + (inkFits() ? 0 : 2 * sim.progress()) };
+      return { stage: ready ? 'ready' : 'finish', ready, percent: 93 + 2 * finished + (inkFits() ? 0 : 2 * liquid.progress()) };
     },
     // Racing's plan (names kept from the ice transition this replaced; scene.js and the tools use them).
     iceReady: (w, h) => dew.ready(w, h),
@@ -555,7 +498,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     // The board for a click into Chess: where it stands, and its ink (null until drawn).
     inkClick: (W, H) => (inkB.mask ? { box: inkB.at || inkBox(W, H), mask: inkB.mask } : null),
     inkBoard(box, W, H) { if (box) { inkB.box = box; inkB.W = W; inkB.H = H; } },
-    dispose() { document.removeEventListener('dew:card', updateCard); sim.dispose(); if (unmix.seen) { gl.deleteTexture(unmix.seen.t); gl.deleteFramebuffer(unmix.seen.fb); } unmix.seen = null; dew.dispose(); terrain.dispose(); fire.worker?.terminate(); if (fire.t) gl.deleteTexture(fire.t); fire.t = fire.key = fire.asked = null; fire.worker = undefined; snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
+    dispose() { document.removeEventListener('dew:card', updateCard); liquid.dispose(); dew.dispose(); terrain.dispose(); fire.worker?.terminate(); if (fire.t) gl.deleteTexture(fire.t); fire.t = fire.key = fire.asked = null; fire.worker = undefined; snaps.forEach(dropSnap); snaps.clear(); plans.forEach(p=>gl.deleteTexture(p.t)); if (lead) gl.deleteTexture(lead.t); lead = null; },
     // What a click's cover reads (opens.js), made once per click from its origin O and far corner:
     // the maze (house), the lead's run (Outdoors); null for processes computed on the fly.
     bakeEffect(style, O, far, w, h) {
@@ -650,7 +593,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
       // (−1: the board is drawn in three dimensions over the seam instead: scene/board3d.js.)
       if (K.id === 'unmix') {
         const b3 = board3d?.(), on = !!(b3?.texture && inkB.mask);
-        const bind = [[8, unmix.seen?.t ?? null], [11, on ? b3.texture : null], [12, on ? inkB.mask : null]];
+        const [rear,front,figures,threads,ripples,air,room] = liquid.textures;
+        const bind = [[5,ripples],[8,rear],[3,front],[0,figures],[1,threads],[9,air],[10,room], [11, on ? b3.texture : null], [12, on ? inkB.mask : null]];
         bind.forEach(([u, t]) => { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, t); });
         gl.activeTexture(gl.TEXTURE0);
         const drewU = drawGround({ ...s, mode: 8, h: s.p ?? 0, iceReady: true, b3box: s.board?.rect ?? inkB.box, b3on: on });

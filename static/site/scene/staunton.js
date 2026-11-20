@@ -98,6 +98,50 @@ export function signedField(mask, w, h, cell) {
 // base (its head is the second).
 export const bodyOf = type => { const polys = parsePath(PATHS[type]); return type === 'N' ? polys.slice(0, 1) : polys; };
 export const headOf = () => parsePath(PATHS.N).slice(1);
+// Replace the raster distance near a surface with distance to the original vector
+// edges. Half-cell rounding is useful in the empty region, but on a polished
+// bevel its variation between neighboring rows produces a comb of highlights.
+function polishField(field, P, segments) {
+  const { w, h, cell, y0 } = P, x0 = P.x0 || 0, reach = .086;
+  const exact = new Float32Array(w * h).fill(reach * reach);
+  for (const [[ax, ay], [bx, by]] of segments) {
+    const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+    if (len2 < 1e-15) continue;
+    const col0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach - x0) / cell));
+    const col1 = Math.min(w - 1, Math.ceil((Math.max(ax, bx) + reach - x0) / cell));
+    const row0 = Math.max(0, Math.floor((Math.min(ay, by) - reach - y0) / cell));
+    const row1 = Math.min(h - 1, Math.ceil((Math.max(ay, by) + reach - y0) / cell));
+    for (let j = row0; j <= row1; j++) {
+      const y = y0 + (j + .5) * cell - ay;
+      for (let i = col0; i <= col1; i++) {
+        const x = x0 + (i + .5) * cell - ax;
+        const t = clamp((x * dx + y * dy) / len2, 0, 1);
+        const ux = x - dx * t, uy = y - dy * t, k = j * w + i;
+        exact[k] = Math.min(exact[k], ux * ux + uy * uy);
+      }
+    }
+  }
+  for (let k = 0; k < field.length; k++) {
+    const d = Math.sqrt(exact[k]), weight = smooth((reach - d) / .058);
+    field[k] += weight * (Math.sign(field[k]) * d - field[k]);
+  }
+  return field;
+}
+// The outer envelope of a horizontal slice is linear between successive
+// path vertices. Take its one-sided limits too, so horizontal ledges and
+// crowns stay sharp. The cap extends through the axis of revolution.
+function turnedContour(polys) {
+  const rows = Array.from(new Set(polys.flat().map(p => p[1]))).sort((a, b) => b - a);
+  const contour = [[-.05, toY(rows[0])]];
+  for (let i = 1; i < rows.length; i++) {
+    const lo = rows[i - 1], hi = rows[i], step = (lo - hi) * 1e-6;
+    for (const [y, sample] of [[lo, lo - step], [hi, hi + step]]) {
+      contour.push([halfWidth(polys, sample) * SR / SQ, toY(y)]);
+    }
+  }
+  contour.push([-.05, toY(rows.at(-1))]);
+  return contour.slice(1).map((end, i) => [contour[i], end]);
+}
 // A turned profile's signed distance over its half plane.
 export function profileField(polys, P = PROF) {
   const { w, h, cell, y0 } = P, mask = new Uint8Array(w * h);
@@ -105,7 +149,7 @@ export function profileField(polys, P = PROF) {
     const yw = y0 + (j + 0.5) * cell, R = yw <= 0 ? 0 : toR(AXIS + halfWidth(polys, fromY(yw)));
     for (let i = 0; i < w; i++) mask[j * w + i] = (i + 0.5) * cell < R ? 1 : 0;
   }
-  return signedField(mask, w, h, cell);
+  return polishField(signedField(mask, w, h, cell), P, turnedContour(polys));
 }
 // The knight's head: its silhouette's signed distance over its face (even–odd inside).
 export function headField(polys = headOf(), H = HEAD) {
@@ -121,7 +165,57 @@ export function headField(polys = headOf(), H = HEAD) {
       mask[j * w + i] = n & 1;
     }
   }
-  return signedField(mask, w, h, cell);
+  const segments = polys.flatMap(poly => poly.map(([x, y], i) => {
+    const [xx, yy] = poly[(i + 1) % poly.length];
+    return [[toR(x), toY(y)], [toR(xx), toY(yy)]];
+  }));
+  return polishField(signedField(mask, w, h, cell), H, segments);
+}
+
+// Low relief for the two cheeks of the horse, measured in model units.
+// Store this once beside the silhouette distance. The rays for both the
+// floating knight and the board then sample the same shaped cross section.
+function cheekDepth(x, y) {
+  // A rotated, raised or sunken oval, with a smooth edge at two radii.
+  function relief(cx, cy, rx, ry, angle, height) {
+    const dx = x - cx, dy = y - cy, c = Math.cos(angle), s = Math.sin(angle);
+    const u = (dx * c + dy * s) / rx, v = (dy * c - dx * s) / ry;
+    const t = Math.max(0, 1 - .5 * (u * u + v * v));
+    return height * t * t * t;
+  }
+  // A breast broad enough to round into the plinth, a narrowing poll and
+  // muzzle, and a long jaw muscle turning up from the breast to the eye.
+  let depth = .065 + .052 * (1 - smooth((y - .30) / .71));
+  depth += relief(-.027, .53, .144, .29, -.37, .075);
+  depth += relief(.057, .763, .111, .15, -.38, .060);
+  depth += relief(.147, .815, .089, .029, -.44, .033);
+  depth += relief(.217, .736, .128, .048, -.68, .035);
+  depth += relief(.278, .638, .068, .058, -.40, .028);
+  depth += relief(.282, .666, .030, .014, -.73, -.030);
+  depth += relief(.24, .606, .101, .009, -.11, -.012);
+  // The eye sits within a swept almond lid, with a convex iris catching
+  // the key. The chisel leaves wider, tapered locks along the mane.
+  depth += relief(.145, .778, .043, .026, -.23, -.045);
+  depth += relief(.147, .777, .021, .015, -.26, .042);
+  const along = clamp((y - .25) / .60, 0, 1);
+  const centre = -.19 + .15 * along * along;
+  const spread = Math.max(0, 1 - ((x - centre) / .12) ** 2);
+  const mane = Math.sin(Math.PI * along) * spread * spread;
+  const curl = 34 * y + 27 * x + 3.3 * Math.sin(4.7 * y - 5 * x);
+  const lock = .5 + .5 * Math.cos(curl);
+  return depth + mane * (.014 + .043 * lock * lock) - .034 * smooth((y - .91) / .13);
+}
+export function sculptedHeadField() {
+  const d = headField(), field = new Float32Array(d.length * 2);
+  for (let row = 0; row < HEAD.h; row++) {
+    const y = HEAD.y0 + (row + .5) * HEAD.cell;
+    for (let col = 0; col < HEAD.w; col++) {
+      const k = row * HEAD.w + col;
+      field[2 * k] = d[k];
+      field[2 * k + 1] = d[k] < .07 ? cheekDepth(HEAD.x0 + (col + .5) * HEAD.cell, y) : .08;
+    }
+  }
+  return field;
 }
 
 // ---- the details, from the sprite's own figures (world units) --------------------------------------
@@ -135,11 +229,9 @@ export const DETAIL = Object.freeze({
   crown: [toY(8.09), 2.29 / SQ * SR],
   // The bishop's finial and the slit across its mitre (two points on it, in x and y).
   finial: [toY(11.38), 1.92 / SQ * SR],
-  slit: [...W(20.64, 16.46), ...W(27.71, 19.17)],
+  slit: [...W(19.4, 21.4), ...W(26.7, 13.5)],
   // The rook's crown: its top, the hollow in it (radius, depth) and its crenels (count, width, depth).
-  rook: [toY(15.5), toR(27.4), 0.045, 5, 0.05, toY(15.5) - toY(18.9)],
-  // The knight's eye (on its face), in its own frame.
-  eye: [...W(27.8, 18.85), 0.6 / SQ * SR],
+  rook: [toY(15.5), toR(27.5), 0.074, 6, 0.084, toY(15.5) - toY(19.1)],
 });
 // How tall each piece stands (for the camera and the dirty rectangles).
 export const TALL = Object.freeze({ K: toY(2.79), Q: toY(5.8), B: toY(9.46), N: toY(10.4), R: toY(15.5), P: toY(19) });

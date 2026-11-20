@@ -11,6 +11,40 @@ fs.mkdirSync(o.out,{recursive:true});
 const browser=await launch({preset:o.mode==='no-gl'?'nowebgl':'gpu'});
 try {
  const page=await browser.newPage({width,height,deviceScaleFactor:1,mobile:width<600});
+ if(['ink-resize','slow-ink','failed-ink'].includes(o.mode)){
+   await page.send('Page.addScriptToEvaluateOnNewDocument',{source:`
+     window.__ink = {jobs:0, cancelled:0, packets:0, draws:0};
+     const OriginalWorker = Worker;
+     window.Worker = class extends OriginalWorker {
+       constructor(url,options){
+         const ink = String(url).includes('living-ink-worker');
+         if(ink && ${o.mode==='failed-ink'}) throw Error('Test interrupted ink worker');
+         super(url,options);
+         if(!ink)return;
+         window.__ink.jobs++;
+         let finished=false;
+         this.addEventListener('message',({data})=>{
+           if(data.density)window.__ink.packets++;
+           if(data.ledger)finished=true;
+         });
+         const terminate=this.terminate.bind(this);
+         this.terminate=()=>{if(!finished)window.__ink.cancelled++;terminate();};
+       }
+     };
+     const gl=WebGL2RenderingContext.prototype, loc=gl.getUniformLocation, set=gl.uniform1f, ink=new WeakSet();
+     gl.getUniformLocation=function(p,name){
+       const hit=loc.call(this,p,name);
+       if(name==='uBreath' && hit)ink.add(hit);
+       return hit;
+     };
+     gl.uniform1f=function(location,value){
+       if(location && ink.has(location))window.__ink.draws++;
+       return set.call(this,location,value);
+     };
+     const raf=requestAnimationFrame.bind(window);
+     window.requestAnimationFrame=callback=>raf(t=>window.__ink.slow?raf(callback):callback(t));
+   `});
+ }
  if(o.mode==='low-refresh') await page.send('Page.addScriptToEvaluateOnNewDocument',{source:`
    // Deliver every other frame after loading, as on a 30 Hz display.
    const frame = requestAnimationFrame.bind(window);
@@ -27,6 +61,12 @@ try {
  if(o.mode==='failed-worker')await page.send('Page.addScriptToEvaluateOnNewDocument',{source:"const W=Worker;window.Worker=class extends W{constructor(url,opts){if(String(url).includes('dew-worker'))throw new Error('Test blocked worker');super(url,opts)}}"});
  if(o.mode==='failed-shell')await page.send('Network.setBlockedURLs',{urls:['*shell.js*']});
  const start=Date.now();await page.goto('http://localhost:8100/',{waitUntil:'load'});
+ if(o.mode==='ink-resize'){
+   await page.waitFor(()=>window.__ink.packets>0);
+   await page.setViewport({width:width+112,height,mobile:width<600});
+   await page.waitFor(()=>window.__ink.jobs>=2);
+   await page.setViewport({width,height,mobile:width<600});
+ }
  await sleep(700);await page.screenshot(path.join(o.out,'loading.png'));
  const initial=await page.eval(()=>({loading:document.documentElement.classList.contains('site-loading'),inert:document.querySelector('main').inert,focus:document.activeElement?.className,status:document.querySelector('[data-loading-status]')?.textContent}));
  if(o.mode==='normal'||o.mode==='skip'){
@@ -42,6 +82,10 @@ try {
   return {status:s?.loadingStatus(),ice:s?.iceReady(),ink:s?.inkReady(),inert:document.querySelector('main').inert,paused:document.documentElement.classList.contains('motion-paused')};
  });
  assert.equal(loaded.inert,false);if(o.mode==='normal'){assert.equal(loaded.status.ready,true);assert.equal(loaded.ice,true);assert.equal(loaded.ink,true);}
+ if(['no-gl','paused','reduced'].includes(o.mode)){
+   assert.equal(await page.eval(()=>!!document.querySelector('.seam-hold[data-to="ink"]')),false);
+   assert.ok(await page.eval(()=>document.querySelector('.band--chess .pv-board-wrap')?.getBoundingClientRect().width>0));
+ }
  if(o.mode==='skip')assert.equal(loaded.paused,true);
  await page.screenshot(path.join(o.out,'entered.png'));
  if(o.mode==='low-refresh'){
@@ -57,8 +101,28 @@ try {
    assert.ok(await page.eval(()=>document.querySelectorAll('.seam-hold').length===5 && scrollY>0));
    assert.ok(await page.eval(()=>window.__transitionDraws)>draws,'the transition keeps drawing after 90 slow frames');
  }
- if(o.mode==='direct-ink'){
+ let inkProbe;
+ if(o.mode==='ink-context'){
+   await page.eval(()=>{
+     window.__restoreInk=document.querySelector('canvas.scene').getContext('webgl2').getExtension('WEBGL_lose_context');
+     window.__restoreInk.loseContext();
+   });
+   await page.waitFor(()=>!document.documentElement.classList.contains('gl'));
+   await page.eval(()=>window.__restoreInk.restoreContext());
+   await page.waitFor(async()=>{
+     const {getScene}=await import('/static/site/scene/scene.js');
+     return document.documentElement.classList.contains('gl') && getScene()?.loadingStatus().ready;
+   },{timeout:125000});
+ }
+ if(o.mode==='failed-ink'){
+   assert.equal(loaded.ink,false);
+   assert.equal(loaded.status.failed,true);
+   assert.equal(loaded.inert,false);
+ }
+ if(['direct-ink','ink-resize','slow-ink','ink-context'].includes(o.mode)){
    assert.equal(loaded.ink,true);
+   assert.equal(loaded.status.ready,true,'opening must wait for the resources at the final viewport size');
+   if(o.mode==='slow-ink')await page.eval(()=>{window.__ink.slow=true;});
    const result=await page.eval(async()=>{
      const { getScene }=await import('/static/site/scene/scene.js');
      const spacer=document.querySelector('.seam-hold[data-to="ink"]');
@@ -76,6 +140,13 @@ try {
    });
    assert.ok(Math.abs(result.after-result.before)<1,'entering the band must preserve the baked board position '+JSON.stringify(result));
    assert.equal(result.invalid,0,'the prepared ink remains usable on first entry');
+   if(o.mode==='slow-ink' || o.mode==='ink-resize'){
+     const draws=await page.eval(()=>window.__ink.draws);
+     await sleep(500);
+     inkProbe=await page.eval(()=>window.__ink);
+     assert.ok(inkProbe.draws>draws,'the volume keeps drawing while held still');
+     if(o.mode==='ink-resize')assert.ok(inkProbe.jobs>=3 && inkProbe.cancelled>=1,'obsolete worker cancelled during preparation');
+   }
  }
  let card=null;
  if(o.mode==='normal'){
@@ -93,7 +164,7 @@ try {
   card=await page.eval(()=>{const r=document.querySelector('.r-band-race').getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,viewport:[innerWidth,innerHeight]};});
   assert.equal(card.viewport[0],width,'the enlarged track must not widen the mobile viewport');
  }
- const result={size:o.size,mode:o.mode,elapsedMs,initial,loaded,card,problems:page.problems()};
+ const result={size:o.size,mode:o.mode,elapsedMs,initial,loaded,inkProbe,card,problems:page.problems()};
  fs.writeFileSync(path.join(o.out,'report.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
  if(o.mode!=='failed-shell'){assert.equal(result.problems.consoleErrors.length,0);assert.equal(result.problems.exceptions.length,0);}
 }finally{await browser.close();}

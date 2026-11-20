@@ -57,15 +57,27 @@ export function createDewResources(gl, coarse) {
     worker.onerror = () => { for (const e of cache.values()) e.failed = true; };
   } catch { worker = null; }
   // card: Racing's card on screen during the hold (the track settles here, to layout-pixel precision), or null.
-  let lastCard = null;
+  let lastCard = null, activeSize = '';
   function request(W, H, card = lastCard) {
     const c = card ? card.slice(0, 4).map(v => Math.round(v * 64) / 64) : null;
     if (c) lastCard = c;
-    const key = `${Math.round(W)}x${Math.round(H)}|${c ? c.join(',') : '-'}`;
+    const size = `${Math.round(W)}x${Math.round(H)}`;
+    if (size !== activeSize) {
+      // A new size cancels the previous physics job in the worker. Revisiting
+      // that size must enqueue it again if its texture never finished uploading.
+      for (const [key, entry] of cache) {
+        if (entry.size !== size && !entry.ready) {
+          release(entry);
+          cache.delete(key);
+        }
+      }
+      activeSize = size;
+    }
+    const key = `${size}|${c ? c.join(',') : '-'}`;
     if (!cache.has(key)) {
       if (cache.size >= 2) { const [k, entry] = cache.entries().next().value; release(entry); cache.delete(k); }
       const token = ++serial;
-      cache.set(key, { ready: false, failed: !worker, token, budget:(coarse||W<700?16:32)*1024*1024 });
+      cache.set(key, { size, ready: false, failed: !worker, token, budget:(coarse||W<700?16:32)*1024*1024 });
       worker?.postMessage({ key, token, W: Math.round(W), H: Math.round(H), phone: coarse || W < 700, card: c });
     }
     return cache.get(key);

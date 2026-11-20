@@ -1,117 +1,22 @@
-// Photography → Chess: the two cached flow maps transport the original high-resolution
-// pigment textures. The first carries sixteen wet drops across the red tray. The second
-// gathers ink onto the back ranks. A moving meniscus uncovers the tile's own board.
 import { UNMIX, SLOTS } from '../unmix-plan.js';
+import { CAMERA, TANK_GLSL } from '../ink-tank.js';
 import { MARGIN } from '../staunton.js';
 
 const f = x => (Number.isInteger(x) ? `${x}.0` : String(+x.toFixed(5)));
 const v2 = a => `vec2(${f(a[0])}, ${f(a[1])})`;
 
-export const UNMIX_SEEN = /* glsl */ `#version 300 es
-precision highp float;
-precision highp sampler2DArray;
-uniform vec2 uTexel;            // the target, px
-uniform sampler2DArray uKeys1;  // the rain's map, its keyframes
-uniform sampler2DArray uKeys2;  // the dissolve's
-uniform sampler2D uDye1, uDye2; // their first pictures
-uniform vec2 uN;                // keyframes in each
-uniform vec2 uK;                // where each is now, in keyframes
-uniform vec2 uW;                // how much of each shows
-uniform float uProgress;
-uniform vec4 uDrop[16]; // centers, radii and piece slots in rain-grid coordinates
-uniform float uAbove;           // the rain's grid reaches this share of the screen above it
-uniform vec2 uTremble;          // the outline's trembling: how much (domain units), its time
-out vec4 o;
-// A keyframe's way back at uv, read with a cubic B-spline (four bilinear reads).
-vec4 key(sampler2DArray t, vec2 uv, float l) {
-  vec2 n = vec2(textureSize(t, 0).xy), p = uv * n - .5, f = fract(p), i = p - f, f2 = f * f, f3 = f2 * f;
-  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0, w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0, w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0, w3 = f3 / 6.0;
-  vec2 g0 = w0 + w1, g1 = w2 + w3, a = (i + w1 / g0 - .5) / n, b = (i + w3 / g1 + 1.5) / n;
-  return g0.y * (g0.x * texture(t, vec3(a, l)) + g1.x * texture(t, vec3(b.x, a.y, l)))
-       + g1.y * (g0.x * texture(t, vec3(a.x, b.y, l)) + g1.x * texture(t, vec3(b, l)));
-}
-vec4 mapAt(sampler2DArray t, vec2 uv, float k, float n) {
-  float l0 = clamp(floor(k), 0.0, n - 1.0), l1 = min(l0 + 1.0, n - 1.0);
-  return mix(key(t, uv, l0), key(t, uv, l1), clamp(k - l0, 0.0, 1.0));
-}
-// Sample the same source texture during the fall and after entry. Stretch a
-// tapered neck behind each heavy head, relaxing exactly to the solver's seed.
-vec4 dripping(vec2 c, vec2 cells) {
-  vec4 pigment = vec4(0);
-  for (int i=0; i<16; ++i) {
-    vec4 d = uDrop[i];
-    float start = mix(${f(UNMIX.drops[0])}, ${f(UNMIX.drops[1])}, float((i*7)%16)/15.0);
-    if (uProgress <= start || abs(c.x-d.x)>1.4*d.z) continue;
-    float t = clamp((uProgress-start)/(${f(UNMIX.rain[0])}-start),0.0,1.0);
-    float lift = 1.0-t*t*(2.0-t);
-    vec2 head = vec2(d.x, mix(d.y, cells.y/(1.0+uAbove)+1.6*d.z,lift));
-    float stretch = sin(3.141593*t);
-    vec2 p = (c-head)/d.z;
-    float tail = max(0.0,p.y);
-    vec2 local = vec2(p.x*(1.0+.22*stretch),p.y/(1.0+.42*stretch));
-    local.x += .1*stretch*sin(tail*1.4+float(i))*tail;
-    local.y /= 1.0+stretch*min(tail,4.0);
-    local.x *= 1.0+stretch*tail*tail;
-    if (dot(local,local)>=1.0) continue;
-    vec4 seed = textureLod(uDye1,(d.xy+local*d.z)/cells,0.0);
-    if (seed.r+seed.g > pigment.r+pigment.g)
-      pigment = vec4(seed.rg,sqrt(max(0.0,1.0-dot(local,local))),seed.b);
-  }
-  return pigment;
-}
-
-// A dyed parcel has a concentrated core, thin folded sheets at its edge,
-// and a diffuse suspension transported and mixed by the Eulerian grid.
-vec2 pigmentAt(sampler2D dye, vec2 source, vec2 dissolved, float mixing) {
-  vec2 core = textureLod(dye,source,0.0).rg;
-  vec2 skirt = textureLod(dye,source,4.2).rg;
-  float phase = source.y*318.0 + 4.0*sin(source.x*45.0+source.y*26.0)
-              + 1.4*sin(source.x*83.0-source.y*32.0);
-  float resolved = 1.0-smoothstep(.65,3.14,fwidth(phase));
-  float sheets = .62 + .38*cos(phase)*resolved;
-  float fine = 2.63*phase + 1.5*sin(source.y*270.0+source.x*65.0);
-  sheets += .17*cos(fine)*(1.0-smoothstep(.65,3.14,fwidth(fine)));
-  return mix(core, core*.54 + skirt*sheets*.73 + dissolved*1.42, mixing);
-}
-void main() {
-  vec2 uv = gl_FragCoord.xy / uTexel, ink = vec2(0.0);
-  float height = 0.0, slotTag = 0.0;
-  vec2 u1 = vec2(uv.x, uv.y / (1.0 + uAbove));
-  if (uProgress < ${f(UNMIX.rain[0])}) {
-    vec2 cells = vec2(textureSize(uKeys1,0).xy);
-    o = dripping(u1*cells,cells);
-    return;
-  }
-  if (uW.x > 0.0) {
-    vec4 flow = mapAt(uKeys1, u1, uK.x, uN.x);
-    vec2 source = u1 + flow.xy;
-    vec4 seed = textureLod(uDye1,source,0.0);
-    ink += uW.x*pigmentAt(uDye1,source,flow.zw,smoothstep(.145,.34,uProgress));
-    slotTag = uW.x*seed.b;
-    height = sqrt(max(0.0,1.0-seed.a*seed.a))*step(.01,seed.r+seed.g);
-  }
-  if (uW.y > 0.0) {
-    vec4 flow = mapAt(uKeys2, uv, uK.y, uN.y);
-    vec2 m = uv + flow.xy;
-    m += uTremble.x * vec2(sin(m.y * 95.0 + uTremble.y * 9.0) + .5 * sin(m.x * 61.0 - uTremble.y * 13.0), cos(m.x * 83.0 - uTremble.y * 7.0) + .5 * cos(m.y * 57.0 + uTremble.y * 11.0));
-    ink += uW.y * pigmentAt(uDye2,m,flow.zw,1.0-smoothstep(.72,.91,uProgress));
-    slotTag += uW.y * textureLod(uDye2,m,0.0).b;
-  }
-  o = vec4(ink, height, slotTag);
-}`;
-
 export const UNMIX_GLSL = /* glsl */ `
+uniform sampler2D uBathRoom; // Darkroom wall used by reflected rays
+uniform sampler2D uInkAir;   // Separate free-falling paint above the reflective surface
 uniform sampler2D uB3;       // Chess's board in three dimensions (board3d.js): its box, a margin round it (unit 11)
 uniform sampler2D uB3Mask;   // its ink over the screen: pigment (R, G), which piece (B: slot + 1 over 64, the board 1), how high (A) (unit 12)
 uniform vec4 uB3Box;         // the board's box on the screen (CSS px)
 uniform float uB3On;
-const vec2 UM_DIFFUSE = ${v2(UNMIX.diffuse)}, UM_FOCUS = ${v2(UNMIX.focus)};
 const vec2 UM_HARDEN = ${v2(UNMIX.harden)}, UM_SQUARES = ${v2(UNMIX.squares)}, UM_CLEAR = ${v2(UNMIX.clear)};
-const float UM_SPAN = ${f(UNMIX.span)}, UM_LODMAX = ${f(UNMIX.lodMax)}, UM_MARGIN = ${f(MARGIN)};
+const float UM_SPAN = ${f(UNMIX.span)}, UM_MARGIN = ${f(MARGIN)};
 const float UM_ORDER[32] = float[32](${SLOTS.map(s => f(s.order)).join(', ')});
 const float UM_TALL[32] = float[32](${SLOTS.map(s => f(s.tall)).join(', ')});
 float umS(vec2 r, float x) { return smoothstep(r.x, r.y, x); }
-float umLod(float P) { return UM_LODMAX * umS(UM_DIFFUSE, P) * (1.0 - umS(UM_FOCUS, P)); }
 // The board's picture at screen point px (premultiplied).
 vec4 umBoard(vec2 px) {
   vec2 t = ((px - uB3Box.xy) / uB3Box.zw + UM_MARGIN) / (1.0 + 2.0 * UM_MARGIN);
@@ -140,70 +45,173 @@ vec3 umCure(vec3 col, vec2 q, vec2 px, vec2 uv, float P, float clear) {
   col = mix(col, bd.rgb + col * (1.0 - bd.a), cured);
   return col + vec3(1.0, .96, .88) * glint * (.8 + .6 * hash(floor(q * .5) + floor(P * 200.0)));
 }
+${TANK_GLSL}
+// A shallow presentation tank, viewed across its actual free surface. The
+// opposite wall and near meniscus use the camera that projects the impacts.
+float umSurfaceChop(float x,float t){
+  return .60*sin(x*7.7+t)+.24*sin(x*16.8-1.6*t+.7)+.13*cos(x*31.+2.*t);
+}
+float umNear(vec2 uv,vec4 cam,float phase){
+  return cam.x-.5*cam.y+(.002+.005*cam.w)*umSurfaceChop(uv.x,phase);
+}
+float umBack(vec2 uv,vec4 cam,float phase){
+  return cam.x+.5*cam.y+.0018*umSurfaceChop(uv.x,phase+.8);
+}
+// An analytically differentiated small wave spectrum on the plane. Its high
+// frequencies run across the long swell and are filtered at grazing angles.
+vec2 umSwell(vec2 p,float phase){
+  // More wind shear along the short dimension of each crest, with two
+  // nonparallel capillary trains crossing the primary swell.
+  float tide=4.2*p.x+11.4*p.y+.37*phase;
+  float crosswave=-9.6*p.x+25.8*p.y-.57*phase+.8*sin(tide);
+  float fine=11.4*p.x+73.3*p.y+.82*phase+1.34*sin(crosswave)+.77*cos(tide);
+  float glimmer=-29.2*p.x+157.4*p.y-1.06*phase+1.7*sin(fine);
+  // A projected pixel covers more of the back surface. Taper its capillary
+  // spectrum there, and on small drawing buffers.
+  float filterFine=smoothstep(170.,570.,uRegion.w*(.54+.46*p.y));
+  return vec2(.015,.028)*cos(tide)+vec2(-.010,.017)*cos(crosswave)
+    +vec2(.0041,.016)*cos(fine)+filterFine*vec2(-.0022,.0082)*cos(glimmer);
+
+}
+vec3 umReflection(vec3 r,vec2 plane,float rough){
+  // Intersect the reflected ray with the surrounding room. Translating the
+  // intersection from each patch on the water gives the distant lights their
+  // correct parallax. The photographic plate is in top-down image coordinates.
+  vec2 wall=vec2(plane.x-.5,0.)+r.xy*(1.02+.46*(1.-plane.y))/max(.22,-r.z);
+  vec2 look=clamp(vec2(.50+.57*wall.x,.92-.85*wall.y),.003,.997);
+  vec3 incident=textureLod(uBathRoom,look,1.1+5.*rough+.65*plane.y).rgb;
+  return vec3(.055,.069,.076)+1.65*incident;
+}
+// Transmission samples the world under the tank at the displaced ray. On
+// the return journey this includes the actual wood, moving pieces and paper.
+vec3 umSubstrate(vec2 px,vec2 uv,bool returning){
+  if(!returning)return sceneDarkroom(px);
+  vec3 col=sceneInk(px);
+  if(uB3On>.5){
+    vec2 boardPx=uRegion.xy+vec2(uv.x,1.-uv.y)*uRegion.zw;
+    vec4 board=umBoard(boardPx);
+    col=board.rgb+col*(1.-board.a);
+  }
+  vec4 piece=texture(uTexA,uv);
+  return piece.rgb+col*(1.-piece.a);
+}
+// Two views of one free surface. The near meniscus separates the bath from
+// the reflecting plane; the far wall separates that plane from the dry world.
+vec3 umFill(vec2 uv,vec2 px,float P,bool returning,out vec3 surface,out float underwater,
+            out float pigmentThrough,out float lip){
+  vec4 cam=waterCamera(P);
+  float phase=16.*min(P,${CAMERA.start})+3.1*(cam.x-${CAMERA.above[0]})+.23*T;
+  float near=umNear(uv,cam,phase),farEdge=umBack(uv,cam,phase),distanceUnder=near-uv.y;
+  float exposure=smoothstep(0.,.078,P);
+  float shortSide=min(uRegion.z,uRegion.w),aa=max(1./uRegion.w,.0005);
+  vec2 plane=waterXZ(uv,cam,uRegion.z/uRegion.w);
+  float water=smoothstep(-aa,aa,farEdge-uv.y);
+  underwater=smoothstep(-.012,.018,distanceUnder)*smoothstep(.015,.37,cam.w);
+  float throughUnder=exp(-max(0.,distanceUnder)*16.)*.22*(1.-smoothstep(.94,1.,cam.w));
+  surface=vec3(0);
+  // Fully immersed rays skip the reflection, refraction and substrate lookup.
+  if(underwater<.999 || throughUnder>.001){
+    if(water<=.001){
+      surface=umSubstrate(px,uv,returning);
+    }else{
+      vec4 waves=texture(uReach,uv);
+      vec2 impact=vec2(waves.r-waves.g,waves.b-waves.a);
+      vec2 p=plane*vec2(clamp(uRegion.z/uRegion.w,.65,2.2),1.);
+      vec2 swell=umSwell(p,phase);
+      // A replayed impact perturbs the local normal and the transmitted ray.
+      // Breaking its crest into small highlights prevents dark concentric rims.
+      vec2 slope=swell+vec2(.27,.31)*impact;
+      vec3 N=normalize(vec3(-slope.x,1.,-slope.y));
+      vec3 V=normalize(vec3((.5-uv.x)*.47,.27+.42*plane.y,1.-.23*plane.y));
+      vec3 refl=reflect(-V,N);
+      float cosine=clamp(dot(V,N),0.,1.);
+      float fresnel=.0204+.9796*pow(1.-cosine,5.);
+      vec2 offset=(swell*vec2(28.,-34.)+impact*vec2(62.,-52.))*shortSide/800.*water*exposure;
+      vec3 refracted=umSubstrate(px+offset,uv+offset*vec2(1.,-1.)/uRegion.zw,returning);
+      // The Photography floor is already lit by the safelight. Bring the
+      // daylight material of Chess under the same dim lamp while covered;
+      // its open-air exposure returns at the far contact line.
+      vec3 floorLight=returning?refracted*vec3(.30,.25,.23):refracted;
+      vec3 body=vec3(.070,.092,.104)+floorLight*vec3(.51,.39,.37);
+      float farDistance=1.-plane.y;
+      body=mix(body,vec3(.159,.165,.166),.37*farDistance*farDistance);
+      float rough=.095+.14*noise(p*vec2(4.2,7.3));
+      vec3 environment=umReflection(refl,plane,rough);
+      // The dark substrate and lit room give small Fresnel reflections high
+      // contrast. Below the far edge the actual water has a double contact line.
+      vec3 top=body*(1.-fresnel)+environment*(fresnel+.115);
+      // The overhead safelight produces a broad weak warmth. A second long
+      // silver source is broken by fine crests; only a few facets align with it.
+      float softCosine=max(dot(N,normalize(V+normalize(vec3(-.24,.32,-.89)))),0.);
+      top+=vec3(.155,.097,.082)*pow(softCosine,43.);
+      vec3 H=normalize(V+normalize(vec3(.14,.49,-.87)));
+      float broaden=.48+.4*noise(p*vec2(6.8,14.));
+      vec2 specSlope=H.xz/max(.10,H.y)+slope;
+      float gloss=exp(-dot(specSlope*vec2(7.3,38.),specSlope*vec2(7.3,38.)))*broaden;
+      top+=vec3(.23,.237,.23)*gloss*(.47+.53*farDistance);
+      float distanceToWall=farEdge-uv.y;
+      top*=1.-.32*exp(-abs(distanceToWall-.0025)/.0024);
+      top+=vec3(.39,.32,.26)*exp(-abs(distanceToWall-.0009)/max(.00065,aa))*(.69+.31*cos(plane.x*8.));
+      surface=mix(refracted,top,water*exposure);
+    }
+  }
+  // Keep most of the plunging pigment behind the reflecting water. When the
+  // near lip moves overhead the same folded and dispersed ink becomes visible.
+  float glance=mix(.22,.38,plane.y);
+  pigmentThrough=mix(glance*water,1.,underwater);
+  vec2 light=(uv-vec2(.68,.72))*vec2(.95,.86);
+  float transmission=exp(-1.45*dot(light,light));
+  vec3 bath=mix(vec3(.235,.258,.267),vec3(.82,.79,.752),transmission);
+  // A cool lateral fill silhouettes the pale ink. The opposite, lit wall
+  // stays warm behind the large carbon plume while the camera is immersed.
+  float chamber=smoothstep(.47,.565,P)*(1.-smoothstep(.92,1.065,P));
+  float falloff=smoothstep(.22,.92,uv.x+.16*(.5-uv.y));
+  bath=mix(bath,vec3(.225,.286,.307),chamber*(.045+.28*falloff));
+  float ceilingGlow=exp(-4.7*max(.03,distanceUnder));
+  bath+=vec3(.19,.049,.025)*ceilingGlow;
+  float shaft=sin(4.9*uv.x+1.4*uv.y+.21*sin(6.*uv.y+phase*.10));
+  bath+=vec3(.032,.030,.027)*shaft*ceilingGlow;
+  float veil=sin(25.*uv.x+17.*distanceUnder+2.1*sin(12.*uv.x-phase*.13)+phase*.20);
+  bath+=vec3(.059,.048,.038)*pow(max(veil,0.),4.)*exp(-9.*abs(distanceUnder))*smoothstep(.1,.60,cam.w);
+  bath=mix(bath,surface,throughUnder);
+  lip=exp(-abs(distanceUnder)/.0025)*smoothstep(.04,.51,cam.w);
+  return bath;
+}
 vec3 groundUnmix(vec2 q, vec2 px, float P) {
   vec2 S = uRegion.zw;
-  if (P <= ${f(UNMIX.drops[0])} || uIceReady < .5) return P < .5 ? sceneDarkroom(px) : sceneInk(px);
+  if (P <= 0.0 || uIceReady < .5) return P < .5 ? sceneDarkroom(px) : sceneInk(px);
   vec2 uv = vec2(q.x / S.x, 1.0 - q.y / S.y);
-  float bath = smoothstep(.27,.58,P);
-  vec3 grey = vec3(.505,.516,.523) + .022*(.5-uv.x+.7*uv.y);
-  // Wide filtered samples represent suspended pigment around the sharp transported
-  // cores. The veil first spreads out of each plume; eventually it spans the tray.
-  vec2 cloud = textureLod(uFlow,uv,mix(3.0,7.0,bath)).rg;
-  float suspended = 1.0-exp(-6.0*(cloud.r+cloud.g));
-  float veil = bath + (1.0-bath)*smoothstep(.13,.36,P)*suspended*.91;
-  grey += vec3(.064,.061,.057)*(cloud.g-cloud.r);
-  vec3 col = grey;
-  if (bath < 1.0) col = mix(sceneDarkroom(px), grey, veil);
-
-  vec4 film = textureLod(uFlow,uv,0.0);
-  vec2 ink = mix(film.rg, textureLod(uFlow,uv,umLod(P)).rg, .6);
-  float still = smoothstep(.43,.555,P)*(1.0-smoothstep(.56,.74,P));
-  ink *= 1.0 - .73*still;
-  // Trace two short paths toward a broad studio light. Dense folds throw a soft
-  // shadow through the suspension while their free edges transmit the safelight.
-  vec2 lightStep = vec2(-.004,.007);
-  vec2 over = textureLod(uFlow,uv+lightStep,2.0).rg*.65
-            + textureLod(uFlow,uv+lightStep*2.7,3.0).rg*.35;
-  float shadow = exp(-(.8*over.r+.46*over.g)*(1.0-still));
-  float body = ink.r + ink.g, bead = 1.0-smoothstep(.145,.24,P);
-  float relief = mix(body*.10, film.b, bead);
-  vec2 slope = vec2(dFdx(relief),dFdy(relief)) * min(S.x,S.y)*.038;
-  vec3 normal = normalize(vec3(-slope,1.0));
-  vec3 lamp = normalize(vec3(-.54,.58,.61));
-  float diffuse = max(0.0,dot(normal,lamp));
-  float highlight = pow(max(0.0,dot(normal,normalize(lamp+vec3(0,0,1)))),64.0);
-  float rim = pow(1.0-normal.z,2.0);
-  col *= mix(1.0,shadow,.42);
-  vec3 black = mix(vec3(.010,.014,.023),vec3(.09,.11,.14),diffuse*.55+rim*.35);
-  vec3 pearl = mix(vec3(.48,.51,.55),vec3(.99,.97,.92),diffuse*shadow);
-  col = mix(black,col,exp(-4.7*ink.r));
-  col = mix(col,pearl,1.0-exp(-4.0*ink.g));
-  // Each recipient inherits the slightly different lustre of its original drop.
-  float lustre = .81+.17*cos(round(film.a*64.0)*2.4);
-  col += vec3(.92,.86,.76)*(highlight*lustre*(.18+.82*bead)+rim*(.04+.18*bead))*smoothstep(.02,.25,body);
-
-  // The submerged back ranks take on the relief of the tile's actual pieces.
-  vec4 board = vec4(0.0);
-  if (uB3On > .5 && P > .79) {
-    board = umBoard(px);
-    float value = dot(board.rgb, vec3(.2126,.7152,.0722));
-    col = mix(col,vec3(value),smoothstep(.87,.945,P)*smoothstep(.15,.85,body));
+  bool returning=P>=UM_CLEAR.x;
+  vec3 surface;
+  float underwater,pigmentThrough,lip;
+  vec3 bath=umFill(uv,px,P,returning,surface,underwater,pigmentThrough,lip);
+  if(returning && underwater<=.001)return surface+vec3(.52,.41,.34)*lip;
+  // Keep the wet board and the last flying figures on the underwater side
+  // of the meniscus. On the free surface the same figures are seen in
+  // refracted light. In dry air their full colour comes straight through.
+  vec3 col=returning?bath:mix(surface,bath,underwater);
+  if(returning)pigmentThrough=1.;
+  if (P>.875 && uB3On>.5) {
+    vec4 board=umBoard(uRegion.xy+q);
+    float grey=dot(board.rgb,vec3(.2126,.7152,.0722));
+    // The wet board develops beneath the flights. At the knight's touchdown
+    // it already has the exposure of the solid taking over its square.
+    float appear=smoothstep(.875,.931,P);
+    col=mix(col,mix(board.rgb,vec3(grey),.85)+col*(1.-board.a),appear);
   }
+  vec4 rear=texture(uFlow,uv)*pigmentThrough, front=texture(uGas,uv)*pigmentThrough;
+  vec4 piece=texture(uTexA,uv), lines=texture(uTexB,uv)*pigmentThrough;
+  col=rear.rgb+col*(1.-rear.a);
+  col=mix(piece.rgb,vec3(dot(piece.rgb,vec3(.2126,.7152,.0722))),.85)+col*(1.-piece.a);
+  col=lines.rgb+col*(1.-lines.a);
+  col=front.rgb+col*(1.-front.a);
 
-  if (P >= UM_CLEAR.x) {
-    float drain = umS(UM_CLEAR,P);
-    float ripple = sin(q.x*.016 + drain*12.0) + .35*sin(q.x*.035-drain*17.0);
-    float surface = mix(-12.0,S.y+12.0,drain) + 2.4*ripple;
-    float depth = q.y-surface;
-    vec3 dry = sceneInk(px);
-    dry = board.rgb + dry*(1.0-board.a);
-    float wet = smoothstep(-1.25,1.25,depth);
-    col = mix(dry,col,wet);
-    // A narrow silver lip and its softer submerged shadow travel down the page together.
-    col *= 1.0-.16*wet*exp(-abs(depth-3.0)/2.5);
-    col += vec3(.32,.34,.34)*exp(-depth*depth/2.8);
+  if(P>0. && P<.68){
+    vec4 air=texture(uInkAir,uv);
+    col=air.rgb+col*(1.-air.a);
   }
-  return col;
+  if(returning)col=mix(surface,col,underwater);
+  return col+vec3(.52,.41,.34)*lip;
 }
 
 // ---- A click into Chess (opens.js) -------------------------------------------------------------------

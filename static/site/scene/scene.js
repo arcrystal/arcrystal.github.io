@@ -16,7 +16,7 @@ import { startSlots } from './staunton.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uOrbitSeconds', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -51,12 +51,18 @@ function createScene() {
   const coarse = matchMedia('(pointer: coarse)').matches;
   const quality = coarse || innerWidth < 900 ? 4 : 5;
   const hosts = new Set();
-  let program = null, U = {}, ready = false, drewLast = false, transit = null, board3d = null, inkBoardBox = null, inkAt = null;
+  let program = null, U = {}, ready = false, drewLast = false, transit = null, board3d = null, inkBoardBox = null;
   let effect = null, stopTick = null;
   let cssW = 0, cssH = 0, dpr = 1, scale = 1, slow = 0, fast = 0, iceDetail = 1, slowShare = 0;
-  // The viewport, cached: reading innerWidth after the hosts have written styles would force a layout.
-  let vpW = root.clientWidth, vpH = innerHeight;
-  function measureViewport() { vpW = root.clientWidth; vpH = innerHeight; }
+  // The tile is measured in CSS pixels. Follow the canvas's painted box too:
+  // a scrollbar can change its width without a window resize at handoff.
+  let vpW = canvas.clientWidth, vpH = canvas.clientHeight;
+  function measureViewport() { vpW = canvas.clientWidth; vpH = canvas.clientHeight; }
+  const surfaceSize = new ResizeObserver(([entry]) => {
+    vpW = Math.round(entry.contentRect.width);
+    vpH = Math.round(entry.contentRect.height);
+  });
+  surfaceSize.observe(canvas);
   addEventListener('resize', measureViewport, { passive: true });
   document.addEventListener('visuals:ready', measureViewport);
   let orbitSeconds = 0;
@@ -98,6 +104,8 @@ function createScene() {
         gl.uniform1i(U.uFlow, 8);
         gl.uniform1i(U.uB3, 11);
         gl.uniform1i(U.uB3Mask, 12);
+        gl.uniform1i(U.uInkAir, 9);
+        gl.uniform1i(U.uBathRoom, 10);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -277,6 +285,7 @@ function createScene() {
       gl.activeTexture(gl.TEXTURE0);
       for (const s of list) {
         s.transit = s.mode === 6 && s.p !== undefined && transit.prepare(s, dt, info);
+        s.revealInk?.(s.transit, s.p);
         // What a click's cover reads (opens.js): from the card's centre while covering, the click while revealing.
         if ((s.mode === 2 || s.mode === 3) && !s.h) {
           const c = s.card, O = s.mode === 2 ? (c ? [c[0] + c[2] / 2, c[1] + c[3] / 2] : [cssW / 2, cssH / 2]) : (s.point || [cssW / 2, cssH / 2]);
@@ -291,17 +300,20 @@ function createScene() {
         }
       }
       transit.sweep(now);
-      // Photography → Chess's fluid, baked a little every frame, at a pace for what is playing and how near
-      // Chess's seam is (transit.js bake).
+      // The worker's density frames arrive behind the loader in bounded GPU uploads.
       if (inkBoardBox) transit.inkBoard(inkBoardBox, cssW, cssH);
-      const busy = list.some(s => s.mode === 6 && s.p > 0.01 && s.p < 0.99);
-      transit.bake(dt, cssW, cssH, { busy, ahead: inkAt === null ? Infinity : (inkAt - scrollY) / cssH });
+      transit.bake(cssW, cssH);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.useProgram(program);
     }
-    // Chess's board (a state's board: its box and position): brought up to date off screen, a pass at most.
+    // The seam and the playing tile share a target. While pieces are aloft
+    // only the seam has the right set of occupied squares. Updating that
+    // target twice would also discard its accumulated antialiasing each frame.
+    const inkBoard = list.find(s => s.transit && s.mode === 6 && s.b === STYLE_ID.ink && s.board);
     if (board3d) {
-      for (const s of list) if (s.board) s.boardOk = board3d.render(s.board.rect, s.board.pos);
+      for (const s of list) {
+        if (s.board && (!inkBoard || s === inkBoard)) s.boardOk = board3d.render(s.board.rect, s.board.pos);
+      }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.useProgram(program);
     }
@@ -324,8 +336,7 @@ function createScene() {
     // Chess's board is the band's content, as its card was: over every world, a seam's strip too (with motion
     // paused, the seam into Chess straddles the band's top, where the board is), and not cut to the band's
     // world (that strip's half is not the band's region, though the board's box is in the band).
-    const inkOwnsBoard = list.some(s => s.transit && s.mode === 6 && s.b === STYLE_ID.ink);
-    if (boards.length && !inkOwnsBoard) {
+    if (boards.length && !inkBoard) {
       gl.disable(gl.SCISSOR_TEST);
       for (const s of boards) { board3d.blit(s.board.rect, dpr, canvas.height, s.board.alpha ?? 1); restoreMain(); }
       gl.enable(gl.SCISSOR_TEST);
@@ -495,7 +506,7 @@ function createScene() {
     boardDrawn: () => !!board3d?.drawn,
     // Where Chess's board waits during its transition (CSS px [x, y, w, h] on the screen): its fluid is baked for
     // it; and the scroll at which that transition begins (document px), so the bake is in by then.
-    setInkBoard(box, at = null) { inkBoardBox = box; inkAt = at; },
+    setInkBoard(box) { inkBoardBox = box; },
     // Whether that fluid is baked (for the tools).
     inkReady: () => !!transit?.inkReady(),
   };

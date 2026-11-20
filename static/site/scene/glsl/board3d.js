@@ -18,7 +18,7 @@ import { PROF, HEAD, DETAIL, BOARD, TALL } from '../staunton.js';
 const f = x => (Number.isInteger(x) ? `${x}.0` : String(+x.toFixed(6)));
 const v2 = a => `vec2(${f(a[0])}, ${f(a[1])})`;
 
-export const BOARD3D_FS = /* glsl */ `#version 300 es
+export const PIECE_SHAPES = /* glsl */ `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2DArray;
@@ -74,54 +74,136 @@ vec2 sector(vec2 xz, float n) {
   a = mod(a + .5 * s, s) - .5 * s;
   return length(xz) * vec2(cos(a), sin(a));
 }
+// A shallow spiral in the stem reads as a broad fold in the wet ink. Its
+// ends meet the lathed collars with zero displacement and zero slope.
+vec2 stemSection(int type, vec3 q, vec2 ry) {
+  float neck = type < 2 ? .67 : type == 5 ? .448 : .506;
+  if (q.y <= .155 || q.y >= neck || ry.x < .04) return ry;
+  float t = (q.y - .155) / (neck - .155);
+  float twist = .20 - 1.08 * t;
+  vec2 axis = vec2(cos(twist), sin(twist));
+  float u = dot(q.xz, axis) / ry.x;
+  float folds = u * (4.0 * u * u - 3.0);
+  float waist = 4.0 * t * (1.0 - t);
+  ry.x += .014 * waist * waist * folds;
+  return ry;
+}
 float shape(int type, vec3 q) {
   vec2 ry = vec2(length(q.xz), q.y);
-  if (type == 0) {
-    // The king: and his cross.
-    float d = prof(0.0, ry);
-    vec4 a = vec4(${DETAIL.cross[0].map(f).join(', ')}), b = vec4(${DETAIL.cross[1].map(f).join(', ')});
-    float c = min(sdBox(q - vec3(a.x, a.y, 0.0), vec3(a.z, a.w, ${f(DETAIL.crossDepth)}), .008), sdBox(q - vec3(b.x, b.y, 0.0), vec3(b.z, b.w, ${f(DETAIL.crossDepth)}), .008));
-    return smin(d, c, .012);
-  }
-  if (type == 1) {
-    // The queen: her coronet, a ball on each of eight points, and one on top.
-    float d = prof(1.0, ry);
-    vec2 s = sector(q.xz, 8.0);
-    float balls = length(vec3(s.x - ${f(DETAIL.coronet[0])}, q.y - ${f(DETAIL.coronet[1])}, s.y)) - ${f(DETAIL.coronet[2])};
-    float top = length(q - vec3(0.0, ${f(DETAIL.crown[0])}, 0.0)) - ${f(DETAIL.crown[1])};
-    return smin(smin(d, balls, .014), top, .02);
-  }
-  if (type == 2) {
-    // The bishop: his finial, and the slit across his mitre (through its front half).
-    float d = smin(prof(2.0, ry), length(q - vec3(0.0, ${f(DETAIL.finial[0])}, 0.0)) - ${f(DETAIL.finial[1])}, .014);
-    vec2 A = ${v2(DETAIL.slit.slice(0, 2))}, B = ${v2(DETAIL.slit.slice(2, 4))}, t = normalize(B - A), n = vec2(-t.y, t.x);
-    float slit = max(abs(dot(q.xy - A, n)) - .011, -(q.z + .02));
-    slit = max(slit, abs(dot(q.xy - (A + B) * .5, t)) - length(B - A) * .75);
-    return max(d, -slit);
-  }
   if (type == 3) {
-    // The knight: a turned base, and his head cut from the silhouette, drawn out to a thickness that
-    // thins toward the muzzle and the ears, its edges rounded; an eye on either side.
     float base = prof(3.0, ry);
     vec2 uv = vec2(q.x - HX0, q.y - PY0) / HEXT, c = clamp(uv, 0.0, 1.0);
-    float d2 = texture(uHead, c).r + length((uv - c) * HEXT);
-    float th = mix(.112, .078, smoothstep(.3, .95, q.y)) * mix(1.0, .78, smoothstep(.08, .3, q.x)), rr = .03;
-    vec2 w = vec2(d2 + rr, abs(q.z) - th + rr);
-    float head = min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - rr;
-    head = max(head, -(length(vec3(q.x - ${f(DETAIL.eye[0])}, q.y - ${f(DETAIL.eye[1])}, abs(q.z) - th - .004)) - ${f(DETAIL.eye[2] * 1.4)}));
-    return smin(base, head, .025);
+    vec2 section = texture(uHead, c).rg;
+    float d2 = section.x + length((uv - c) * HEXT);
+    // Continuous relief carried by the head texture swells the cheek and
+    // brow, hollows the nostril and sweeps back into the mane. A broader
+    // bevel rolls over their edges; the poll forks into two ear tips.
+    float bevel = min(.071, section.y * .85);
+    vec2 w = vec2(d2, abs(q.z) - section.y) + bevel;
+    float head = min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - bevel;
+    float earCleft = q.y - .946 - 1.9 * abs(q.z) + .30 * (q.x + .036);
+    head = max(head, earCleft);
+    return smin(base, head * .86, .027);
+  }
+  float d = prof(float(type), stemSection(type, q, ry));
+  if (type == 0) {
+    vec4 a = vec4(${DETAIL.cross[0].map(f).join(', ')}), b = vec4(${DETAIL.cross[1].map(f).join(', ')});
+    vec3 stem = q - vec3(a.x, a.y, 0.0), bar = q - vec3(b.x, b.y, 0.0);
+    // The arris on the cross catches a narrow highlight as the king turns.
+    float cross = min(sdBox(stem, vec3(a.z, a.w, ${f(DETAIL.crossDepth)}), .012), sdBox(bar, vec3(b.z, b.w, ${f(DETAIL.crossDepth)}), .011));
+    cross = max(cross, abs(q.z) + .24 * min(abs(stem.x), abs(bar.y)) - .033);
+    return smin(d, cross, .012);
+  }
+  if (type == 1) {
+    // Eight flaring tines rise independently from a dished coronet. Their
+    // tips are small pearls, with clear sky below and between them.
+    vec2 s = sector(q.xz, 8.0);
+    float bowl = ${f(DETAIL.coronet[1])};
+    float hollow = length(vec2(s.x - .201, q.y - bowl - .037)) - .071;
+    d = max(d, -hollow);
+    vec3 p = vec3(s.x - .160, q.y - bowl + .099, s.y);
+    vec3 tine = vec3(.063,.164,0.0);
+    float k = clamp(dot(p,tine)/dot(tine,tine),0.0,1.0);
+    float finger = length(p-k*tine)-mix(.027,.011,k);
+    float pearl = length(p-tine) - .023;
+    float jewel = length(q - vec3(0.0, ${f(DETAIL.crown[0])}, 0.0)) - ${f(DETAIL.crown[1])};
+    return smin(smin(d,smin(finger,pearl,.009),.015),jewel,.020);
+  }
+  if (type == 2) {
+    d = smin(d, length(q - vec3(0.0, ${f(DETAIL.finial[0])}, 0.0)) - ${f(DETAIL.finial[1])}, .014);
+    vec2 A = ${v2(DETAIL.slit.slice(0, 2))}, B = ${v2(DETAIL.slit.slice(2, 4))};
+    vec2 t = normalize(B - A), n = vec2(-t.y, t.x);
+    float along = dot(q.xy - A, t);
+    float wedge = max(abs(dot(q.xy - A, n)) - .021 - .039 * along, -along);
+    // The front lip is beveled around the diagonal cut so the recessed
+    // wall and the outer lip catch opposite values of the same key light.
+    return -smin(-d, max(wedge, -q.z - .047), .011);
   }
   if (type == 4) {
-    // The rook: its crown hollowed, and its crenels.
-    float d = prof(4.0, ry);
     float top = ${f(DETAIL.rook[0])};
-    d = max(d, -max(ry.x - ${f(DETAIL.rook[1])}, top - ${f(DETAIL.rook[2])} - q.y));
+    d = -smin(-d, max(ry.x - ${f(DETAIL.rook[1])}, top - ${f(DETAIL.rook[2])} - q.y), .012);
     vec2 s = sector(q.xz, ${f(DETAIL.rook[3])});
-    d = max(d, -max(abs(s.y) - ${f(DETAIL.rook[4] * 0.5)}, top - ${f(DETAIL.rook[5])} - q.y));
-    return d;
+    float slot = max(abs(s.y) - ${f(DETAIL.rook[4] * .5)}, top - ${f(DETAIL.rook[5])} - q.y);
+    return -smin(-d, slot, .012);
   }
-  return prof(5.0, ry);
+  return d;
 }
+`;
+
+export const PIECE_MATERIAL = /* glsl */ `
+vec3 env(vec3 d) {
+  vec3 sky = mix(vec3(.42, .4, .37), vec3(.95, .92, .87), smoothstep(-.05, .85, d.y));
+  vec3 c = mix(vec3(.05, .046, .042), sky, smoothstep(-.3, .06, d.y));
+  vec2 s = d.xz / max(d.y, .08) - vec2(-.42, .34);
+  c += vec3(3.4, 3.3, 3.1) * smoothstep(.62, .42, max(abs(s.x) * .8, abs(s.y))) * step(0.0, d.y);
+  c += RIM * .7 * smoothstep(.16, 0.0, abs(d.y - .22)) * smoothstep(-.1, -.7, d.z);
+  return c;
+}
+float ggx(float nh, float a) { float a2 = a * a, d = nh * nh * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
+float vis(float nv, float nl, float a) { float k = a * .5; return .25 / ((nv * (1.0 - k) + k) * (nl * (1.0 - k) + k)); }
+vec3 fres(vec3 f0, float c) { return f0 + (1.0 - f0) * pow(1.0 - c, 5.0); }
+// A glossy surface's light from one lamp.
+vec3 lamp(vec3 n, vec3 v, vec3 l, vec3 col, vec3 f0, float a) {
+  vec3 h = normalize(l + v);
+  float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 1e-3);
+  return col * nl * ggx(max(dot(n, h), 0.0), a) * vis(nv, nl, a) * fres(f0, max(dot(h, v), 0.0));
+}
+vec3 finishPiece(bool black, vec3 p, vec3 n, vec3 v, float sun, float ao, float m) {
+  float nv = max(dot(n, v), 0.0), nl = dot(n, LKEY);
+  vec3 r = reflect(-v, n), amb = mix(vec3(.12, .11, .1), vec3(.62, .6, .57), .5 + .5 * n.y);
+  // Obsidian.
+  // Broad coalesced pigment and narrow folded membranes remain visible
+  // beneath the varnish. The noise is sampled in the piece's own frame;
+  // the grain travels with a turning horse or a pawn on its way to e4.
+  vec2 flow = vec2(p.x + .58*p.z, p.y - .32*p.z);
+  float fold = noise(flow*5.7 + vec2(.8,-.5));
+  float stream = 16.0*flow.x - 6.7*flow.y + 8.5*fold + 1.4*sin(8.0*flow.y-.6);
+  float channel = .5+.5*sin(stream);
+  float fibre = smoothstep(.66,.98,channel) * (.42+.58*fold);
+  vec3 F = fres(vec3(.048), nv);
+  vec3 soot = mix(vec3(.019,.018,.021), vec3(.062,.056,.057), .27*fold+.68*fibre);
+  vec3 dark = soot * (amb * ao + KEY * max(nl, 0.0) * sun);
+  float window = smoothstep(-.50,.84, dot(r,normalize(vec3(-.76,.24,.50))));
+  dark += F * (env(r)*.77 + window*vec3(.36,.32,.29)) * mix(.35, 1.0, ao);
+  dark += lamp(n, v, LKEY, KEY, vec3(.043), .21) * sun + lamp(n, v, RIMD, RIM, vec3(.043), .245);
+  dark += vec3(.05, .07, .12) * pow(1.0 - nv, 3.0) * .6;   // (an indigo sheen at its edges)
+  // A piece being taken is wet with ink where it goes into the board, a band that climbs it as it sinks.
+  float ink = m > 0.0 ? smoothstep(.22 + .1 * m, .02, p.y) : 0.0;
+  vec3 wet = vec3(.004, .0042, .005) * (amb * ao + KEY * max(nl, 0.0) * sun) + F * env(r) * mix(.35, 1.0, ao) + lamp(n, v, LKEY, KEY, vec3(.04), .06) * sun * 1.4;
+  if (black) return mix(dark, wet, ink * .6);
+  // Pearl-ivory.
+  vec3 alb = mix(vec3(.56,.455,.335), vec3(.83,.735,.581), .23+.48*fold+.28*fibre);
+  float wrap = max((nl + .26) / 1.26, 0.0);
+  vec3 c = alb * (amb * ao * .5 + KEY * wrap * mix(.2, 1.0, sun));
+  // (Light carried into the surface comes out warmer where it is thin: the silhouette's edge.)
+  c += alb * vec3(1.0, .82, .6) * KEY * .12 * pow(1.0 - nv, 2.0) * max(-nl + .3, 0.0);
+  vec3 Fi = fres(vec3(.04), nv);
+  c += Fi * env(r) * .45 * ao + lamp(n, v, LKEY, KEY, vec3(.04), .32) * sun + lamp(n, v, RIMD, RIM, vec3(.04), .3);
+  return mix(c, wet, ink);
+}
+`;
+
+export const BOARD3D_FS = PIECE_SHAPES + /* glsl */ `
 // A piece in place: its own frame (lifted, turned), and melted: sinking and spreading into a pool of ink,
 // then the pool soaking away.
 float piece(int s, vec3 p) {
@@ -143,7 +225,10 @@ float piece(int s, vec3 p) {
   return smin(d, men, .03);
 }
 // The piece standing on square c (file, row), or −1.
-int standing(ivec2 c) { return (c.x < 0 || c.y < 0 || c.x > 7 || c.y > 7) ? -1 : uOcc[c.x + 8 * c.y]; }
+int standing(ivec2 c) {
+  if(c.x<0 || c.y<0 || c.x>7 || c.y>7) return -1;
+  return uOcc[c.x+8*c.y];
+}
 
 // ---- walking the board ------------------------------------------------------------------------------
 // The ray's span inside the slab of space the pieces stand in.
@@ -261,49 +346,14 @@ float occlusion(vec3 p, vec3 n) {
 
 // ---- light ------------------------------------------------------------------------------------------
 // The room: a warm paper-toned sky, a broad softbox above to the left, a dark floor, a cool strip behind.
-vec3 env(vec3 d) {
-  vec3 sky = mix(vec3(.42, .4, .37), vec3(.95, .92, .87), smoothstep(-.05, .85, d.y));
-  vec3 c = mix(vec3(.05, .046, .042), sky, smoothstep(-.3, .06, d.y));
-  vec2 s = d.xz / max(d.y, .08) - vec2(-.42, .34);
-  c += vec3(3.4, 3.3, 3.1) * smoothstep(.62, .42, max(abs(s.x) * .8, abs(s.y))) * step(0.0, d.y);
-  c += RIM * .7 * smoothstep(.16, 0.0, abs(d.y - .22)) * smoothstep(-.1, -.7, d.z);
-  return c;
-}
-float ggx(float nh, float a) { float a2 = a * a, d = nh * nh * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
-float vis(float nv, float nl, float a) { float k = a * .5; return .25 / ((nv * (1.0 - k) + k) * (nl * (1.0 - k) + k)); }
-vec3 fres(vec3 f0, float c) { return f0 + (1.0 - f0) * pow(1.0 - c, 5.0); }
-// A glossy surface's light from one lamp.
-vec3 lamp(vec3 n, vec3 v, vec3 l, vec3 col, vec3 f0, float a) {
-  vec3 h = normalize(l + v);
-  float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 1e-3);
-  return col * nl * ggx(max(dot(n, h), 0.0), a) * vis(nv, nl, a) * fres(f0, max(dot(h, v), 0.0));
-}
-// A piece's colour at p: obsidian or pearl-ivory.
+${PIECE_MATERIAL}
 vec3 pieceColour(int s, vec3 p, vec3 rd, bool cheap) {
-  vec3 n = normalOf(s, p), v = -rd;
-  bool black = uP[s].z >= 8.0;
-  float sun = cheap ? 1.0 : sunlit(p + n * (.012 - 1.5 * min(piece(s, p), 0.0))), ao = cheap ? 1.0 : occlusion(p, n);
-  float nv = max(dot(n, v), 0.0), nl = dot(n, LKEY);
-  vec3 r = reflect(rd, n), amb = mix(vec3(.12, .11, .1), vec3(.62, .6, .57), .5 + .5 * n.y);
-  // Obsidian.
-  vec3 F = fres(vec3(.045), nv);
-  vec3 dark = vec3(.009, .0095, .012) * (amb * ao + KEY * max(nl, 0.0) * sun);
-  dark += F * env(r) * .85 * mix(.35, 1.0, ao);
-  dark += lamp(n, v, LKEY, KEY, vec3(.045), .14) * sun + lamp(n, v, RIMD, RIM, vec3(.045), .2);
-  dark += vec3(.05, .07, .12) * pow(1.0 - nv, 3.0) * .6;   // (an indigo sheen at its edges)
-  // A piece being taken is wet with ink where it goes into the board, a band that climbs it as it sinks.
-  float m = uQ[s].x, ink = m > 0.0 ? smoothstep(.22 + .1 * m, .02, p.y) : 0.0;
-  vec3 wet = vec3(.004, .0042, .005) * (amb * ao + KEY * max(nl, 0.0) * sun) + F * env(r) * mix(.35, 1.0, ao) + lamp(n, v, LKEY, KEY, vec3(.04), .06) * sun * 1.4;
-  if (black) return mix(dark, wet, ink * .6);
-  // Pearl-ivory.
-  vec3 alb = vec3(.74, .655, .5);
-  float wrap = max((nl + .26) / 1.26, 0.0);
-  vec3 c = alb * (amb * ao * .5 + KEY * wrap * mix(.2, 1.0, sun));
-  // (Light carried into the surface comes out warmer where it is thin: the silhouette's edge.)
-  c += alb * vec3(1.0, .82, .6) * KEY * .12 * pow(1.0 - nv, 2.0) * max(-nl + .3, 0.0);
-  vec3 Fi = fres(vec3(.04), nv);
-  c += Fi * env(r) * .45 * ao + lamp(n, v, LKEY, KEY, vec3(.04), .32) * sun + lamp(n, v, RIMD, RIM, vec3(.04), .3);
-  return mix(c, wet, ink);
+  vec3 n = normalOf(s, p);
+  float sun = cheap ? 1.0 : sunlit(p + n * (.012 - 1.5 * min(piece(s, p), 0.0)));
+  vec4 a = uP[s], b = uQ[s];
+  vec3 local = p - vec3(a.x, a.w, a.y);
+  local.xz = mat2(cos(b.y),sin(b.y),-sin(b.y),cos(b.y)) * local.xz;
+  return finishPiece(a.z >= 8.0, local, n, -rd, sun, cheap ? 1.0 : occlusion(p,n), b.x);
 }
 // The board's face at p (on y = 0): its squares, the frame and inlay, the last move's indigo wash, a drop
 // of ink where the move landed, the pools pieces melted into.

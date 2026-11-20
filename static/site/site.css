@@ -46,6 +46,9 @@ html.site-loading { overflow: hidden; }
   color: var(--l-ink, var(--c-fg));
   transition: background-color var(--d-short) linear, box-shadow var(--d-short) linear;
 }
+.site-header[data-wet-filter] {
+  text-shadow: 0 1px 2px rgb(20 12 14 / .95), 0 0 5px rgb(20 12 14 / .65);
+}
 html[data-scrolled] body:not([data-page="home"]) .site-header {
   background: color-mix(in oklab, var(--c-bg) 82%, transparent);
   -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
@@ -220,6 +223,12 @@ html.gl .band-art { opacity: 0; }
 .seam-wrap > .band--chess { align-items: start; top: calc(-1 * var(--held-shift, 0px)); }
 .seam-wrap > .band--chess .band-body { opacity: 1; filter: none; }
 .seam-wrap > .band--chess :is(.pv-cap, .ch-band-ratings) { opacity: clamp(0, calc(var(--surface, 1) * 1.7 - .1), 1); }
+.gl .band--chess.is-surfacing.is-draining {
+  clip-path: inset(0 0 max(0px, calc(100% - var(--dry-edge))) 0);
+}
+.gl .band--chess.is-surfacing.is-draining :is(.band-head > *, .pv-cap, .ch-band-ratings, .band-info) {
+  opacity: 1; filter: none;
+}
 .seam-wrap > .band--chess .pv-board-wrap { opacity: clamp(0.002, calc(var(--surface, 1) * 5 - 4), 1); will-change: opacity; }
 /* (The card is painted, unseen, while its band waits: its washes' filter is slow to draw, and is not
    left for the moment it appears.) */

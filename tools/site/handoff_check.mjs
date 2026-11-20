@@ -23,18 +23,18 @@ try {
   const page = await browser.newPage(size);
   await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
   await page.waitFor(() => /\bgl\b/.test(document.documentElement.className), { timeout: 20000 });
+  await page.waitFor(() => !document.documentElement.classList.contains('site-loading'), { timeout: 125000 });
   await page.waitFor(async () => (await import('/static/site/scene/scene.js')).getScene()?.inkReady?.(), { timeout: 60000 });
   await page.eval(async () => {
     const L = await import('/static/site/lerp.js');
     window.__seek = P => {
       const el = document.querySelector('.seam-hold[data-to="ink"]'), wrap = el.parentElement.classList.contains('seam-wrap') ? el.parentElement : null;
       const band = wrap?.querySelector('.band'), shift = band ? parseFloat(band.style.getPropertyValue('--held-shift')) || 0 : 0, vh = innerHeight;
-      const hold = L.holdFor('ink', matchMedia('(pointer: coarse)').matches || innerWidth < 700 ? L.HOLD.pinTouch : L.HOLD.pin), ease = L.easeFor('ink');
+      const pin=matchMedia('(pointer: coarse)').matches || innerWidth<700 ? L.HOLD.pinTouch : L.HOLD.pin;
+      const hold=L.holdFor('ink',pin);
       const T = (wrap || el).getBoundingClientRect().top + scrollY, R = wrap ? el.offsetHeight + shift : Math.max(1, el.offsetHeight - vh);
       const a = hold.leadIn * vh, b = hold.leadOut * vh;
-      let lo = 0, hi = 1;
-      for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; if (L.transitP(ease(m)) < P) lo = m; else hi = m; }
-      scrollTo({ top: T - a + lo * (R + a + b), behavior: 'instant' });
+      scrollTo({ top: T - a + L.inkRaw(P,pin) * (R + a + b), behavior: 'instant' });
     };
   });
   const rects = {};
