@@ -31,7 +31,6 @@ export function birthSites(aspect){
     const birth=i===0?.802:i===1?.840:type==='Q'&&piece.black?.859:stagger;
     const duration=i===0?.150:.072+.028*random(),depart=birth+duration+.009+.012*random();
     const formPeak=i===0?.768:birth-.027-.010*Math.cos(drop.seed);
-    // (The hero knight gathers out of the mist as the left gyre lets go: ink-swirl.js.)
     const formStart=i===0?.722:formPeak-.073-.017*Math.sin(1.7*drop.seed);
     // Every piece is down before the water sinks (ink-tank.js DRAIN): the last flights are eased shorter,
     // never under LANDED.flight, all down by LANDED.by, while the waterline is still falling.

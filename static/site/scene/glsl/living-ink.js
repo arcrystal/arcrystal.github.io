@@ -1,7 +1,6 @@
 import { PIECE_SHAPES, PIECE_MATERIAL } from './board3d.js';
 import { LATE } from '../ink-tank.js';
 
-
 // Each draw is scissored to one posed piece. Its optical depth travels with
 // the shaded hit, so the participating medium can be integrated on either side.
 export const INK_PIECE = PIECE_SHAPES + PIECE_MATERIAL + /* glsl */ `
@@ -174,7 +173,8 @@ void main(){
   vec2 rolling=flicker*vec2(.028*sin(.76*uFlowPhase+uv.y*4.),.023*cos(.59*uFlowPhase+uv.x*5.));
   for(int i=0;i<36;i++){
     float z=(float(i)+.5+.10*stagger)/36.;
-    vec3 p=vec3(uv-mix(currentFar,currentNear,z),z);
+    vec2 drift=mix(currentFar,currentNear,z);
+    vec3 p=vec3(uv-drift,z);
 
     vec2 coarse=density(p);
     if(max(coarse.x,coarse.y)<.003)continue;
@@ -189,6 +189,9 @@ void main(){
     vec4 fine=texture(uNoise,material*8.4+1.8*v+.94*f+.75*g);
     vec3 curl=texture(uNoise,material*12.+2.4*v+1.5*f+1.2*g).rgb;
     float grain=fine.g+.24*(curl.r-.5);
+    // Ridged turbulence (the valleys of |2n − 1|): thin wisps and threads instead of grey haze; the far
+    // water softer than the near (aerial depth).
+    float ridge=pow(1.-abs(2.*fine.g-1.),4.)*mix(.55,1.,z);
     float cavity=texture(uNoise,material*2.65+1.1*v+.48*f).a;
     float lip=exp(-17.*abs(cavity+.21*fine.a-.61));
     float foldPhase=fold.r+.37*grain+.15*f.y;
@@ -199,15 +202,22 @@ void main(){
     float pleat=fold.r+.33*fine.b+.17*g.r+.09*sin(17.*f.g+7.*v.b);
     float membrane=exp(-25.*abs(pleat-.70));
     sheets*=.52+.87*smoothstep(.48,.80,pleat)+1.15*membrane;
+    sheets*=.78+.62*ridge;
     float black=dye.x*sheets*(.15+1.4*carved), white=dye.y*sheets*(.25+1.3*carved),total=black+white;
     vec2 light=density(p+vec3(-.026,.036,.092)+warp*.6);
     float transmission=exp(-2.65*(light.x+.56*light.y));
     float edge=clamp((coarse.x+coarse.y-light.x-light.y)*2.8,0.,1.);
     float incidence=clamp(.46+1.7*(fold.r-fine.g)+.62*(curl.b-curl.g),.08,1.);
-    vec3 soot=mix(vec3(.011,.012,.019),vec3(.16,.15,.17),transmission*.39+edge*.66);
+    vec3 soot=mix(vec3(.010,.010,.012),vec3(.158,.152,.148),transmission*.39+edge*.66);
     vec3 steam=mix(vec3(.17,.19,.22),vec3(.85,.84,.79),transmission);
-    vec3 emission=mix(soot,steam,white/max(.0001,total))
-              +vec3(.12,.052,.035)*edge*(1.-z*.65)+vec3(.14,.14,.16)*lip*transmission+.10*membrane*edge;
+    float ivoryShare=white/max(.0001,total);
+    // (The warm rim belongs to the lit steam: on thin soot it reads as a mauve cast.) Thin edges facing
+    // the bath's backlight catch it, forward-scattered: a silver lining.
+    vec2 toLamp=(p.xy-vec2(.68,.72))*vec2(.95,.86);
+    float backlight=exp(-1.45*dot(toLamp,toLamp));
+    vec3 emission=mix(soot,steam,ivoryShare)
+              +vec3(.12,.052,.035)*edge*(1.-z*.65)*ivoryShare+vec3(.14,.14,.15)*lip*transmission+.10*membrane*edge
+              +vec3(.21,.2,.19)*backlight*edge*(1.-.6*(1.-transmission))*mix(.45,1.,ivoryShare);
     emission*=.72+.34*incidence;
     float envelope=smoothstep(.003,.10,max(coarse.x,coarse.y));
     float a=1.-exp(-total*.55*envelope);
@@ -272,10 +282,24 @@ void main(){
 }`;
 export const INK_SHEET_FRAGMENT=/* glsl */`#version 300 es
 precision highp float;
+// A folded sheet seen face on (as glsl/fire.js fiFold): the light through it at X is the sum, over every
+// layer of the sheet folded over X, of 1/|1 + A k cos(k x + φ)|: bright crease lines where a fold turns
+// edge-on, fainter between. (Five samples: enough for the few folds here.)
+float inkFold(float X,float A,float k,float ph){
+  float x0=X-A,dx=2.*A/5.,gp=x0+A*sin(k*x0+ph)-X,sum=0.;
+  for(int i=1;i<=5;i++){
+    float x=x0+dx*float(i),g=x+A*sin(k*x+ph)-X;
+    if((g<0.)!=(gp<0.)){float xr=x-dx*g/(g-gp);sum+=1./max(abs(1.+A*k*cos(k*xr+ph)),.08);}
+    gp=g;
+  }
+  return sum;
+}
 ${LATE_GLSL}
 uniform sampler2D uFigures,uFigureDepth,uMist,uPigment,uKnightPigment,uFigurePigment;
 uniform bool uDepthOnly;
 uniform vec2 uSize;uniform float uProgress,uBreath,uFlowPhase;
+uniform float uRollUp; // how far the plume heads' caps have rolled up (ink-swirl.js rollUp): 0 … 1, never back
+uniform vec4 uBreathe; // the caps' breath (ink-swirl.js breath): its depth, then the phases of l = 0, 2, 3
 in vec3 position;in vec2 cloth;in float amount;in vec3 surfaceNormal;
 flat in float ivory,seed,section,sourceId;
 flat in vec4 figure;
@@ -314,10 +338,26 @@ void main(){
    float rightRoll=-free*rim*(.60+.41*cos(turn*.86+seed))*exp(-dot(r,r)*19.);
    leftRoll*=smoothstep(0.,.11,envelope);
    rightRoll*=smoothstep(0.,.11,envelope);
+   // The cap rolls up: each of its two cores winds the study's filaments round itself, a turn and more by
+   // the end of the event, the core faster than its rim (a Lamb–Oseen core, falling as 1/r² outside it),
+   // so the filaments are drawn into spiral curls; it never turns back.
+   float wind=6.2831853*uRollUp*(.85+.5*fract(seed*.37))*rim*smoothstep(0.,.11,envelope);
+   float lr=dot(l,l),rr=dot(r,r);
+   leftRoll+=wind*(lr<1e-8?1.:(1.-exp(-lr/.0072))*.0072/lr);
+   rightRoll-=wind*(rr<1e-8?1.:(1.-exp(-rr/.0056))*.0056/rr);
    float cs=cos(leftRoll),sn=sin(leftRoll);
    dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*l;
    cs=cos(rightRoll);sn=sin(rightRoll);
    dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*r;
+   // The cap breathes (ink-swirl.js): it swells and settles (l = 0) and wobbles in a free drop's l = 2 and
+   // l = 3 modes, their axes slowly turning; the two inks out of step, so black draws in as ivory lets go.
+   // Swollen, the same pigment covers more: it thins by the swell's area.
+   vec2 bc=dyeUV-vec2(.5,.7);
+   float ba=atan(bc.y,bc.x),bp=seed*1.3+3.14159*ivory;
+   float swell=uBreathe.x*(.075*sin(uBreathe.y+bp)+.04*cos(2.*(ba-.4*uBreathe.y-seed))*sin(uBreathe.z+bp)
+     +.03*cos(3.*(ba+.3*uBreathe.y+seed))*sin(uBreathe.w+bp))*smoothstep(.3,.75,v);
+   dyeUV=vec2(.5,.7)+bc/(1.+swell);
+   float thinned=1./((1.+swell)*(1.+swell));
    bool mirrored=mod(sourceId,3.)>1.5;
    float variant=mod(floor(sourceId*.5)+mod(sourceId,2.)+floor(sourceId*.2),4.);
    if(sourceId==10.)variant=2.;
@@ -382,7 +422,7 @@ void main(){
    float foreground=sourceId<1.5||sourceId==10.||sourceId==23.||lateStudy>=0.?1.:0.;
    // Fewer dense axes keep the water between the four foreground plumes clear.
    share=mix(share,mix(share*.53,max(.98,share)*1.18,foreground),free);
-   float thick=amount*border*filling*optical*share*column*mix(1.,.57,suspending);
+   float thick=amount*border*filling*optical*share*column*mix(1.,.57,suspending)*thinned;
    float lift=free*smoothstep(.36,.88,v)*smoothstep(-.35,.88,cos((uProgress-.622)*69.+sourceId*.86+(v-.78)*5.4));
    // Solvent opens channels through the head, leaving its wet filaments
    // connected. The lofted portion is shaded in the companion mist volume.
@@ -426,8 +466,12 @@ void main(){
  a+=.35*sin(7.*v+whirl)+.24*sin(2.*a+5.*v+seed);
  v+=.033*sin(4.*a+seed+v*13.);
  float meander=sin(2.*a+v*9.+seed)+.57*sin(3.*a-v*16.+seed)+.31*cos(6.*a+v*23.);
- float fiber=cos(16.*a+5.9*meander+v*27.+seed);
- float vein=pow(.5+.5*cos(28.*a+6.5*meander+v*41.+2.3*fiber),10.);
+ // The skin's folds: crease lines where the sheet turns edge-on, travelling as the event runs, in place of
+ // a combed fibre (which read as hair).
+ float folds=inkFold(a*.32+.06*meander,.105,15.,7.*v+1.3*meander+seed+9.*uRollUp);
+ float crease=smoothstep(1.35,3.2,folds);
+ float fiber=2.*crease-1.;
+ float vein=.35*crease*crease;
  float lace=.53+.47*sin(4.*a-v*22.+2.*meander+.60*sin(9.*a+v*16.));
  float micro=.50+.50*cos(25.*a+v*55.+6.*meander+2.*fiber);
  float pleat=.5+.5*normal.y,graze=pow(1.-abs(normal.z),1.25);
