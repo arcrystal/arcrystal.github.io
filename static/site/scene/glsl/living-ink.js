@@ -319,6 +319,7 @@ uniform sampler2D uFigures,uFigureDepth,uMist,uPigment,uKnightPigment,uFigurePig
 uniform bool uDepthOnly;
 uniform vec2 uSize;uniform float uProgress,uBreath,uFlowPhase;
 uniform float uRollUp; // how far the plume heads' caps have rolled up (ink-swirl.js rollUp): 0 … 1, never back
+uniform float uClockP; // the event's clock (living-forms.js clockP): the waves turn with it, not with P
 uniform vec4 uBreathe; // the caps' breath (ink-swirl.js breath): its depth, then the phases of l = 0, 2, 3
 in vec3 position;in vec2 cloth;in float amount;in vec3 surfaceNormal;
 flat in float ivory,seed,section,sourceId;
@@ -334,7 +335,7 @@ void main(){
  }
  if(section<3.5){
    float layer=(section-1.5)/1.75,v=cloth.y;
-   float phase=seed+uProgress*5.4+.22*uBreath;
+   float phase=seed+uClockP*5.4+.22*uBreath;
    vec2 dyeUV=cloth;
    float envelope=sin(3.14159*v)*sin(3.14159*cloth.x);
    dyeUV.x+=envelope*(.038*sin(v*10.+phase)+.027*sin(v*19.+cloth.x*8.-phase)*layer);
@@ -347,7 +348,7 @@ void main(){
    // A late head is its study: the rolls only stir it, so it stays the picture it was drawn as.
    float lateStudy=LATE[int(sourceId)],isLate=lateStudy>=0.?smoothstep(.50,.53,uProgress)*(1.-smoothstep(.635,.70,uProgress)):0.;
    free*=1.-.6*isLate;
-   float turn=(uProgress-.505)*34.+seed*.35+.57*uFlowPhase;
+   float turn=(uClockP-.505)*34.+seed*.35+.57*uFlowPhase;
    float left=.33+.077*sin(turn*.64);
    vec2 leftCore=vec2(left,.68+.094*cos(turn*.83+seed));
    vec2 rightCore=vec2(.68-.062*cos(turn*.70),.57+.13*sin(turn*.69+seed));
@@ -445,13 +446,13 @@ void main(){
    // One in-focus section carries the little membranes around the eye. The
    // other three supply softer extinction through the cheek and wet mane.
    column=mix(column,section>1.5&&section<2.5?1.34:.074,formed);
-   float packet=.5+.5*cos(30.*(uProgress-.50)-7.8*v+seed+.53*uFlowPhase);
+   float packet=.5+.5*cos(30.*(uClockP-.50)-7.8*v+seed+.53*uFlowPhase);
    float suspending=free*packet*smoothstep(.16,.52,v);
    float foreground=sourceId<1.5||sourceId==10.||sourceId==23.||lateStudy>=0.?1.:0.;
    // Fewer dense axes keep the water between the four foreground plumes clear.
    share=mix(share,mix(share*.53,max(.98,share)*1.18,foreground),free);
    float thick=amount*border*filling*optical*share*column*mix(1.,.57,suspending)*thinned;
-   float lift=free*smoothstep(.36,.88,v)*smoothstep(-.35,.88,cos((uProgress-.622)*69.+sourceId*.86+(v-.78)*5.4));
+   float lift=free*smoothstep(.36,.88,v)*smoothstep(-.35,.88,cos((uClockP-.622)*69.+sourceId*.86+(v-.78)*5.4));
    // Solvent opens channels through the head, leaving its wet filaments
    // connected. The lofted portion is shaded in the companion mist volume.
    float channel=.5+.5*sin(12.*dyeUV.x+7.*dyeUV.y+2.2*sin(8.*dyeUV.y-.47*turn)+.30*layer);
@@ -487,7 +488,7 @@ void main(){
  vec2 m=vec2(cloth.x*6.2831853,cloth.y);
  float a=m.x,v=m.y,lip=smoothstep(.55,.83,v);
  float free=smoothstep(.43,.555,uProgress)*(1.-smoothstep(.682,.778,uProgress));
- float twist=(uProgress-.51)*32.+seed+.51*uFlowPhase;
+ float twist=(uClockP-.51)*32.+seed+.51*uFlowPhase;
  a+=free*(.71*sin(twist-6.*v)+.32*sin(11.*v-.61*twist));
  v+=free*.032*sin(3.*a+twist-8.*v);
  float whirl=sin(3.*a+seed+9.*v+1.3*sin(a-10.*v));

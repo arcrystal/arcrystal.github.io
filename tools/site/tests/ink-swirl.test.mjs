@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RAYLEIGH, SPIN, rollUp, breath, BREATH, swell, ORBIT, orbitAt, spinAt, DISCHARGES, dischargePath, dischargeAt } from '../../../static/site/scene/ink-swirl.js';
-import { inkRaw, holdFor, HOLD } from '../../../static/site/lerp.js';
+import { EVENT_CLOCK } from '../../../static/site/scene/living-forms.js';
 
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);
 
@@ -42,19 +42,15 @@ test('a breathing cap keeps its pigment: what it gains in area it loses in thick
   assert.ok(Math.sign(swell(b, 0, 0, 0) - 0) !== Math.sign(swell(b, 0, 0, 1)) || Math.abs(swell(b, 0, 0, 0)) < 1e-3);
 });
 
-test('nothing pulses: every repeating motion takes several screens of scroll; the rest only goes forward', () => {
-  const h = holdFor('ink', HOLD.pin), T = h.pin * HOLD.pin + h.leadIn, screens = P => inkRaw(P, HOLD.pin) * T;
-  // The slowest scroll through the event is where a screen covers least P; even there a breath takes three.
-  let least = Infinity;
-  for (let P = .56; P < .76; P += .005) least = Math.min(least, .01 / (screens(P + .005) - screens(P - .005)));
-  assert.ok(BREATH.period / least >= 3, `a breath per ${(BREATH.period / least).toFixed(1)} screens`);
+test('nothing pulses: the waves run once in three screens or slower; the rest only goes forward', () => {
+  // (Through the event every wave keeps the event's clock: living-forms.test.mjs holds each to that.)
+  assert.ok(BREATH.period * EVENT_CLOCK.screens / RAYLEIGH[1] >= 3, 'the fastest breath mode once in three screens or more');
   let prevSpin = -1, prevOrbit = -1;
   for (let P = .5; P < .85; P += .001) {
     const s = spinAt(P), o = orbitAt(P);
     assert.ok(s >= prevSpin && o >= prevOrbit - 1e-12, 'only forward');
     prevSpin = s; prevOrbit = o;
   }
-  // The pairs circle most of a half turn, done before the figures gather.
   assert.equal(orbitAt(ORBIT.window[0]), 0);
   near(orbitAt(ORBIT.window[1]), ORBIT.angle, 1e-12);
   assert.ok(ORBIT.window[1] <= .745 && ORBIT.angle < Math.PI);

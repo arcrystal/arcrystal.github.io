@@ -72,7 +72,7 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 12.8 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 14.9 } },
 };
 // Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
 // each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
@@ -160,17 +160,29 @@ export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.in
 // which falls as the water rose and then sinks through the board. A drop reaches the
 // water at the same scroll position as before. Every join has zero added slope and curvature.
 // Pins of scroll added to Chess's hold, each over its own window of P.
-export const INK_ADDED = Object.freeze({ free: 2.6, figures: 1.15, drain: 1.55 });
-// The free window: the plumes going under and the mist's main event (scene/ink-swirl.js).
+export const INK_ADDED = Object.freeze({ free: 2.6, event: 2.1, figures: 1.15, drain: 1.55 });
+// The free window: the plumes going under and the mist's main event (scene/living-forms.js).
 export const INK_FREE = Object.freeze([.53, .745]);
+// The living ink's own scroll: an even plateau over the event (rising over [.565, .60], steady, falling over
+// [.765, .80]), so the forms living and dissolving and the figures gathering all gain, not just the middle.
+export const INK_EVENT = Object.freeze([.565, .60, .765, .80]);
 function accumulatedDistance(P, start, end) {
   const t=clamp01((P-start)/(end-start));
   return t*t*t*(10+t*(-15+6*t));
 }
+// ∫ of a smootherstep ramp from a to P (its rate 0 → 1 over [a, b], then 1).
+function rampDistance(P,a,b){
+  if(P<=a)return 0;
+  const t=Math.min(1,(P-a)/(b-a)),I=t*t*t*t*(2.5+t*(-3+t));
+  return P<b?(b-a)*I:(b-a)/2+(P-b);
+}
+function plateauDistance(P,[a,b,c,d]){
+  return (rampDistance(P,a,b)-rampDistance(P,c,d))/((b-a)/2+(c-b)+(d-c)/2);
+}
 // The pins added by P.
 export function inkAdded(P) {
-  return INK_ADDED.free*accumulatedDistance(P,...INK_FREE)+INK_ADDED.figures*accumulatedDistance(P,.745,1.01)
-    +INK_ADDED.drain*accumulatedDistance(P,1.04,1.196);
+  return INK_ADDED.free*accumulatedDistance(P,...INK_FREE)+INK_ADDED.event*plateauDistance(P,INK_EVENT)
+    +INK_ADDED.figures*accumulatedDistance(P,.745,1.01)+INK_ADDED.drain*accumulatedDistance(P,1.04,1.196);
 }
 export function inkRaw(P,pin=HOLD.pin) {
   const original=7.5*pin+HOLD.leadIn;

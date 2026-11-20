@@ -8,6 +8,8 @@ import { CLEAR, waterPlane, emergence, boxCamera, toScreen } from './ink-drain.j
 import { DRAIN, tankCamera } from './ink-tank.js';
 import { startSlots } from './staunton.js';
 import { rollUp, breath as capBreath, spinAt, orbitAt } from './ink-swirl.js';
+import { clockP } from './living-forms.js';
+import { HOLD } from '../lerp.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -305,7 +307,7 @@ export function createLivingInk(gl,coarse,programs){
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
     const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
     const breath=Math.sin(time*.43);
-    const flowPhase=time*.69,spin=spinAt(P,time);
+    const flowPhase=time*.69,spin=spinAt(P,time),Pc=clockP(P,coarse||w<700?HOLD.pinTouch:HOLD.pin);
     const sheetsLive=P>.127 && P<END;
     function drawSheets(depthOnly){
       const sheet=programs.inkSheet;gl.useProgram(sheet.p);
@@ -315,7 +317,7 @@ export function createLivingInk(gl,coarse,programs){
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
       gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
-      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time));
+      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time,Pc));gl.uniform1f(sheet.U.uClockP,Pc);
       if(sheetLayout!==meta){
         gl.uniform4fv(sheet.U.uVaporFigure,meta.vaporFigures);
         gl.uniform1iv(sheet.U.uOrder,meta.order);
