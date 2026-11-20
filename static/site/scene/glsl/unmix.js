@@ -15,6 +15,7 @@ uniform sampler2D uB3Mask;   // its ink over the screen: pigment (R, G), which p
 uniform vec4 uB3Box;         // the board's box on the screen (CSS px)
 uniform float uB3On;
 uniform sampler2D uMotes;    // the living ink's motes: black (R) and ivory (G) optical depth, added (living-forms.js, unit 14)
+uniform sampler2D uBodies;   // the live ink's glossy bodies, premultiplied (live-ink.js, unit 15)
 const vec2 UM_HARDEN = ${v2(UNMIX.harden)}, UM_SQUARES = ${v2(UNMIX.squares)}, UM_CLEAR = ${v2(UNMIX.clear)};
 const float UM_SPAN = ${f(UNMIX.span)}, UM_MARGIN = ${f(MARGIN)};
 const float UM_ORDER[32] = float[32](${SLOTS.map(s => f(s.order)).join(', ')});
@@ -302,6 +303,8 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
   vec4 rear=texture(uFlow,uv)*pigmentThrough, front=texture(uGas,uv)*pigmentThrough;
   vec4 piece=texture(uTexA,uv), lines=texture(uTexB,uv)*pigmentThrough;
   col=rear.rgb+col*(1.-rear.a);
+  // The live ink's bodies (their own colour, not the pieces' greyed one), behind whatever piece stands here.
+  if(P>.55 && P<.81){vec4 body=texture(uBodies,uv)*pigmentThrough;col=body.rgb+col*(1.-body.a);}
   col=mix(piece.rgb,vec3(dot(piece.rgb,vec3(.2126,.7152,.0722))),.85)+col*(1.-piece.a);
   // The living ink's motes, in front of what they orbit and behind the veils.
   if(P>.5 && P<.84){

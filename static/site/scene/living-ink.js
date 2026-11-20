@@ -39,7 +39,7 @@ export function createLivingInk(gl,coarse,programs){
   let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,tracks=null,queue=[],uploaded=0,failed=false;
   let pigment=null,knightPigment=null,figurePigment=null,bathRoom=null,plates=null,sheetDepth=null,interiorCount=0,sheetCount=0;
   let registration=null,volume=null,mesh=null,grid=null,indices=null,ripples=null,noise=null,noiseData=null,cam=null,camAspect=0;
-  let layers=null,figures=null,threads=null,air=null,motes=null,warmFence=null,warmed=false,sheetLayout=null;
+  let layers=null,figures=null,threads=null,air=null,motes=null,bodies=null,warmFence=null,warmed=false,sheetLayout=null;
   // Instance zero draws the wet lip. Each other record describes one physical
   // drop for both the airborne silhouette and its water-surface impulse.
   const dripGeometry=gl.createVertexArray(),dripEvents=gl.createBuffer(),dripCorners=gl.createBuffer();
@@ -290,9 +290,23 @@ export function createLivingInk(gl,coarse,programs){
     figures=resize(figures,W,H,1,'sample');threads=resize(threads,WT,HT,1);
     const low=Math.min(.83,Math.sqrt((coarse?178000:355000)/(w*h)));
     layers=resize(layers,Math.max(1,Math.round(w*low)),Math.max(1,Math.round(h*low)),2);
+    const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
+    // The pairs' turn between this P's two keys (living-ink-plan.js orbitCentres), so the mist's keys meet.
+    orbitData.fill(0);orbitTurn.fill(0);
+    const k0=Math.floor(key),k1=Math.min(KEYS-1,k0+1),P0=k0*END/(KEYS-1),P1=k1*END/(KEYS-1);
+    if(orbitAt(P1)>orbitAt(P0))orbitCentres(P,plannedAspect||w/h).forEach((o,i)=>{
+      orbitData.set([o.centre[0],o.centre[1],Math.max(.02,o.half),1],4*i);
+      orbitTurn.set([o.sense*(orbitAt(P)-orbitAt(P0)),o.sense*(orbitAt(P1)-orbitAt(P))],2*i);
+    });
+    // The live ink steps here, on the clock (live-ink.js), before the bodies, pieces and mist it moves.
+    liveInk.frame({P,dt:frame.dt??0,vel:s.vel??0,w,h,mobile:coarse||w<700,tracks,forms:meta.forms,aspect:w/h,
+      keyOf:p=>Math.max(0,Math.min(KEYS-1,p/END*(KEYS-1))),orbit:orbitData,orbitTurn});
     gl.disable(gl.BLEND);gl.disable(gl.SCISSOR_TEST);target(figures);
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    // The live ink's glossy bodies stand in the water as the pieces do: their depth first, so the pieces, the
+    // veils and the mist part round them; their colour into their own target (composited undimmed).
+    gl.colorMask(false,false,false,false);liveInk.drawBodies(W,H,true);gl.colorMask(true,true,true,true);
     const piece=programs.inkFigure;
     gl.useProgram(piece.p);board.bindPieceProfiles(piece.U);gl.enable(gl.SCISSOR_TEST);
     gl.uniform1f(piece.U.uStudies,1);
@@ -311,7 +325,8 @@ export function createLivingInk(gl,coarse,programs){
       gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.drawArrays(gl.TRIANGLES,0,3);
     }
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
-    const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
+    bodies=resize(bodies,W,H,1);target(bodies);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+    liveInk.drawBodies(W,H,false);
     const breath=Math.sin(time*.43);
     const flowPhase=time*.69,spin=spinAt(P,time),Pc=clockP(P,coarse||w<700?HOLD.pinTouch:HOLD.pin);
     const sheetsLive=P>.127 && P<END;
@@ -320,6 +335,7 @@ export function createLivingInk(gl,coarse,programs){
       bind(0,gl.TEXTURE_2D_ARRAY,mesh,sheet.U.uMesh);
       bind(1,gl.TEXTURE_2D,figures.textures[0],sheet.U.uFigures);
       bind(7,gl.TEXTURE_2D,figures.depthTexture,sheet.U.uFigureDepth);
+      bind(8,gl.TEXTURE_2D,bodies.textures[0],sheet.U.uBodies);
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
       gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
@@ -344,16 +360,6 @@ export function createLivingInk(gl,coarse,programs){
     if(sheetsLive){
       gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);
     }
-    // The pairs' turn between this P's two keys (living-ink-plan.js orbitCentres), so the mist's keys meet.
-    orbitData.fill(0);orbitTurn.fill(0);
-    const k0=Math.floor(key),k1=Math.min(KEYS-1,k0+1),P0=k0*END/(KEYS-1),P1=k1*END/(KEYS-1);
-    if(orbitAt(P1)>orbitAt(P0))orbitCentres(P,plannedAspect||w/h).forEach((o,i)=>{
-      orbitData.set([o.centre[0],o.centre[1],Math.max(.02,o.half),1],4*i);
-      orbitTurn.set([o.sense*(orbitAt(P)-orbitAt(P0)),o.sense*(orbitAt(P1)-orbitAt(P))],2*i);
-    });
-    // The live ink steps here, on the clock (live-ink.js), before the mist that it moves.
-    liveInk.frame({P,dt:frame.dt??0,vel:s.vel??0,w,h,mobile:coarse||w<700,tracks,forms:meta.forms,aspect:w/h,
-      keyOf:p=>Math.max(0,Math.min(KEYS-1,p/END*(KEYS-1))),orbit:orbitData,orbitTurn});
     const view=programs.unmixSeen;
     target(layers);gl.useProgram(view.p);gl.uniform1f(view.U.uSpin,spin);
     gl.uniform4fv(view.U.uOrbit,orbitData);gl.uniform2fv(view.U.uOrbitTurn,orbitTurn);
@@ -439,10 +445,10 @@ export function createLivingInk(gl,coarse,programs){
     return true;
   }
   return {prepare,draw,ready:()=>warmed,progress:()=>uploaded/KEYS,failed:()=>failed,
-    get textures(){return [layers.textures[0],layers.textures[1],figures.textures[0],threads.textures[0],ripples.textures[0],air.textures[0],bathRoom,motes?.textures[0]??null];},
+    get textures(){return [layers.textures[0],layers.textures[1],figures.textures[0],threads.textures[0],ripples.textures[0],air.textures[0],bathRoom,motes?.textures[0]??null,bodies?.textures[0]??null];},
     dispose(){
       stop();liveInk.dispose();
-      for(const target of [ripples,sheetDepth,layers,figures,threads,air,motes])release(target);
+      for(const target of [ripples,sheetDepth,layers,figures,threads,air,motes,bodies])release(target);
       for(const tex of [pigment,knightPigment,figurePigment,bathRoom,noise])if(tex)gl.deleteTexture(tex);
       gl.deleteVertexArray(dripGeometry);gl.deleteBuffer(dripEvents);gl.deleteBuffer(dripCorners);
       gl.deleteVertexArray(crownGeometry);gl.deleteBuffer(crownRecords);

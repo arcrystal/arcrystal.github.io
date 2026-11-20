@@ -30,7 +30,11 @@ export const SIM = Object.freeze({
   preroll: 60,
   pace: (.80 - .555) / 1300,
   speed: 2,
-  pressure: Object.freeze({ desktop: 12, phone: 10, warm: .85 }),
+  pressure: Object.freeze({ desktop: 8, phone: 8, warm: .85 }),
+  // Its own governor: when frames keep missing (more than `misses` frames later than `late` s, counted with
+  // a memory of about two seconds) the fluid steps every other frame, carrying two steps (as fast, half the
+  // work), for the rest of the event.
+  governor: Object.freeze({ late: .021, memory: .992, misses: 3 }),
   confinement: .22,
   // A slow drag on the water (per step): eddies live a few seconds, then the forcing makes new ones.
   damping: .003,
@@ -43,6 +47,13 @@ export const SIM = Object.freeze({
   detail: Object.freeze({ tau: 3, max: .06 }),
   // The veils take this share of the carried detail's large scales (more folds them over themselves).
   veils: .55,
+  // The glossy bodies, on a grid 1.5× the fluid's each way: held sharp by a gentle contrast (per step);
+  // surface tension σ (fluid cells, per step²); sinking (black more than ivory: Rayleigh–Taylor between
+  // them); fed per step toward the schedule's fill at each head's core, by the mist condensing round it, and
+  // melted back to mist as it dissolves.
+  body: Object.freeze({ scale: 1.5, sharpen: .02, width: 0, tension: .04, black: -2e-4, ivory: -5e-5, feed: .06, condense: .02, melt: .03,
+    // Viscosity (ν per step, cells²) by Jacobi sweeps: black thick, ivory thicker at rest (it thins under shear: step 3).
+    nu: Object.freeze([3, 5]), sweeps: 2 }),
   // Large-scale forcing: curl noise from a few modes, wavelengths in screen heights.
   forcing: Object.freeze({ modes: 6, wave: Object.freeze([.22, .65]), tau: 3.2, walk: .55, amp: 2.6e-3 }),
   // The scroll's stir: speed in screen heights a second, saturating; quick to rise, slow to settle.
@@ -137,12 +148,12 @@ export function createThermostat() {
 export function createImpulses(seed) {
   const r = rng(seed), awake = new Map();
   return {
-    step(heads, stir) {
+    step(heads, stir, steps = 1) {
       const out = [];
       for (const hd of heads) {
         const was = awake.get(hd.id) ?? false, now = hd.weight > .5;
         awake.set(hd.id, now);
-        const fire = (now && !was) || (now && r() < SIM.head.rate * (1 + 2.2 * stir) * SIM.h);
+        const fire = (now && !was) || (now && r() < SIM.head.rate * (1 + 2.2 * stir) * SIM.h * steps);
         if (!fire || out.length >= 16) continue;
         // Thrown mostly downward, ±70°, now and then sideways.
         const theta = -Math.PI / 2 + (r() - .5) * 2.4, along = [Math.cos(theta), Math.sin(theta)], across = [-along[1], along[0]];

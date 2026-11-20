@@ -4,19 +4,21 @@
 // targets it never runs, and the mist is the bake's alone.
 import { SIM, live, showAt, energyAt, simSize, createStir, createForcing, createImpulses } from './ink-sim.js';
 import { HEADS_MAX, VORTICES_MAX } from './glsl/ink-sim.js';
-import { FORMS, trackAt } from './living-forms.js';
+import { FORMS, trackAt, solidity } from './living-forms.js';
 import { smooth } from './ink-tank.js';
 
-export const LIVE_PROGRAMS = ['simMoments', 'simInit', 'simAux', 'simForces', 'simAdvect', 'simAdvectCorrect', 'simDivergence', 'simJacobi', 'simProject', 'simCarry', 'simReduce', 'simThermo', 'simSmooth'];
+export const LIVE_PROGRAMS = ['simMoments', 'simInit', 'simAux', 'simForces', 'simAdvect', 'simAdvectCorrect', 'simDivergence', 'simJacobi', 'simProject', 'simCarry', 'simReduce', 'simThermo', 'simSmooth', 'simTension', 'simBodies', 'simThickness', 'simViscous', 'simDome', 'simSlope', 'inkBodies'];
 
 export function createLiveInk(gl, programs, { coarse }) {
   const floats = !!gl.getExtension('EXT_color_buffer_float');
   let grid = null, moments = null, momentsKey = '', bake = [1, 1, 1], broken = !floats;
   let running = false, catching = false, simP = 0, shown = 0, acc = 0, steps = 0, lastP = null;
-  const stir = createStir(), heads = new Float32Array(4 * HEADS_MAX), headV = new Float32Array(4 * HEADS_MAX), vortices = new Float32Array(4 * VORTICES_MAX);
+  const stir = createStir(), heads = new Float32Array(4 * HEADS_MAX), headV = new Float32Array(4 * HEADS_MAX), headB = new Float32Array(4 * HEADS_MAX), vortices = new Float32Array(4 * VORTICES_MAX);
   let headCount = 0, vortexCount = 0, forcing = null, impulses = createImpulses(7), fresh = true, stirNow = { amount: 0, sense: 0 };
   const was = new Map();
   const dev = () => globalThis.__inkSim ?? null;
+  // (For tuning: a parameter overridden from __inkSim.set, else the model's.)
+  const knob = (name, value) => dev()?.set?.[name] ?? value;
 
   function target(w, h, internal, filter) {
     const tex = gl.createTexture();
@@ -47,6 +49,9 @@ export function createLiveInk(gl, programs, { coarse }) {
       U: pair(nx, ny, gl.RG16F, L), Uf: target(nx, ny, gl.RG16F, L), aux: target(nx, ny, gl.RGBA16F, N),
       div: target(nx, ny, gl.R32F, N), P: pair(nx, ny, gl.R32F, N),
       M: pair(nx, ny, gl.RGBA16F, L), D: pair(nx, ny, gl.RG16F, L), Ds: target(Math.ceil(nx / 4), Math.ceil(ny / 4), gl.RG16F, L),
+      // The bodies, at SIM.body.scale× the fluid's cells: black, ivory, depth × share.
+      B: pair(Math.round(nx * SIM.body.scale), Math.round(ny * SIM.body.scale), gl.RGBA16F, L), Bf: target(Math.round(nx * SIM.body.scale), Math.round(ny * SIM.body.scale), gl.RGBA16F, L),
+      tension: target(nx, ny, gl.RG16F, N), thick: target(nx, ny, gl.RGBA16F, L), dome: target(nx, ny, gl.RG16F, N), slope: target(nx, ny, gl.RG16F, L),
       r1: target(32, 18, gl.RGBA32F, N), r2: target(1, 1, gl.RGBA32F, N), thermo: pair(1, 1, gl.RGBA32F, N),
     };
     // The mist and its detail are written together (simCarry): one framebuffer for each of the pair.
@@ -76,10 +81,11 @@ export function createLiveInk(gl, programs, { coarse }) {
     }
     set?.(prog.U);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    for (let i = 0; i < unit; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, null); }
+    // (Nothing is unbound: every pass binds each of its own samplers, and never reads what it writes.)
   }
   function headsUniforms(U) {
     gl.uniform4fv(U.uHead, heads); gl.uniform4fv(U.uHeadV, headV); gl.uniform1i(U.uHeads, headCount);
+    if (U.uHeadB) gl.uniform4fv(U.uHeadB, headB);
   }
   function bakeUniforms(U, ctx) {
     gl.uniform3f(U.uBake, bake[0], bake[1], ctx.keyOf(simP));
@@ -103,7 +109,7 @@ export function createLiveInk(gl, programs, { coarse }) {
   }
 
   // The heads at simP: where each plume's head is (the bake's tracks), how big, how alive, how fast.
-  function placeHeads(ctx) {
+  function placeHeads(ctx, m = 1) {
     const { tracks, forms, keyOf } = ctx, key = keyOf(simP);
     headCount = 0;
     if (!tracks || !forms?.length) return [];
@@ -117,35 +123,49 @@ export function createLiveInk(gl, programs, { coarse }) {
       const x = t[0] * grid.nx, y = t[1] * grid.ny, radius = Math.min(.2, Math.max(.07, .9 * t[3])) * .55 * grid.ny;
       const prev = was.get(f.id);
       let vx = 0, vy = 0;
-      if (prev) { vx = .5 * prev.vx + .5 * (x - prev.x); vy = .5 * prev.vy + .5 * (y - prev.y); const s = Math.hypot(vx, vy); if (s > SIM.speed) { vx *= SIM.speed / s; vy *= SIM.speed / s; } }
+      if (prev) { vx = .5 * prev.vx + .5 * (x - prev.x) / m; vy = .5 * prev.vy + .5 * (y - prev.y) / m; const s = Math.hypot(vx, vy); if (s > SIM.speed) { vx *= SIM.speed / s; vy *= SIM.speed / s; } }
       was.set(f.id, { x, y, vx, vy });
       heads.set([x, y, radius, weight], 4 * headCount);
-      headV.set([vx, vy, SIM.head.drag, 0], 4 * headCount);
+      headV.set([vx, vy, m * SIM.head.drag, 0], 4 * headCount);
+      headB.set([f.white ? 1 : 0, solidity(f, simP), smooth(f.d0, f.d1 + .01, simP), t[2]], 4 * headCount);
       headCount++;
       out.push({ id: f.id, x, y, radius, weight });
     });
     return out;
   }
 
-  function step(ctx, stirNow, pace) {
-    const g = grid, h = SIM.h, U = g.U, M = g.M, D = g.D;
-    const list = placeHeads(ctx);
-    const cores = impulses.step(list, stirNow.amount);
+  // One step of the fluid, carrying m of its steps (m = 2 when the governor has eased off: every other frame).
+  function step(ctx, stirNow, pace, m = 1) {
+    const g = grid, U = g.U, M = g.M, D = g.D;
+    const list = placeHeads(ctx, m);
+    const cores = impulses.step(list, stirNow.amount, m);
     vortexCount = Math.min(VORTICES_MAX, cores.length);
     vortices.fill(0);
     cores.slice(0, VORTICES_MAX).forEach((c, i) => vortices.set(c, 4 * i));
-    forcing.step();
+    for (let i = 0; i < m; i++) forcing.step();
     pass('simAux', g.aux, { uU: U[0].tex });
-    pass('simForces', U[1], { uU: U[0].tex, uAux: g.aux.tex, uMist: M[0].tex, uThermo: g.thermo[0].tex }, u => {
+    pass('simTension', g.tension, { uB: g.B[0].tex }, u => gl.uniform1f(u.uSigma, m * knob('tension', SIM.body.tension)));
+    pass('simForces', U[1], { uU: U[0].tex, uAux: g.aux.tex, uMist: M[0].tex, uThermo: g.thermo[0].tex, uB: g.B[0].tex, uTension: g.tension.tex }, u => {
+      gl.uniform2f(u.uBodyBuoy, m * SIM.body.black, m * SIM.body.ivory);
       headsUniforms(u);
-      gl.uniform4fv(u.uMode, forcing.data); gl.uniform1f(u.uGain, 1 + 1.5 * stirNow.amount);
+      gl.uniform4fv(u.uMode, forcing.data); gl.uniform1f(u.uGain, m * (1 + 1.5 * stirNow.amount));
       gl.uniform4fv(u.uVortex, vortices); gl.uniform1i(u.uVortices, vortexCount);
-      gl.uniform1f(u.uSwirl, 2.2e-4 * stirNow.sense);
-      gl.uniform3f(u.uFluid, SIM.confinement, SIM.buoyancy.black, SIM.buoyancy.ivory); gl.uniform1f(u.uSpeed, SIM.speed); gl.uniform1f(u.uDamp, 1 - SIM.damping); gl.uniform1f(u.uTarget, energyAt(simP, stirNow.amount));
+      gl.uniform1f(u.uSwirl, m * 2.2e-4 * stirNow.sense);
+      gl.uniform3f(u.uFluid, m * SIM.confinement, m * SIM.buoyancy.black, m * SIM.buoyancy.ivory); gl.uniform1f(u.uSpeed, SIM.speed); gl.uniform1f(u.uDamp, Math.pow(1 - SIM.damping, m)); gl.uniform1f(u.uTarget, energyAt(simP, stirNow.amount));
     });
     swap(U);
-    pass('simAdvect', g.Uf, { uVel: U[0].tex, uSrc: U[0].tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 0); });
-    pass('simAdvectCorrect', U[1], { uVel: U[0].tex, uSrc: U[0].tex, uFwd: g.Uf.tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 0); });
+    // Thick where the bodies are: U[0] is u* (kept), sweeps ping-pong between Uf and U[1].
+    {
+      let from = U[0], to = U[1];
+      for (let i = 0; i < SIM.body.sweeps; i++) {
+        const out = i % 2 ? g.Uf : U[1];
+        pass('simViscous', out, { uStar: U[0].tex, uU: from.tex, uB: g.B[0].tex }, u => gl.uniform2f(u.uNu, m * knob('nuBlack', SIM.body.nu[0]), m * knob('nuIvory', SIM.body.nu[1])));
+        from = out; to = out;
+      }
+      if (to === g.Uf) { const t = U[0]; U[0] = g.Uf; g.Uf = t; } else swap(U);
+    }
+    pass('simAdvect', g.Uf, { uVel: U[0].tex, uSrc: U[0].tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 0); gl.uniform1f(u.uScale, 1); gl.uniform1f(u.uSteps, m); });
+    pass('simAdvectCorrect', U[1], { uVel: U[0].tex, uSrc: U[0].tex, uFwd: g.Uf.tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 0); gl.uniform1f(u.uScale, 1); gl.uniform1f(u.uSteps, m); });
     swap(U);
     pass('simDivergence', g.div, { uU: U[0].tex });
     const sweeps = coarse ? SIM.pressure.phone : SIM.pressure.desktop;
@@ -155,16 +175,29 @@ export function createLiveInk(gl, programs, { coarse }) {
     }
     pass('simProject', U[1], { uU: U[0].tex, uP: g.P[0].tex });
     swap(U);
-    pass('simCarry', g.carry[1], { uM: M[0].tex, uD: D[0].tex, uU: U[0].tex, uMoments: moments.tex }, u => {
+    pass('simCarry', g.carry[1], { uM: M[0].tex, uD: D[0].tex, uU: U[0].tex, uMoments: moments.tex, uB: g.B[0].tex }, u => {
       headsUniforms(u); bakeUniforms(u, ctx);
-      gl.uniform1f(u.uCarry, SIM.mist.carried);
-      gl.uniform2f(u.uKappa, SIM.mist.along, SIM.mist.across);
-      gl.uniform3f(u.uRelax, SIM.mist.near, SIM.mist.far, SIM.mist.handoff * smooth(.74, .79, simP));
-      gl.uniform2f(u.uTau, 1 / (SIM.detail.tau * 60), SIM.detail.max);
+      const relax = k => 1 - Math.pow(1 - k, m);
+      gl.uniform2f(u.uExchange, m * SIM.body.condense, m * SIM.body.melt);
+      gl.uniform1f(u.uCarry, SIM.mist.carried); gl.uniform1f(u.uSteps, m);
+      gl.uniform2f(u.uKappa, m * SIM.mist.along, m * SIM.mist.across);
+      gl.uniform3f(u.uRelax, relax(SIM.mist.near), relax(SIM.mist.far), relax(SIM.mist.handoff * smooth(.74, .79, simP)));
+      gl.uniform2f(u.uTau, m / (SIM.detail.tau * 60), SIM.detail.max);
     });
     swap(M); swap(D); swap(g.carry);
-    steps++;
-    if (steps % 8 === 0) measure();
+    // The bodies: carried (with the heads' carriers, wholly), then kept sharp, fed and melted.
+    const B = g.B, k = B[0].w / g.nx;
+    {
+      pass('simAdvect', g.Bf, { uVel: U[0].tex, uSrc: B[0].tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 1); gl.uniform1f(u.uScale, k); gl.uniform1f(u.uSteps, m); gl.uniform2f(u.uCells, B[0].w, B[0].h); });
+      pass('simAdvectCorrect', B[1], { uVel: U[0].tex, uSrc: B[0].tex, uFwd: g.Bf.tex }, u => { headsUniforms(u); gl.uniform1f(u.uCarry, 1); gl.uniform1f(u.uScale, k); gl.uniform1f(u.uSteps, m); gl.uniform2f(u.uCells, B[0].w, B[0].h); });
+      swap(B);
+      pass('simBodies', B[1], { uB: B[0].tex, uM: M[0].tex }, u => {
+        headsUniforms(u); gl.uniform2f(u.uCells, B[0].w, B[0].h); gl.uniform1f(u.uScale, k);
+        gl.uniform2f(u.uSharp, m * knob('sharpen', SIM.body.sharpen), knob('width', SIM.body.width)); gl.uniform3f(u.uFeed, m * SIM.body.feed, m * SIM.body.condense, m * SIM.body.melt);
+      });
+      swap(B);
+    }
+    if ((steps += m) % 8 < m) measure();
   }
   // The grid's health, a block at a time, then one texel, and the thermostat's step from it: all on the GPU.
   function measure() {
@@ -200,10 +233,11 @@ export function createLiveInk(gl, programs, { coarse }) {
     if (broken) { release(); return false; }
     for (const t of [...grid.U, ...grid.P, ...grid.D, grid.Uf]) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); }
     for (const t of grid.thermo) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 1, 0, 0]); }
+    for (const t of [...grid.B, grid.Bf, grid.tension, grid.thick]) { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]); }
     simP = from;
     for (const t of grid.M) pass('simInit', t, { uMoments: moments.tex }, u => bakeUniforms(u, ctx));
     forcing = createForcing(1009, ny); impulses = createImpulses(7); was.clear();
-    fresh = true; steps = 0; running = true;
+    fresh = true; steps = 0; running = true; lite = false; calm = 0;
     return true;
   }
 
@@ -212,7 +246,7 @@ export function createLiveInk(gl, programs, { coarse }) {
   //   Coming in from outside the window, or after a jump, it starts again, hidden: on a page, at P, with a
   // second of flow run ahead (SIM.preroll steps); for the tools (__inkSim.fixed), from the window's start
   // along the standard forward scroll, so a still at P is what a visitor scrolling there would see.
-  let pending = 0;
+  let pending = 0, frames = 0, lite = false, calm = 0;
   function frame(ctx) {
     const d = dev();
     if (broken || d?.off || !moments || !ctx.dt || LIVE_PROGRAMS.some(n => !programs[n])) { shown = 0; running = false; return 0; }
@@ -225,6 +259,14 @@ export function createLiveInk(gl, programs, { coarse }) {
       catching = true; pending = fixed ? Infinity : SIM.preroll; shown = 0;
     }
     stirNow = stir.update(fixed ? (d.vel ?? .5) : (ctx.vel ?? 0), dt);
+    // The governor (SIM.governor): frames missing now and then, and the fluid steps every other frame,
+    // carrying two steps: as fast, half the work, for the rest of this event.
+    if (d?.lite) lite = true;
+    if (!fixed && !lite) {
+      // (Missed frames, counted over the last couple of seconds.)
+      calm = calm * SIM.governor.memory + (ctx.dt > SIM.governor.late ? 1 : 0);
+      if (calm > SIM.governor.misses) lite = true;
+    }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
     if (catching) {
       const most = fixed ? SIM.catchUp.tools : SIM.catchUp.page;
@@ -234,12 +276,16 @@ export function createLiveInk(gl, programs, { coarse }) {
       }
       if (pending <= 0) { catching = false; simP = P; }
     } else {
-      acc = Math.min(acc + dt, SIM.maxSteps * SIM.h);
-      const from = lastP ?? P, n = Math.max(1, Math.floor(acc / SIM.h + 1e-6));
-      for (let i = 1; i <= n; i++) { simP = from + (P - from) * i / n; step(ctx, stirNow, fixed); }
-      acc = Math.max(0, acc - n * SIM.h);
+      const m = lite ? 2 : 1;
+      acc = Math.min(acc + dt, m * SIM.maxSteps * SIM.h);
+      if (acc + 1e-6 >= m * SIM.h) { simP = P; step(ctx, stirNow, fixed, m); acc = Math.max(0, acc - m * SIM.h); }
     }
     lastP = P;
+    // The bodies' smoothed thickness, dome and slope, for their shading (every other frame: they change slowly).
+    if (++frames & 1) {
+      pass('simThickness', grid.thick, { uB: grid.B[0].tex }, u => gl.uniform2f(u.uFine, grid.B[0].w, grid.B[0].h));
+      pass('simDome', grid.dome, { uB: grid.B[0].tex }, u => { gl.uniform2f(u.uFine, grid.B[0].w, grid.B[0].h); gl.uniform1f(u.uReach, 5 * grid.B[0].w / grid.nx); });
+    } else pass('simSlope', grid.slope, { uThick: grid.thick.tex, uDome: grid.dome.tex }, u => gl.uniform1f(u.uPer, grid.B[0].w / grid.nx));
     // The veils' share of the flow (once a frame).
     {
       const prog = programs.simSmooth, Ds = grid.Ds;
@@ -259,7 +305,7 @@ export function createLiveInk(gl, programs, { coarse }) {
       for (let i = 0; i < n; i++) pass('simAux', grid.aux, { uU: grid.U[0].tex }); sync();
       return { step: (t1 - t0) / n, emptyish: (performance.now() - t1) / n };
     };
-    if (d) d.stats = () => ({ steps, simP: +simP.toFixed(4), shown: +shown.toFixed(3), stir: +stir.amount.toFixed(2), catching, settled: running && !catching && Math.abs(shown - showAt(P)) < .02, ...(d.health ? health() : {}) });
+    if (d) d.stats = () => ({ steps, simP: +simP.toFixed(4), shown: +shown.toFixed(3), stir: +stir.amount.toFixed(2), lite, catching, settled: running && !catching && Math.abs(shown - showAt(P)) < .02, ...(d.health ? health() : {}) });
     return shown;
   }
 
@@ -271,6 +317,29 @@ export function createLiveInk(gl, programs, { coarse }) {
     ['uLiveMist', 'uLiveDetail', 'uMoments'].forEach((name, i) => { gl.activeTexture(gl.TEXTURE0 + units[i]); gl.bindTexture(gl.TEXTURE_2D, tex[i]); gl.uniform1i(U[name], units[i]); });
   }
 
+  // The glossy bodies (glsl/living-forms.js INK_BODIES) into the bound target (w × h px): their depth into
+  // the figures' (depthOnly), or their colour.
+  function drawBodies(w, h, depthOnly) {
+    const prog = programs.inkBodies;
+    if (!(running && grid && shown > 0 && prog) || dev()?.noBodies) return false;
+    gl.useProgram(prog.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, grid.B[0].tex); gl.uniform1i(prog.U.uB, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, grid.thick.tex); gl.uniform1i(prog.U.uThick, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grid.slope.tex); gl.uniform1i(prog.U.uSlope, 2);
+    gl.uniform2f(prog.U.uSize, w, h); gl.uniform2f(prog.U.uCells, grid.B[0].w, grid.B[0].h);
+    gl.uniform1f(prog.U.uLive, shown); gl.uniform1i(prog.U.uDepthOnly, depthOnly ? 1 : 0);
+    // (Only round the live heads, where bodies can be: farther out they melt.)
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < headCount; i++) {
+      const x = heads[4 * i] / grid.nx * w, y = heads[4 * i + 1] / grid.ny * h, r = Math.max(5 * heads[4 * i + 2] / grid.ny * h, .14 * h);
+      x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); y0 = Math.min(y0, y - r); y1 = Math.max(y1, y + r);
+    }
+    if (headCount) { gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.max(0, Math.floor(x0)), Math.max(0, Math.floor(y0)), Math.ceil(x1 - x0) + 2, Math.ceil(y1 - y0) + 2); }
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
+    return true;
+  }
   // The carried detail, for the veils (glsl/living-ink.js INK_SHEET_VERTEX).
   function bindSheets(U, unit) {
     const on = !!(running && grid && shown > 0) && !dev()?.hideSheets;
@@ -279,7 +348,7 @@ export function createLiveInk(gl, programs, { coarse }) {
   }
 
   return {
-    buildMoments, frame, bindVolume, bindSheets,
+    buildMoments, frame, bindVolume, bindSheets, drawBodies,
     get shown() { return shown; },
     get usable() { return !broken; },
     dispose() { release(); drop(moments); moments = null; },

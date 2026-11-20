@@ -362,6 +362,7 @@ float inkFold(float X,float A,float k,float ph){
 }
 ${LATE_GLSL}
 uniform sampler2D uFigures,uFigureDepth,uMist,uPigment,uKnightPigment,uFigurePigment;
+uniform sampler2D uBodies; // the live ink's glossy bodies (live-ink.js): they hide what is behind them as a piece does
 uniform bool uDepthOnly;
 uniform vec2 uSize;uniform float uProgress,uBreath,uFlowPhase;
 uniform float uRollUp; // how far the plume heads' caps have rolled up (ink-swirl.js rollUp): 0 … 1, never back
@@ -376,7 +377,7 @@ void main(){
  vec2 uv=gl_FragCoord.xy/uSize;
  float visible=1.;
  if(!uDepthOnly && 1.-texture(uFigureDepth,uv).r>position.z){
-   visible=1.-texture(uFigures,uv).a;
+   visible=1.-max(texture(uFigures,uv).a,texture(uBodies,uv).a);
    if(visible<.002)discard;
  }
  if(section<3.5){

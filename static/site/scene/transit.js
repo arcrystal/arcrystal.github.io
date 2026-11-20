@@ -24,6 +24,7 @@ import { INK_IMPACT_VERTEX, INK_IMPACT_FRAGMENT, INK_RIPPLE_VERTEX, INK_RIPPLE_F
 import { INK_VOLUME, INK_PIECE, INK_SHEET_VERTEX, INK_SHEET_FRAGMENT, INK_THREAD_FRAGMENT, INK_WAKE_VERTEX } from './glsl/living-ink.js';
 import { VERTEX } from './glsl/index.js';
 import { SIM_PASSES } from './glsl/ink-sim.js';
+import { INK_BODIES } from './glsl/living-forms.js';
 import { UNIT_PROGRAMS } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
 import { SPOTS, FREEZE, CLICK } from './dew-plan.js';
@@ -125,6 +126,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     { name: 'inkEmerge', vs: INK_EMERGE_VERTEX, fs: INK_RIPPLE_FRAGMENT },
     // The live ink's fluid (glsl/ink-sim.js).
     ...Object.entries(SIM_PASSES).map(([k, fs]) => ({ name: `sim${k[0].toUpperCase()}${k.slice(1)}`, vs: VERTEX, fs })),
+    { name: 'inkBodies', vs: VERTEX, fs: INK_BODIES },
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
   if (ext) {
@@ -598,8 +600,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
       // (−1: the board is drawn in three dimensions over the seam instead: scene/board3d.js.)
       if (K.id === 'unmix') {
         const b3 = board3d?.(), on = !!(b3?.texture && inkB.mask);
-        const [rear,front,figures,threads,ripples,air,room,motes] = liquid.textures;
-        const bind = [[5,ripples],[8,rear],[3,front],[0,figures],[1,threads],[9,air],[10,room],[14,motes], [11, on ? b3.texture : null], [12, on ? inkB.mask : null], [13, on ? b3.geometry : null]];
+        const [rear,front,figures,threads,ripples,air,room,motes,bodies] = liquid.textures;
+        const bind = [[5,ripples],[8,rear],[3,front],[0,figures],[1,threads],[9,air],[10,room],[14,motes],[15,bodies], [11, on ? b3.texture : null], [12, on ? inkB.mask : null], [13, on ? b3.geometry : null]];
         bind.forEach(([u, t]) => { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, t); });
         gl.activeTexture(gl.TEXTURE0);
         // (The drain, in the board's own world: ink-drain.js.)
