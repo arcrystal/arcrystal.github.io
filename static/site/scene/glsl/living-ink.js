@@ -179,7 +179,14 @@ vec2 density(vec3 p){
 }
 void main(){
   vec2 uv=gl_FragCoord.xy/uSize;
-  float pieceZ=max(1.-texture(uFigureDepth,uv).r,texture(uSheetDepth,uv).a);
+  // What stands in the water here (a piece, a living form, a veil), from four taps of its depth at the
+  // figures' finer resolution, so the mist parts round an edge by how much of the pixel it covers, not by
+  // a hard step.
+  vec2 cell=.5/uSize;
+  float sheetZ=texture(uSheetDepth,uv).a;
+  vec4 pz=vec4(max(1.-texture(uFigureDepth,uv+vec2(-cell.x,-cell.y)).r,sheetZ),max(1.-texture(uFigureDepth,uv+vec2(cell.x,-cell.y)).r,sheetZ),
+               max(1.-texture(uFigureDepth,uv+vec2(-cell.x,cell.y)).r,sheetZ),max(1.-texture(uFigureDepth,uv+vec2(cell.x,cell.y)).r,sheetZ));
+  float pieceZ=max(max(pz.x,pz.y),max(pz.z,pz.w));
   rear=vec4(0);front=vec4(0);
   if(uProgress<.131 || uProgress>1.145)return;
   // Sample in optical order, from the far wall toward the observer. The
@@ -242,8 +249,10 @@ void main(){
     float envelope=smoothstep(.003,.10,max(coarse.x,coarse.y));
     float a=1.-exp(-total*.55*envelope);
     vec4 sampleLight=vec4(emission*a,a);
-    if(pieceZ>0. && z>pieceZ)front=sampleLight+front*(1.-a);
-    else rear=sampleLight+rear*(1.-a);
+    // (In front of what stands here in how many of the four taps.)
+    float inFront=pieceZ>0.?.25*(float(pz.x>0.&&z>pz.x)+float(pz.y>0.&&z>pz.y)+float(pz.z>0.&&z>pz.z)+float(pz.w>0.&&z>pz.w)):0.;
+    front=sampleLight*inFront+front*(1.-a*inFront);
+    rear=sampleLight*(1.-inFront)+rear*(1.-a*(1.-inFront));
   }
 }`;
 

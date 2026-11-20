@@ -14,6 +14,7 @@ uniform sampler2D uB3;       // Chess's board in three dimensions (board3d.js): 
 uniform sampler2D uB3Mask;   // its ink over the screen: pigment (R, G), which piece (B: slot + 1 over 64, the board 1), how high (A) (unit 12)
 uniform vec4 uB3Box;         // the board's box on the screen (CSS px)
 uniform float uB3On;
+uniform sampler2D uMotes;    // the living ink's motes: black (R) and ivory (G) optical depth, added (living-forms.js, unit 14)
 const vec2 UM_HARDEN = ${v2(UNMIX.harden)}, UM_SQUARES = ${v2(UNMIX.squares)}, UM_CLEAR = ${v2(UNMIX.clear)};
 const float UM_SPAN = ${f(UNMIX.span)}, UM_MARGIN = ${f(MARGIN)};
 const float UM_ORDER[32] = float[32](${SLOTS.map(s => f(s.order)).join(', ')});
@@ -302,6 +303,12 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
   vec4 piece=texture(uTexA,uv), lines=texture(uTexB,uv)*pigmentThrough;
   col=rear.rgb+col*(1.-rear.a);
   col=mix(piece.rgb,vec3(dot(piece.rgb,vec3(.2126,.7152,.0722))),.85)+col*(1.-piece.a);
+  // The living ink's motes, in front of what they orbit and behind the veils.
+  if(P>.5 && P<.84){
+    vec2 m=texture(uMotes,uv).rg*pigmentThrough;
+    float tau=m.r+m.g;
+    if(tau>1e-4)col=mix(col,(m.r*vec3(.016,.015,.018)+m.g*vec3(.93,.915,.875))/tau,1.-exp(-tau));
+  }
   col=lines.rgb+col*(1.-lines.a);
   col=front.rgb+col*(1.-front.a);
 

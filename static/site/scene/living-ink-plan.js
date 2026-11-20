@@ -2,7 +2,7 @@ import { startSlots, frameCamera, project, TYPES, TALL, bodyOf, headOf, halfWidt
 import { buildInkRegistration, modelSection, registrationRank } from './ink-registration.js';
 import { DROPS, PRECIPITATION, PIGMENT_TOTALS, LATE, tankCamera, projectTank, seeded, mix, smooth } from './ink-tank.js';
 import { ORBIT, orbitAt, DISCHARGES, dischargePath, dischargeAt } from './ink-swirl.js';
-import { clockP } from './living-forms.js';
+import { clockP, FORMS, formSchedule, solidity } from './living-forms.js';
 import { HOLD } from '../lerp.js';
 
 export const KEYS=80, END=1.146, ease=smooth;
@@ -407,7 +407,12 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
     g.mass*=PIGMENT_TOTALS[g.id]/assigned[g.id];
     total[g.owner]+=g.mass;
   }
-  emit({meta:{nx,ny,nz,rows,cols,order,sites,registration,vaporFigures:packVaporFigures(sites),depositedMass:total}});
+  // The living forms (living-forms.js): their schedule, sent with the meta so the renderer keeps the same
+  // one, and their tracks: per key, each form's centroid (screen x, y up, depth) and spread, from its
+  // plume's final rail positions near the head.
+  const forms=sourceCount===DROPS.length?formSchedule(sites):[],formOf=new Map(forms.map((f,k)=>[f.id,k]));
+  const tracks=new Float32Array(KEYS*FORMS.length*4),trackSums=new Float64Array(FORMS.length*6);
+  emit({meta:{nx,ny,nz,rows,cols,order,sites,registration,vaporFigures:packVaporFigures(sites),depositedMass:total,forms}});
   const field=new Float32Array(nx*ny*nz*2),dt=END/(KEYS-1);
   const lut=Uint8Array.from({length:2049},(_,i)=>Math.round(255*(1-Math.exp(-i/256))));
   const jets=new Map();
@@ -416,7 +421,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
   const holdPin=mobile?HOLD.pinTouch:HOLD.pin;
   for(let frame=0;frame<KEYS;frame++){
     const P=dt*frame,Pc=clockP(P,holdPin),cam=tankCamera(P),mesh=new Uint16Array(width*height*4);
-    field.fill(0);
+    field.fill(0);trackSums.fill(0);
     const available=drops.map(drop=>drop.volume);
     feedPlumes(P,aspect,cam,extras,available,massBook.subarray(frame*6,frame*6+6),field,nx,ny,nz);
     // The foreground pairs circle one another (ink-swirl.js ORBIT): each pair's middle, from its heads.
@@ -444,6 +449,9 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
       const approach=live*ease(.495,.603,P)*(1-ease(.635,.736,P));
       const born=ease(s.hit,s.hit+.017,P);
       const late=LATE_BY_ID.get(id),shown=late?lateShown(s,P):0;
+      // While its living form is solid, the plume gives its pigment to it: its mist thins, and its veils at
+      // the cap (never its stem, and not before the caps start rolling).
+      const formK=formOf.get(id),solid=formK===undefined?0:solidity(forms[formK],P),veilsGive=solid*ease(.60,.62,P);
       if(P<s.hit-dt){
         // Invisible stations still carry a valid water crossing on direct seeks.
         const p=projectTank(s.x,0,s.z,cam,aspect),packed=p.map(encode);
@@ -475,6 +483,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
             axial.x+=axial.vx*dt/2;axial.z+=axial.vz*dt/2;
           }
         }
+        const mistGives=solid*ease(.3,.62,v),capGives=veilsGive*ease(.55,.8,v);
         const roll=clamp((v-.61)/.39),body=Math.min(1,v/.64);
         const stem=id<2?.16:.23+.45*(.5+.5*Math.sin(seed));
         const shortTail=id<2?stem+.16:Math.max(stem+.1,1-4.8*s.bulk/s.plunge);
@@ -584,7 +593,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const mist=clamp(.11+.19*(1-lip)+.13*reach+.09*Math.sin(g.phase+6*v)+exchange+shed,.045,.79);
           const offset=4*((b*rows+j)*width+k);
           mesh[offset]=encode(pos[0]);mesh[offset+1]=encode(pos[1]);mesh[offset+2]=encode(pos[2]);
-          mesh[offset+3]=Math.round(65535*free*(1-mist)*(1-.92*shown));
+          mesh[offset+3]=Math.round(65535*free*(1-mist)*(1-.92*shown)*(1-.55*capGives));
           const mass=g.mass*supplied;
           ledger[frame*sourceCount+owner]+=transfer*mass/total[owner];
           const loc=frame*6+3*s.white;
@@ -594,7 +603,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
             // As the figure locks to its solid the mist round it condenses onto its outline: tighter, denser.
             const condense=lock*(1-transfer);
             const softness=(.010+spread*(.79+.20*breathing*pulse+.52*lift))*Math.min(1,aspect)*(1-.45*condense);
-            const amount=free*(bulk/.065)*(.035+.17*lip+.085*sleeve+.21*tongue+.19*lift)*(.26+.74*fluke)*(1+.5*condense);
+            const amount=free*(bulk/.065)*(.035+.17*lip+.085*sleeve+.21*tongue+.19*lift)*(.26+.74*fluke)*(1+.5*condense)*(1-.85*mistGives);
             const loft=gesture*(1-wetRoll)*(.022+.064*tongue)+lift*(.028+.095*fluke);
             splat(field,nx,ny,nz,pos[0]+(shear*.033+lift*bulk*.43)*Math.sin(twist+ageC*8)/Math.max(1,aspect),
               pos[1]+loft+shear*.050*Math.cos(twist+v*5),pos[2],softness,amount*mist,s.white);
@@ -640,10 +649,15 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           // The tissues first compact into a profile on the same optical
           // chord. Only at the end does its remaining thread touch the solid.
           const follow=g.owner===id?0:ease(g.end-Math.min(.028,site.duration*.23),g.end,P);
-          const wet=born*(1-ease(g.capture,g.end,P));
+          const wet=born*(1-ease(g.capture,g.end,P))*(1-.55*capGives);
           const offset=4*((b*rows+j)*width+cols+rail);
           for(let axis=0;axis<3;axis++)mesh[offset+axis]=encode(mix(pos[axis],g.target[axis],follow));
           mesh[offset+3]=Math.round(65535*wet);
+          if(formK!==undefined && v>=.72){
+            const t=6*formK,x=mix(pos[0],g.target[0],follow),y=mix(pos[1],g.target[1],follow);
+            trackSums[t]+=x;trackSums[t+1]+=y;trackSums[t+2]+=mix(pos[2],g.target[2],follow);
+            trackSums[t+3]+=x*x;trackSums[t+4]+=y*y;trackSums[t+5]++;
+          }
         }
       }
     }
@@ -675,9 +689,16 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
         splat(field,nx,ny,nz,site.x+sway/Math.max(1,aspect),site.y+rise,site.z-.01*k,(.014+.006*k)*Math.min(1,aspect),.11*steam*(1-.18*k),white);
       }
     }
+    for(let k=0;k<forms.length;k++){
+      const [x,y,z,xx,yy,n]=trackSums.subarray(6*k,6*k+6),o=4*(frame*FORMS.length+k);
+      if(!n)continue;
+      const mx=x/n,my=y/n;
+      tracks[o]=mx;tracks[o+1]=my;tracks[o+2]=z/n;
+      tracks[o+3]=Math.max(.02,Math.sqrt(Math.max(0,xx/n-mx*mx)*aspect*aspect+Math.max(0,yy/n-my*my)));
+    }
     const density=new Uint8Array(field.length);
     for(let n=0;n<field.length;n++)if(field[n]>0)density[n]=lut[Math.min(2048,Math.round(field[n]*256))];
     emit({frame,density,mesh});
   }
-  emit({ledger,massBook});
+  emit({ledger,massBook,tracks});
 }
