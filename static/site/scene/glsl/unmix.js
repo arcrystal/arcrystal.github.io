@@ -275,6 +275,21 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
   // refracted light. In dry air their full colour comes straight through.
   vec3 col=returning?bath:mix(surface,bath,underwater);
   if(returning)pigmentThrough=1.;
+  // Light from the surface shafts down through the water, a little from the lit side; every plume above a
+  // point shades it (the mist's own opacity, along the way up toward the light): bright columns between
+  // the plumes, their shadows slanting below them. A few percent, in the bath's own ivory-pink.
+  if(P>.52 && P<.95){
+    float on=smoothstep(.52,.585,P)*(1.-smoothstep(.86,.95,P))*underwater;
+    vec2 step=vec2(.22*S.y/S.x,1.)*.034;
+    float lit=1.;
+    for(int k=1;k<=10;k++){
+      vec2 t=uv+step*(float(k)-.5+.5*hash(q+float(k)));
+      if(t.y>.995)break;
+      lit*=1.-.5*texture(uFlow,t).a;
+    }
+    float beams=.62+.38*noise(vec2(uv.x*7.+uv.y*1.5,.04*T+P*3.));
+    col+=vec3(.088,.080,.074)*on*lit*beams*smoothstep(-.1,.85,uv.y);
+  }
   if (P>.875 && uB3On>.5) {
     vec4 board=umBoard(uRegion.xy+q);
     float grey=dot(board.rgb,vec3(.2126,.7152,.0722));
