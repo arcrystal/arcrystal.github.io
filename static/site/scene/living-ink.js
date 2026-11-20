@@ -1,13 +1,13 @@
 // Scroll reads immutable optical volumes and material-sheet keyframes. Aspect changes
 // cancel worker and GPU data together. Tile-only movement updates the camera.
-import { KEYS,END,piecePoses,ease } from './living-ink-plan.js';
+import { KEYS,END,piecePoses,ease,orbitCentres } from './living-ink-plan.js';
 import { frameCamera } from './staunton.js';
 import { INK_DRIP_INSTANCES } from './glsl/ink-impact.js';
 import { PRECIPITATION } from './ink-tank.js';
 import { CLEAR, waterPlane, emergence, boxCamera, toScreen } from './ink-drain.js';
 import { DRAIN, tankCamera } from './ink-tank.js';
 import { startSlots } from './staunton.js';
-import { rollUp, breath as capBreath, flowAt } from './ink-swirl.js';
+import { rollUp, breath as capBreath, spinAt, orbitAt } from './ink-swirl.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -30,6 +30,7 @@ function waterUnder(x,y,cam,aspect){
   return [.5+(x-.5-(z-.5)*.072*cam[3]/Math.max(1,aspect))*w/(1+.22*(1-cam[3])),z];
 }
 export function createLivingInk(gl,coarse,programs){
+  const orbitData=new Float32Array(8),orbitTurn=new Float32Array(4);
   let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,queue=[],uploaded=0,failed=false;
   let pigment=null,knightPigment=null,figurePigment=null,bathRoom=null,plates=null,sheetDepth=null,interiorCount=0,sheetCount=0;
   let registration=null,volume=null,mesh=null,grid=null,indices=null,ripples=null,noise=null,noiseData=null,cam=null,camAspect=0;
@@ -304,7 +305,7 @@ export function createLivingInk(gl,coarse,programs){
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
     const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
     const breath=Math.sin(time*.43);
-    const flowPhase=time*.69,flow=flowAt(P,time);
+    const flowPhase=time*.69,spin=spinAt(P,time);
     const sheetsLive=P>.127 && P<END;
     function drawSheets(depthOnly){
       const sheet=programs.inkSheet;gl.useProgram(sheet.p);
@@ -314,7 +315,7 @@ export function createLivingInk(gl,coarse,programs){
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
       gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
-      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time));gl.uniform3fv(sheet.U.uInkFlow,flow);
+      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time));
       if(sheetLayout!==meta){
         gl.uniform4fv(sheet.U.uVaporFigure,meta.vaporFigures);
         gl.uniform1iv(sheet.U.uOrder,meta.order);
@@ -334,8 +335,16 @@ export function createLivingInk(gl,coarse,programs){
     if(sheetsLive){
       gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);
     }
+    // The pairs' turn between this P's two keys (living-ink-plan.js orbitCentres), so the mist's keys meet.
+    orbitData.fill(0);orbitTurn.fill(0);
+    const k0=Math.floor(key),k1=Math.min(KEYS-1,k0+1),P0=k0*END/(KEYS-1),P1=k1*END/(KEYS-1);
+    if(orbitAt(P1)>orbitAt(P0))orbitCentres(P,plannedAspect||w/h).forEach((o,i)=>{
+      orbitData.set([o.centre[0],o.centre[1],Math.max(.02,o.half),1],4*i);
+      orbitTurn.set([o.sense*(orbitAt(P)-orbitAt(P0)),o.sense*(orbitAt(P1)-orbitAt(P))],2*i);
+    });
     const view=programs.unmixSeen;
-    target(layers);gl.useProgram(view.p);gl.uniform3fv(view.U.uInkFlow,flow);
+    target(layers);gl.useProgram(view.p);gl.uniform1f(view.U.uSpin,spin);
+    gl.uniform4fv(view.U.uOrbit,orbitData);gl.uniform2fv(view.U.uOrbitTurn,orbitTurn);
     bind(0,gl.TEXTURE_2D_ARRAY,volume,view.U.uVolume);
     bind(1,gl.TEXTURE_3D,noise,view.U.uNoise);bind(2,gl.TEXTURE_2D,figures.depthTexture,view.U.uFigureDepth);
     bind(3,gl.TEXTURE_2D,sheetDepth.textures[0],view.U.uSheetDepth);

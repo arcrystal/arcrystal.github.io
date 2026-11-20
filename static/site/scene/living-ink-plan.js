@@ -1,6 +1,7 @@
 import { startSlots, frameCamera, project, TYPES, TALL, bodyOf, headOf, halfWidth, crossings, fromY, toR } from './staunton.js';
 import { buildInkRegistration, modelSection, registrationRank } from './ink-registration.js';
 import { DROPS, PRECIPITATION, PIGMENT_TOTALS, LATE, tankCamera, projectTank, seeded, mix, smooth } from './ink-tank.js';
+import { ORBIT, orbitAt } from './ink-swirl.js';
 
 export const KEYS=80, END=1.146, ease=smooth;
 const TAU=2*Math.PI;
@@ -336,6 +337,21 @@ function freeColumn(drop,aspect){
     weight:front?1:.29+.25*drop.z
   };
 }
+// The foreground pairs' middles at P (ink-swirl.js ORBIT), from where their heads would be: centre (x by the
+// aspect, y up, screen heights), half the distance between the heads, the turn so far (signed). The bake
+// turns the plumes about these; the renderer undoes the turn between two keys of the mist (no ghost).
+export function orbitCentres(P,aspect){
+  const under=ease(.342,.545,P),swing=orbitAt(P),cam=tankCamera(P);
+  return ORBIT.pairs.map(([a,c,sense])=>{
+    const heads=[a,c].map(id=>{
+      const s=DROPS[id],column=freeColumn(s,aspect),life=1-Math.exp(-Math.max(0,P-s.hit)*(id<2?5.4:6.6));
+      const at=projectTank(s.x,mix(s.plunge,column.depth,under)*life*.9,s.z,cam,aspect);
+      return [at[0]*aspect,at[1]];
+    });
+    return {pair:[a,c],sense,centre:[(heads[0][0]+heads[1][0])/2,(heads[0][1]+heads[1][1])/2],
+      half:Math.hypot(heads[1][0]-heads[0][0],heads[1][1]-heads[0][1])/2,angle:sense*swing};
+  });
+}
 // A stack of material rings spans each drop from its trailing column to its
 // overturning nose. Rim stations turn through the meridian as the vortex rolls.
 // The moving axis is integrated separately so the thick head has inertia.
@@ -385,6 +401,16 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
     field.fill(0);
     const available=drops.map(drop=>drop.volume);
     feedPlumes(P,aspect,cam,extras,available,massBook.subarray(frame*6,frame*6+6),field,nx,ny,nz);
+    // The foreground pairs circle one another (ink-swirl.js ORBIT): each pair's middle, from its heads.
+    const orbits=new Map();
+    if(orbitAt(P)>0)for(const o of orbitCentres(P,aspect))if(o.pair.every(id=>id<drops.length))for(const id of o.pair)orbits.set(id,o);
+    // Turn a projected point about its pair's middle: the head the whole way, the stem less toward the top.
+    const circle=(pos,orbit,v)=>{
+      if(!orbit)return;
+      const t=orbit.angle*ease(.2,.78,v),c=Math.cos(t),sn=Math.sin(t);
+      const x=pos[0]*aspect-orbit.centre[0],y=pos[1]-orbit.centre[1];
+      pos[0]=(orbit.centre[0]+c*x-sn*y)/aspect;pos[1]=orbit.centre[1]+sn*x+c*y;
+    };
     for(let b=0;b<order.length;b++){
       const id=order[b],s=drops[id],age=Math.max(0,P-s.hit),seed=s.seed;
       const supplied=available[id]/PIGMENT_TOTALS[id];
@@ -514,6 +540,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
             sleeve*(.70+.50*flutter))-.15*current*sway+lean*radius*.64*Math.cos(spiral);
           const z=s.z+axial.z+throwZ+radius*1.18*Math.sin(spiral)+.045*reach*Math.sin(v*8+seed+age*6);
           const pos=projectTank(x,d,z,cam,aspect);
+          circle(pos,orbits.get(id),v);
           if(anatomical){
             const twist= a+.17*Math.sin(9*v+age*6+a);
             const modelRib=cutRows[id][j];
@@ -589,6 +616,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const d=mix(sheetD,capD,nose);
           const z=s.z+axial.z+deep*halfWidth*.63+.042*reach*Math.sin(6*v+seed);
           const pos=projectTank(x,d,z,cam,aspect);
+          circle(pos,orbits.get(id),v);
           if(shown>0){const b=lateRail(s,late,v,rail,P,aspect,cam);for(let axis=0;axis<3;axis++)pos[axis]=mix(pos[axis],b[axis],shown);}
           if(anatomical)for(let axis=0;axis<3;axis++)pos[axis]=mix(pos[axis],rails[rail][axis],anatomical);
           // The tissues first compact into a profile on the same optical
