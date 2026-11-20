@@ -2,88 +2,85 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { START, SHAPES, GLYPH, pieceAt, distances, signedBytes } from '../../../static/site/scene/ink-plan.js';
 import { UNMIX, SLOTS, cureAt } from '../../../static/site/scene/unmix-plan.js';
-import { CAMERA, tankCamera, projectTank } from '../../../static/site/scene/ink-tank.js';
+import { CAMERA, tankCamera, projectTank, DRAIN, CLEAR, tankLevel } from '../../../static/site/scene/ink-tank.js';
 import { UNMIX_GLSL } from '../../../static/site/scene/glsl/unmix.js';
 import { PLUME_GLSL } from '../../../static/site/scene/glsl/plume.js';
 import { HELD, HOLD, INK_ADDED, INK_FREE, holdFor, inkRaw, inkAdded, easeFor, transitP } from '../../../static/site/lerp.js';
 import { TALL, TYPES, BOARD } from '../../../static/site/scene/staunton.js';
-import { D1, MORPH, TILT, SLOPE, FRONT, drainLevel, drainSlope, waterHeight, dryEdge, emergence, waveFit, boxCamera, screenRay } from '../../../static/site/scene/ink-drain.js';
-import { birthSites } from '../../../static/site/scene/living-ink-plan.js';
+import { FRONT, TIP, LIGHTS, lightsAt, farLine, waterPlane, dryEdge, emergence, boxCamera, screenRay, drainUniforms } from '../../../static/site/scene/ink-drain.js';
+import { birthSites, LANDED } from '../../../static/site/scene/living-ink-plan.js';
 
 const near = (a, b, e, m = '') => assert.ok(Math.abs(a - b) <= e, `${m} ${a} != ${b}`);
 const U = UNMIX;
 
-test('the draining free surface retraces every rising pose and its near meniscus clears the bottom', () => {
-  const [begin,end]=U.clear;
-  const descendedTo=height=>{
-    let low=begin,high=end;
-    for(let i=0;i<52;i++){
-      const mid=(low+high)/2;
-      if(tankCamera(mid)[0]>height)low=mid;else high=mid;
-    }
-    return (low+high)/2;
-  };
-  for(const f of [0,.04,.12,.25,.50,.77,.97,1]){
-    const rising=tankCamera(CAMERA.start+f*(CAMERA.end-CAMERA.start));
-    const falling=tankCamera(descendedTo(rising[0]));
-    for(let k=0;k<4;k++)near(rising[k],falling[k],1e-12);
-    for(const aspect of [.46,1.6]){
-      for(const [x,depth,z] of [[.5,0,0],[.8,0,.43],[.2,0,1],[.1,.37,.73]]){
-        const a=projectTank(x,depth,z,rising,aspect),b=projectTank(x,depth,z,falling,aspect);
-        for(let k=0;k<3;k++)near(a[k],b[k],1e-12);
-      }
-    }
+// Screens of desktop scroll from the start of the hold (lerp.js inkRaw).
+const screens = P => { const h = holdFor('ink', HOLD.pin); return inkRaw(P, HOLD.pin) * (h.pin * HOLD.pin + h.leadIn); };
+const atScreens = (d, lo, hi) => { for (let i = 0; i < 52; i++) { const m = (lo + hi) / 2; if (screens(m) < d) lo = m; else hi = m; } return (lo + hi) / 2; };
+
+test('the water falls as it rose, screen for screen, pauses on the opening pose, and slides off the bottom', () => {
+  const rise = screens(CAMERA.end) - screens(CAMERA.start), d0 = screens(CLEAR[0]);
+  near(screens(DRAIN.fall[1]) - d0, rise, 1e-6, 'the fall takes the rise\'s scroll');
+  for (let f = 0; f <= 1.0001; f += .05) {
+    const up = tankCamera(atScreens(screens(CAMERA.start) + f * rise, CAMERA.start, CAMERA.end));
+    const down = tankCamera(atScreens(d0 + (1 - f) * rise, CLEAR[0], 1.2));
+    near(up[0], down[0], .03, `the same pose at ${f.toFixed(2)} of the rise`);
+    for (const [x, z] of [[.5, 0], [.2, 1], [.8, .43]]) near(projectTank(x, 0, z, up, 1.6)[1], projectTank(x, 0, z, down, 1.6)[1], .03);
   }
-  const opening=descendedTo(CAMERA.above[0]),dt=.000001;
-  for(let z=0;z<=1;z+=.25){
-    const y=P=>projectTank(.5,0,z,tankCamera(P),1)[1];
-    const left=(y(opening)-y(opening-dt))/dt,right=(y(opening+dt)-y(opening))/dt;
-    assert.ok(left<0 && right<0,'the water continues through its starting level');
-    near(left,right,.025,'the surface velocity remains continuous at the starting level');
-  }
-  // (The near meniscus, its chop included: umNear adds at most (.002 + .005 w) of it.)
-  const last=tankCamera(end);
-  assert.ok(projectTank(.5,0,1,last,1)[1]+.002+.005*last[3]<0,'the near meniscus has left the bottom of the screen');
-  assert.deepEqual([...D1],[...U.clear],'the tank drains over D1');
+  let prev = 1;
+  for (let P = CLEAR[0]; P <= CLEAR[1]; P += .0002) { const L = tankLevel(P); assert.ok(L <= prev + 1e-9, 'the water only falls'); prev = L; }
+  // The pause: the opening pose (the near meniscus, chop and all, just under the bottom edge) held.
+  assert.ok(screens(DRAIN.pause[1]) - screens(DRAIN.pause[0]) >= .3, 'a pause of at least a third of a screen');
+  for (let P = DRAIN.pause[0] + 1e-4; P < DRAIN.pause[1]; P += .0005) near(tankLevel(P), 0, 1e-3, 'held at the opening level');
+  const opening = tankCamera((DRAIN.pause[0] + DRAIN.pause[1]) / 2);
+  near(opening[0] + .5 * opening[1], CAMERA.above[0] + .5 * CAMERA.above[1], 2e-3, 'the far line where it was at the start');
+  // (As in the rise's opening pose, the camera is wholly out of the water: no bath, no lip, the near line at the edge.)
+  assert.ok(opening[3] < 1e-4, 'the camera is out of the water');
+  assert.ok(opening[0] - .5 * opening[1] <= 1e-9, 'the near meniscus at the bottom edge');
+  assert.ok(farLine(DRAIN.sink[1]) + .0018 < 0, 'the far line, chop and all, has slid off the bottom');
+  // The lights come on during the pause, the highlights a beat ahead.
+  assert.ok(LIGHTS[0] > DRAIN.pause[0] && LIGHTS[1] < DRAIN.pause[1]);
+  assert.equal(lightsAt(DRAIN.pause[0] - .001), 0);
+  assert.equal(lightsAt(DRAIN.pause[1]), 1);
+  assert.ok(lightsAt((LIGHTS[0] + LIGHTS[1]) / 2, true) > lightsAt((LIGHTS[0] + LIGHTS[1]) / 2));
+  assert.ok(DRAIN.last[1] < CLEAR[1], 'the sheen is gone before the tile takes over');
 });
 
-test('the board\'s plane takes the surface over the crowns and drains away behind the board', () => {
-  const crown=Math.max(...Object.values(TALL)),slab=BOARD.slab;
-  for(let P=D1[0];P<1.2;P+=.0005)assert.ok(drainLevel(P+.0005)<=drainLevel(P)+1e-12,'the water only falls');
-  assert.ok(drainLevel(MORPH[0])>crown+.04,'every crown is under water when the plane takes over');
-  const handover=tankCamera(MORPH[0]);
-  assert.ok(handover[0]-.5*handover[1]+.007<0,'the whole screen is surface at the hand-over');
-  assert.equal(drainSlope(MORPH[1]),0,'the surface is level through the hand-over');
-  assert.ok(TILT[0]>MORPH[1]);
-  near(drainSlope(TILT[1]),SLOPE,1e-12);
-  for(const z of [-14,-4.42,0,4.42,12])assert.ok(waterHeight(z,1.196)<-slab-.15,'the whole page is dry at the end, z '+z);
-  // Every piece has landed before its crown is uncovered; the back rank's before the front's.
-  const crowns=emergence(),landed=Math.max(...birthSites(1.6).map(s=>s.land),...birthSites(.46).map(s=>s.land));
-  assert.ok(crowns.every(c=>c.P>landed),'all landed '+landed+' before '+Math.min(...crowns.map(c=>c.P)));
-  for(const c of crowns)near(waterHeight(c.z,c.P),c.top,1e-6,'the surface at the crown');
-  const kings=crowns.filter((c,i)=>i===4||i===28);
-  assert.ok(kings[0].z<kings[1].z && kings[0].P<kings[1].P,'the black king, at the back, is uncovered first');
-  for(const [W,H,box] of [[1280,800,[630,180,550,460]],[390,844,[20,400,350,292]]]){
-    let prev=0;
-    for(let P=1.10;P<=1.2;P+=.0005){
-      const e=dryEdge(P,box,H);
-      assert.ok(e>=prev-1e-9,'the page dries from the top of the screen down');prev=e;
-      if(e>2 && e<H-2){
-        // The row is the waterline: the page point it sees is level with the surface over it.
-        const cam=boxCamera(box),d=screenRay(cam,box,box[0]+box[2]/2,e),t=(-slab-cam.eye[1])/d[1];
-        near(waterHeight(cam.eye[2]+d[2]*t,P),-slab,2e-3,'waterline at row '+e.toFixed(1));
+test('the water leaves by height: crowns first, back to front, tallest first, the page on the far line', () => {
+  const slab = BOARD.slab;
+  assert.ok(Math.max(...TIP) < 1.26, 'never as steep as the camera\'s view of the page');
+  for (const [W, H, box] of [[1280, 800, [630, 180, 550, 460]], [1440, 900, [440, 217, 560, 467]], [390, 844, [20, 400, 350, 292]]]) {
+    const cam = boxCamera(box);
+    for (let P = 1.07; P < DRAIN.sink[1]; P += .002) {
+      const { h, s, row } = waterPlane(P, box, W, H);
+      if (row < 2 || row > H - 2 || h > 50) continue;
+      // The page's waterline is the far line's row, across the whole screen.
+      for (const x of [.1 * W, W / 2, .9 * W]) {
+        const d = screenRay(cam, box, x, row), z = cam.eye[2] + d[2] * (-slab - cam.eye[1]) / d[1];
+        near(h + s * (z - FRONT), -slab, 2e-3, `waterline at row ${row.toFixed(1)}`);
       }
     }
-    assert.equal(dryEdge(MORPH[1],box,H),0,'the page is still under water as the plane takes over');
-    assert.equal(dryEdge(1.196,box,H),H,'all of the page is dry at the end');
-    // The board's plane continues the tank's waves: the same place and size at the middle of the screen.
-    const {k,o}=waveFit(box,W,H),cam=boxCamera(box),h=drainLevel(MORPH[0]);
-    const at=y=>{const d=screenRay(cam,box,W/2,(1-y)*H),t=(h-cam.eye[1])/d[1];return (cam.eye[2]+d[2]*t)*k+o[1];};
-    const tank=y=>{const c=tankCamera(MORPH[0]),kk=.66*(1-c[3]),f=(c[0]+.5*c[1]-y)/c[1];return f*(1+kk)/(1+kk*f);};
-    near(at(.5),tank(.5),1e-9,'the plane meets the tank at the middle');
-    const slopeBoard=(at(.55)-at(.45))/.1,slopeTank=(tank(.55)-tank(.45))/.1;
-    assert.ok(Math.abs(slopeBoard/slopeTank-1)<.05,'waves the same size on screen '+slopeBoard/slopeTank);
+    const crowns = emergence(box, W, H);
+    // Within a rank, the tallest first; across a file, the back rank before the front.
+    for (const a of crowns) for (const b of crowns) {
+      if (Math.abs(a.z - b.z) < 1e-6 && a.top > b.top + 1e-6) assert.ok(a.P <= b.P + 1e-9, 'tallest first in a rank');
+      if (Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.top - b.top) < 1e-6 && a.z < b.z - 1e-6) assert.ok(a.P <= b.P + 1e-9, 'back to front');
+    }
+    // A crown still under the band at the pause is not uncovered until the water sinks again.
+    const [, pauseEnd] = DRAIN.pause;
+    for (const c of crowns) if (c.P > DRAIN.pause[0]) assert.ok(c.P >= pauseEnd - 1e-6, 'no crown pops out during the pause');
+    let prev = 0;
+    for (let P = CLEAR[0]; P <= 1.2; P += .0005) {
+      const e = dryEdge(P, box, H);
+      assert.ok(e >= prev - 1e-9, 'the page dries from the top of the screen down'); prev = e;
+    }
+    assert.equal(dryEdge(1.196, box, H), H, 'all of the page is dry at the end');
+    assert.deepEqual(drainUniforms(1.0, box, W, H), [99, 0, 0, 0], 'no plane before the water returns');
   }
+  // Every piece is down while the water is still falling.
+  for (const aspect of [.46, 1, 1.6]) for (const s of birthSites(aspect)) {
+    assert.ok(s.land <= LANDED.by + 1e-12 && s.land - s.depart >= LANDED.flight - 1e-12);
+  }
+  assert.ok(LANDED.by < DRAIN.fall[1], 'landed before the fall ends');
 });
 
 test('Chess adds scroll below the water and to its drain, and keeps the distance to the falling droplets', () => {
@@ -103,7 +100,6 @@ test('Chess adds scroll below the water and to its drain, and keeps the distance
     const raw=P=>inkRaw(P,pin)*after;
     near(inkAdded(1.04),inkAdded(1.01),1e-12,'nothing is added between the figures and the drain');
     near(inkAdded(1.2)-inkAdded(1.04),INK_ADDED.drain,1e-12,'the drain gains its own pins');
-    assert.ok(raw(D1[1])-raw(D1[0])>=raw(CAMERA.end)-raw(CAMERA.start),'the water falls over at least the scroll it rose over');
     const playback=easeFor('ink',pin);
     for(const P of [1.2,.93,.55,-.1,.2,.74,1.01,.69,1.15,1.1,1.07,1.19]){
       near(transitP(playback(inkRaw(P,pin))),P,1e-5,'reverse and direct seek');

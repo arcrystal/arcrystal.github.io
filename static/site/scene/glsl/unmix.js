@@ -1,7 +1,7 @@
 import { UNMIX, SLOTS } from '../unmix-plan.js';
-import { CAMERA, TANK_GLSL } from '../ink-tank.js';
+import { CAMERA, TANK_GLSL, DRAIN } from '../ink-tank.js';
 import { MARGIN, BOARD } from '../staunton.js';
-import { D1, FRONT } from '../ink-drain.js';
+import { FRONT } from '../ink-drain.js';
 import { PIECE_ENV } from './board3d.js';
 
 const f = x => (Number.isInteger(x) ? `${x}.0` : String(+x.toFixed(5)));
@@ -76,49 +76,61 @@ vec2 umSwell(vec2 p,float phase){
 
 }
 // The two lamps the waves catch: a broad warm one and a long silver one broken by fine crests; only a
-// few facets align with it. warm: the first's colour (the safelight, or Chess's day on the drain).
-vec3 umGlints(vec3 N,vec3 V,vec2 p,vec2 slope,float farDistance,vec3 warm){
+// few facets align with it. warm: the first's colour (the safelight; white once the lights are on).
+vec3 umGlints(vec3 N,vec3 V,vec2 p,vec2 slope,float farDistance,vec3 warm,float silver){
   float softCosine=max(dot(N,normalize(V+normalize(vec3(-.24,.32,-.89)))),0.);
   vec3 c=warm*pow(softCosine,43.);
   vec3 H=normalize(V+normalize(vec3(.14,.49,-.87)));
   float broaden=.48+.4*noise(p*vec2(6.8,14.));
   vec2 specSlope=H.xz/max(.10,H.y)+slope;
   float gloss=exp(-dot(specSlope*vec2(7.3,38.),specSlope*vec2(7.3,38.)))*broaden;
-  return c+vec3(.23,.237,.23)*gloss*(.47+.53*farDistance);
+  return c+vec3(.23,.237,.23)*silver*gloss*(.47+.53*farDistance);
 }
-vec3 umReflection(vec3 r,vec2 plane,float rough){
+vec3 umReflection(vec3 r,vec2 plane,float rough,float lights){
   // Intersect the reflected ray with the surrounding room. Translating the
   // intersection from each patch on the water gives the distant lights their
   // correct parallax. The photographic plate is in top-down image coordinates.
   vec2 wall=vec2(plane.x-.5,0.)+r.xy*(1.02+.46*(1.-plane.y))/max(.22,-r.z);
   vec2 look=clamp(vec2(.50+.57*wall.x,.92-.85*wall.y),.003,.997);
   vec3 incident=textureLod(uBathRoom,look,1.1+5.*rough+.65*plane.y).rgb;
-  return vec3(.055,.069,.076)+1.65*incident;
+  // When the darkroom's lights come on (the water returning) its red lamps turn white lamps; its dark
+  // walls stay dark: the brighter a patch, the more it takes the white of its brightest channel.
+  float m=max(max(incident.r,incident.g),incident.b);
+  vec3 lit=mix(vec3(dot(incident,vec3(.2126,.7152,.0722)))*1.1,vec3(m)*vec3(1.,.98,.95)*1.25,smoothstep(.35,.7,m));
+  incident=mix(incident,lit,lights);
+  return mix(vec3(.055,.069,.076),vec3(.066),lights)+1.65*incident;
 }
 // Transmission samples the world under the tank at the displaced ray. On
 // the return journey this includes the actual wood, moving pieces and paper.
-vec3 umSubstrate(vec2 px,vec2 uv,bool returning){
+// Under water (wet) the board and the pieces keep the bath's grey, as the print does in the tray; out of
+// it they have their colour.
+vec3 umSubstrate(vec2 px,vec2 uv,bool returning,bool wet){
   if(!returning)return sceneDarkroom(px);
   vec3 col=sceneInk(px);
+  float grey=wet?.85:0.;
   if(uB3On>.5){
     vec2 boardPx=uRegion.xy+vec2(uv.x,1.-uv.y)*uRegion.zw;
     vec4 board=umBoard(boardPx);
-    col=board.rgb+col*(1.-board.a);
+    col=mix(board.rgb,vec3(dot(board.rgb,vec3(.2126,.7152,.0722))),grey)+col*(1.-board.a);
   }
   vec4 piece=texture(uTexA,uv);
-  return piece.rgb+col*(1.-piece.a);
+  return mix(piece.rgb,vec3(dot(piece.rgb,vec3(.2126,.7152,.0722))),grey)+col*(1.-piece.a);
 }
-// ---- The drain (ink-drain.js) ------------------------------------------------------------------------
-// D1: the tank's surface falls as it rose, its far side open. D2: a plane in the board's world sinks
-// through the crowns, the board and the page, tipping toward the back as it drains away behind them.
+// ---- The return (ink-drain.js) ------------------------------------------------------------------------
+// The same water, the same code: the tank plays the rise backward (ink-tank.js DRAIN), pauses while the
+// darkroom's lights come on, and falls on past the bottom; the board's world under it, dimmed as the
+// darkroom floor was, and above the far contact line, dry, under the safelight until the lights come on.
 ${PIECE_ENV}
 uniform sampler2D uB3Geo; // what each pixel of the board's picture sees: world y (R) and z (G) (board3d.js, unit 13)
 uniform vec3 uB3Eye;      // the board camera's eye (staunton.js frameCamera at the box's proportion)
-uniform vec4 uDrain;      // the water's height over the board, its tilt, wave units per world unit, hand-over 0 … 1
-uniform vec2 uDrainO;     // the board's plane's place in the tank's wave units
+uniform vec4 uDrain;      // the falling plane's height over the board's world and its tilt; the lights (fill, highlights)
 const vec3 UM_FWD = vec3(0.0, ${f(-Math.sin(0.9))}, ${f(-Math.cos(0.9))}), UM_UP = vec3(0.0, ${f(Math.cos(0.9))}, ${f(-Math.sin(0.9))});
 const float UM_TAN = ${f(Math.tan(0.21))}, UM_SLAB = ${f(BOARD.slab)}, UM_FRONT = ${f(FRONT)};
-const vec2 UM_D1 = ${v2(D1)};
+const vec2 UM_LAST = ${v2(DRAIN.last)};
+// The dry page under the safelight, and the Chess world seen through the water: dim and warm as the
+// darkroom's floor was under the same lamp; neutral once the lights are on.
+const vec3 UM_SAFE = vec3(.93, .79, .73), UM_WET = vec3(.135, .112, .10);
+const float UM_WET_ON = .118;
 // The board camera's ray through a screen point (CSS px from the top left), the box framing the board.
 vec3 umRay(vec2 px) {
   vec2 t = (px - uB3Box.xy) / uB3Box.zw;
@@ -134,97 +146,61 @@ vec2 umSeen(vec2 px, vec3 rd) {
   vec4 g = textureLod(uB3Geo, vec2(t.x, 1.0 - t.y), 0.0);
   return g.a > .5 ? g.rg / g.a : page.yz;
 }
-// The surface over the drained Chess world, and where it has gone, that world drying.
-vec3 umDrainSurface(vec2 uv, vec2 px, float P, vec4 cam, float phase) {
-  float aspect = uRegion.z / uRegion.w, shortSide = min(uRegion.z, uRegion.w);
-  float m = uDrain.w, day = mix(.35, 1.0, smoothstep(UM_D1.x, UM_D1.y - .01, P));
-  vec3 rd = umRay(px);
-  vec2 seen = umSeen(px, rd);
-  float h = uDrain.x, s = uDrain.y;
-  // Water over the point seen (world units; < 0: that point is out of the water by so much).
-  float depth = h + s * (seen.y - UM_FRONT) - seen.x;
-  // The surface over it: the tank's, open behind its old far wall, handed over to the board's plane
-  // while the whole screen is surface.
-  vec2 plane = waterXZOpen(uv, cam, aspect);
-  vec2 pT = plane * vec2(clamp(aspect, .65, 2.2), 1.0);
-  // (Behind its old far wall the view keeps grazing lower toward the horizon, never below it.)
-  float lift = plane.y < 0.0 ? .27 * exp(1.556 * plane.y) : .27 + .42 * plane.y;
-  vec3 VT = normalize(vec3((.5 - uv.x) * .47, lift, 1.0 - .23 * plane.y));
-  float tw = (h + s * (uB3Eye.z - UM_FRONT) - uB3Eye.y) / min(rd.y - s * rd.z, -1e-4);
-  vec3 hit = uB3Eye + rd * tw;
-  vec2 p = mix(pT, hit.xz * uDrain.z + uDrainO, m);
-  vec3 V = normalize(mix(VT, -rd, m));
-  float farDistance = mix(clamp(1.0 - plane.y, 0.0, 1.6), 0.0, m);
-  vec4 waves = texture(uReach, uv);
-  vec2 impact = vec2(waves.r - waves.g, waves.b - waves.a);
-  // Seen from above, the same swell must lean further to be seen: the draining water is stirred, more
-  // and more as the camera comes over it.
-  float over = smoothstep(UM_D1.y - .02, UM_D1.y + .025, P), stir = mix(1.0, 2.1, over);
-  vec2 swell = umSwell(p, phase) * stir;
-  vec2 slope = swell + vec2(.27, .31) * impact;
-  vec3 N = normalize(vec3(-slope.x, 1.0, -slope.y));
-  float cosine = clamp(dot(V, N), 0.0, 1.0), fresnel = .0204 + .9796 * pow(1.0 - cosine, 5.0);
-  // What lies under the surface, bent by the waves the more water there is over it, dimmed and cooled
-  // by that water; lit by the darkroom's safelight giving way to Chess's day.
-  float bend = clamp(depth / 3.2, 0.0, 1.5) / stir;
-  vec2 offset = (swell * vec2(28.0, -34.0) + impact * vec2(62.0, -52.0)) * shortSide / 800.0 * bend;
-  vec3 floorC = umSubstrate(px + offset, uv + offset * vec2(1.0, -1.0) / uRegion.zw, true);
-  if (over > 0.0) {
-    // Caustics: each crest is a weak lens, gathering the daylight into bright webs on what lies under
-    // it (intensity 1 / |1 − d (1 − 1/n) ∇²η|), sharpest a little under the surface, gone in the deep.
-    vec2 e = vec2(.004, 0.0);
-    float lap = (umSwell(p + e.xy, phase).x - umSwell(p - e.xy, phase).x + umSwell(p + e.yx, phase).y - umSwell(p - e.yx, phase).y) / (2.0 * e.x) * stir;
-    float focus = clamp(depth, 0.0, 3.0) * .25 * uDrain.z * lap * 5.5;
-    float caustic = 1.0 / clamp(abs(1.0 + focus), .28, 3.0);
-    floorC *= mix(1.0, .84 + .2 * caustic, over * exp(-max(depth, 0.0) / 2.4) * smoothstep(0.0, .25, depth));
-  }
-  vec3 through = exp(-max(depth, 0.0) * vec3(.17, .115, .088));
-  vec3 body = floorC * mix(vec3(.405, .338, .31), vec3(1.0), day) * through + vec3(.075, .098, .122) * (1.0 - through);
-  body = mix(body, mix(vec3(.159, .165, .166), vec3(.60, .63, .64), day), .37 * farDistance * farDistance);
-  float rough = .095 + .14 * noise(p * vec2(4.2, 7.3));
-  vec3 refl = reflect(-V, N);
-  vec3 environment = mix(umReflection(refl, plane, rough), roomEnv(refl) * .62, day);
-  vec3 top = body * (1.0 - fresnel) + environment * (fresnel + mix(.115, .035, day));
-  top += umGlints(N, V, p, slope, farDistance, mix(vec3(.155, .097, .082), vec3(.13, .125, .115), day));
-  // From above, a tall window behind the board lies on the water, broken by the waves into glitter.
-  vec3 Hw = normalize(V + normalize(vec3(-.20, .70, -.69)));
-  vec2 lean = Hw.xz / max(.10, Hw.y) + slope;
-  float glitter = exp(-dot(lean * vec2(7.5, 20.0), lean * vec2(7.5, 20.0))) * (.5 + .5 * noise(p * vec2(9.0, 23.0)));
-  top += vec3(.24, .236, .226) * glitter * over * (1.0 - exp(-max(depth, 0.0) * 6.0));
-  if (m <= 0.0) return top;
-  // The meniscus where the plane meets what stands in it, a hair above its line, and the sheen it
-  // leaves on what it has uncovered.
-  float w = clamp(fwidth(depth) * 1.5, .0025, .02);
-  vec3 dry = umSubstrate(px, uv, true);
-  float wet = exp(min(depth, 0.0) / .12) * m;
-  dry = dry * (1.0 - .17 * wet) + roomEnv(reflect(rd, vec3(0.0, 1.0, 0.0))) * .045 * wet;
-  vec3 col = mix(dry, top, smoothstep(-w, w, depth));
-  float meniscus = exp(-pow((depth + .012) / max(w, .006), 2.0));
-  return col + vec3(.62, .6, .55) * meniscus * m * .5;
-}
 // Two views of one free surface. The near meniscus separates the bath from
 // the reflecting plane; the far wall separates that plane from the dry world.
 vec3 umFill(vec2 uv,vec2 px,float P,bool returning,out vec3 surface,out float underwater,
             out float pigmentThrough,out float lip){
   vec4 cam=waterCamera(P);
-  float phase=16.*min(P,${CAMERA.start})+3.1*(cam.x-${CAMERA.above[0]})+.23*T;
+  // (Returning, the waves run on: forward as the camera rises back out, then with the scroll.)
+  float phase=(returning?16.*${CAMERA.start}+tankDrain(P,1):16.*min(P,${CAMERA.start})+3.1*(cam.x-${CAMERA.above[0]}))+.23*T;
   float near=umNear(uv,cam,phase),farEdge=umBack(uv,cam,phase),distanceUnder=near-uv.y;
-  float exposure=smoothstep(0.,.078,P);
+  // The lights: the fill, and the highlights a beat ahead of it (ink-drain.js LIGHTS).
+  float fill=returning?uDrain.z:0.,highlights=returning?uDrain.w:0.;
+  // The water comes in as an exposure at the start, and goes out as one at the end.
+  float exposure=smoothstep(0.,.078,P)*(1.-smoothstep(UM_LAST.x,UM_LAST.y,P));
   float shortSide=min(uRegion.z,uRegion.w),aa=max(1./uRegion.w,.0005);
   vec2 plane=waterXZ(uv,cam,uRegion.z/uRegion.w);
-  // (Draining, the far side is open: there is only surface above the near meniscus.)
-  float water=returning?1.:smoothstep(-aa,aa,farEdge-uv.y);
+  // Where the water stands: below the far contact line, and (returning) where the falling plane is still
+  // over what this pixel sees (ink-drain.js): crowns, then bodies, then the board come out of it ahead of
+  // the line. One signed distance (uv, > 0 in the water) for the edge and its lines; on the page the far
+  // line alone, so the two never double. (Taken here, in uniform control flow, for its derivatives.)
+  float edge=farEdge-uv.y,depth=1e3,shallow=1.,lineAt=1.;
+  bool object=false;
+  if(returning){
+    vec2 seen=umSeen(px,umRay(px));
+    depth=uDrain.x+uDrain.y*(seen.y-UM_FRONT)-seen.x;
+    float slope=length(vec2(dFdx(depth),dFdy(depth))),rows=length(vec2(dFdx(uv.y),dFdy(uv.y)));
+    object=seen.x>-UM_SLAB+.004;
+    // (Close above the near meniscus the camera is at the glass: the water stands there, whatever is under it.)
+    float glass=smoothstep(.03,.0,uv.y-near);
+    float planeEdge=depth/max(slope,1e-5)*rows;
+    if(object)edge=min(edge,max(planeEdge,glass*.01));
+    // Only where the depth is smooth across the pixel does its zero line get the contact line; across a
+    // silhouette it is a plain step.
+    lineAt=object?smoothstep(.07,.025,fwidth(depth)):1.;
+    // Under a thin film the world shows almost as it is, and bends little.
+    shallow=object?1.-exp(-max(depth,0.)/.3):1.;
+  }
+  float water=smoothstep(-aa,aa,edge);
   underwater=smoothstep(-.012,.018,distanceUnder)*smoothstep(.015,.37,cam.w);
   float throughUnder=exp(-max(0.,distanceUnder)*16.)*.22*(1.-smoothstep(.94,1.,cam.w));
   surface=vec3(0);
   // Fully immersed rays skip the reflection, refraction and substrate lookup.
-  if(returning){
-    // (Once the plane has the surface, the near meniscus is below the screen and every pixel comes
-    // here, so the meniscus's derivatives are taken in uniform control flow.)
-    if(underwater<.999 || throughUnder>.001)surface=umDrainSurface(uv,px,P,cam,phase);
-  }else if(underwater<.999 || throughUnder>.001){
+  if(underwater<.999 || throughUnder>.001){
+    // Above the far contact line, the dry world: the darkroom; on the way back, Chess's, its page under
+    // the safelight until the lights come on, a dark wet line along the water's edge.
+    float distanceToWall=edge;
+    vec3 dry=umSubstrate(px,uv,returning,false);
+    if(returning){
+      // Just uncovered, it is still wet: darker, a fading sheen of the white room, the drying front ragged
+      // (fixed to what it lies on); and a dark wet line along the water's edge.
+      float above=object?-depth:-distanceToWall*6.;
+      float wet=exp(-max(above,0.)/.35)*(.75+.25*noise(px*.045+vec2(0.,depth*7.)))*exposure;
+      dry*=mix(UM_SAFE,vec3(1.),fill)*(1.-.16*wet)*(1.-.35*lineAt*exp(-abs(distanceToWall+.0012)/max(aa,.0006))*exposure);
+      dry+=vec3(.035,.035,.034)*wet*(.5+.5*sin(px.y*.9+noise(px*.02)*6.))*fill;
+    }
     if(water<=.001){
-      surface=umSubstrate(px,uv,returning);
+      surface=dry;
     }else{
       vec4 waves=texture(uReach,uv);
       vec2 impact=vec2(waves.r-waves.g,waves.b-waves.a);
@@ -238,27 +214,28 @@ vec3 umFill(vec2 uv,vec2 px,float P,bool returning,out vec3 surface,out float un
       vec3 refl=reflect(-V,N);
       float cosine=clamp(dot(V,N),0.,1.);
       float fresnel=.0204+.9796*pow(1.-cosine,5.);
-      vec2 offset=(swell*vec2(28.,-34.)+impact*vec2(62.,-52.))*shortSide/800.*water*exposure;
-      vec3 refracted=umSubstrate(px+offset,uv+offset*vec2(1.,-1.)/uRegion.zw,returning);
+      vec2 offset=(swell*vec2(28.,-34.)+impact*vec2(62.,-52.))*shortSide/800.*water*exposure*shallow;
+      vec3 refracted=umSubstrate(px+offset,uv+offset*vec2(1.,-1.)/uRegion.zw,returning,true);
       // The Photography floor is already lit by the safelight. Bring the
       // daylight material of Chess under the same dim lamp while covered;
       // its open-air exposure returns at the far contact line.
-      vec3 floorLight=returning?refracted*vec3(.30,.25,.23):refracted;
-      vec3 body=vec3(.070,.092,.104)+floorLight*vec3(.51,.39,.37);
+      vec3 floorLight=returning?refracted*mix(UM_WET,vec3(UM_WET_ON),fill):refracted;
+      vec3 body=mix(vec3(.070,.092,.104),vec3(.094),fill*.8)+floorLight*mix(vec3(.51,.39,.37),vec3(.42),fill);
       float farDistance=1.-plane.y;
-      body=mix(body,vec3(.159,.165,.166),.37*farDistance*farDistance);
+      body=mix(body,mix(vec3(.159,.165,.166),vec3(.164),fill),.37*farDistance*farDistance);
       float rough=.095+.14*noise(p*vec2(4.2,7.3));
-      vec3 environment=umReflection(refl,plane,rough);
+      vec3 environment=umReflection(refl,plane,rough,highlights);
       // The dark substrate and lit room give small Fresnel reflections high
       // contrast. Below the far edge the actual water has a double contact line.
       vec3 top=body*(1.-fresnel)+environment*(fresnel+.115);
+      // A thin film over a crown, a collar or the board: the thing itself, a little darker, glossy.
+      if(returning && object)top=mix(refracted*mix(UM_SAFE,vec3(1.),fill)*.8+environment*(fresnel*.6+.03),top,shallow);
       // The overhead safelight produces a broad weak warmth. A second long
       // silver source is broken by fine crests; only a few facets align with it.
-      top+=umGlints(N,V,p,slope,farDistance,vec3(.155,.097,.082));
-      float distanceToWall=farEdge-uv.y;
-      top*=1.-.32*exp(-abs(distanceToWall-.0025)/.0024);
-      top+=vec3(.39,.32,.26)*exp(-abs(distanceToWall-.0009)/max(.00065,aa))*(.69+.31*cos(plane.x*8.));
-      surface=mix(refracted,top,water*exposure);
+      top+=umGlints(N,V,p,slope,farDistance,mix(vec3(.155,.097,.082),vec3(.155),highlights),1.+.3*highlights);
+      top*=1.-.32*lineAt*exp(-abs(distanceToWall-.0025)/.0024);
+      top+=mix(vec3(.39,.32,.26),vec3(.39),highlights)*lineAt*exp(-abs(distanceToWall-.0009)/max(.00065,aa))*(.69+.31*cos(plane.x*8.));
+      surface=mix(returning?dry:refracted,top,water*exposure);
     }
   }
   // Keep most of the plunging pigment behind the reflecting water. When the
@@ -274,11 +251,11 @@ vec3 umFill(vec2 uv,vec2 px,float P,bool returning,out vec3 surface,out float un
   float falloff=smoothstep(.22,.92,uv.x+.16*(.5-uv.y));
   bath=mix(bath,vec3(.225,.286,.307),chamber*(.045+.28*falloff));
   float ceilingGlow=exp(-4.7*max(.03,distanceUnder));
-  bath+=vec3(.19,.049,.025)*ceilingGlow;
+  bath+=mix(vec3(.19,.049,.025),vec3(.19,.186,.18),highlights)*ceilingGlow;
   float shaft=sin(4.9*uv.x+1.4*uv.y+.21*sin(6.*uv.y+phase*.10));
   bath+=vec3(.032,.030,.027)*shaft*ceilingGlow;
   float veil=sin(25.*uv.x+17.*distanceUnder+2.1*sin(12.*uv.x-phase*.13)+phase*.20);
-  bath+=vec3(.059,.048,.038)*pow(max(veil,0.),4.)*exp(-9.*abs(distanceUnder))*smoothstep(.1,.60,cam.w);
+  bath+=mix(vec3(.059,.048,.038),vec3(.049),fill)*pow(max(veil,0.),4.)*exp(-9.*abs(distanceUnder))*smoothstep(.1,.60,cam.w);
   bath=mix(bath,surface,throughUnder);
   lip=exp(-abs(distanceUnder)/.0025)*smoothstep(.04,.51,cam.w);
   return bath;
@@ -291,7 +268,8 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
   vec3 surface;
   float underwater,pigmentThrough,lip;
   vec3 bath=umFill(uv,px,P,returning,surface,underwater,pigmentThrough,lip);
-  if(returning && underwater<=.001)return surface+vec3(.52,.41,.34)*lip;
+  vec3 lipColour=mix(vec3(.52,.41,.34),vec3(.52,.51,.49),returning?uDrain.w:0.);
+  if(returning && underwater<=.001)return surface+lipColour*lip;
   // Keep the wet board and the last flying figures on the underwater side
   // of the meniscus. On the free surface the same figures are seen in
   // refracted light. In dry air their full colour comes straight through.
@@ -317,7 +295,7 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
     col=air.rgb+col*(1.-air.a);
   }
   if(returning)col=mix(surface,col,underwater);
-  return col+vec3(.52,.41,.34)*lip;
+  return col+lipColour*lip;
 }
 
 // ---- A click into Chess (opens.js) -------------------------------------------------------------------

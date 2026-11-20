@@ -1,17 +1,57 @@
+import { inkRaw, holdFor, HOLD } from '../lerp.js';
 // Tank coordinates are horizontal position, distance below the free surface,
 // and distance from the back of the bath towards the camera. Screen Y points up.
 export const smooth=(a,b,t)=>{const u=Math.max(0,Math.min(1,(t-a)/(b-a)));return u*u*(3-2*u);};
 export const mix=(a,b,t)=>a+(b-a)*t;
 export const CAMERA={start:.416,end:.565,above:[.30,.60,.76,0],below:[1.072,.092,.99,1]};
-// The drain's first part (ink-drain.js D1): the surface falls as it rose. A
-// level just below zero carries the near meniscus, crests included, past the
-// bottom of the screen; the board's own plane then takes the surface over.
-export const DRAIN=Object.freeze([1.04,1.105]);
-const emptyLevel=-.04;
+// The water's return (ink-drain.js, glsl/unmix.js umFill): the rise played backward, screen for screen of
+// scroll, then a pause on the opening pose while the darkroom's lights come on, then the level keeps
+// falling in the same perspective until the far contact line has slid off the bottom. The level is a
+// function of the scroll, not of P: a table over CLEAR, read alike by the shaders, the bake and the tests.
+export const CLEAR=Object.freeze([1.04,1.196]);
+// Screens of desktop scroll: the pause on the opening pose, the sink (its first SPLIT of them while the far
+// line crosses the pieces, the rest for the page), and the last of the sheen.
+const PAUSE=.4,SINK=1.5,SPLIT=.6,LAST=.1,EMPTY=-.80;
+const TABLE=128;
+const screens=P=>{const h=holdFor('ink',HOLD.pin);return inkRaw(P,HOLD.pin)*(h.pin*HOLD.pin+h.leadIn);};
+function atScreens(target,lo,hi){
+  for(let i=0;i<48;i++){const m=(lo+hi)/2;if(screens(m)<target)lo=m;else hi=m;}
+  return (lo+hi)/2;
+}
+function drainPlan(){
+  const rise=screens(CAMERA.end)-screens(CAMERA.start),d0=screens(CLEAR[0]);
+  const marks=[rise,rise+PAUSE,rise+PAUSE+SINK,rise+PAUSE+SINK+LAST].map(d=>atScreens(d0+d,CLEAR[0],1.2));
+  const exponent=Math.log(.5)/Math.log(SPLIT);
+  const levelAt=P=>{
+    const d=screens(P)-d0;
+    if(d<=0)return 1;
+    if(d<rise)return smooth(CAMERA.start,CAMERA.end,atScreens(screens(CAMERA.end)-d,CAMERA.start,CAMERA.end));
+    if(d<rise+PAUSE)return 0;
+    const u=Math.min(1,(d-rise-PAUSE)/SINK);
+    return EMPTY*smooth(0,1,u**exponent);
+  };
+  // The waves run on: as the camera moved during the rise, then with the scroll at the rate they ran
+  // while the camera waited over the open water at the start.
+  const perScreen=16*(CAMERA.start-.078)/(screens(CAMERA.start)-screens(.078));
+  const table=new Float64Array(2*(TABLE+1));
+  for(let k=0;k<=TABLE;k++){
+    const P=CLEAR[0]+(CLEAR[1]-CLEAR[0])*k/TABLE,L=levelAt(P),d=screens(P)-d0;
+    table[2*k]=L;
+    table[2*k+1]=3.1*(CAMERA.below[0]-CAMERA.above[0])*(1-Math.max(0,Math.min(1,L)))+perScreen*Math.max(0,d-rise);
+  }
+  return {table,fall:[CLEAR[0],marks[0]],pause:[marks[0],marks[1]],sink:[marks[1],marks[2]],last:[marks[2],marks[3]],rise,perScreen};
+}
+export const DRAIN=drainPlan();
+// The level, and the waves' phase, while the water returns: the table, linearly.
+export function drainTable(P,channel=0){
+  const x=Math.max(0,Math.min(1,(P-CLEAR[0])/(CLEAR[1]-CLEAR[0])))*TABLE,i=Math.min(TABLE-1,Math.floor(x));
+  return mix(DRAIN.table[2*i+channel],DRAIN.table[2*i+2+channel],x-i);
+}
 const tiltTakeup=.10;
 const perspective=.66;
+export function tankLevel(P){return P>=CLEAR[0]?drainTable(P):smooth(CAMERA.start,CAMERA.end,P);}
 export function tankCamera(P){
-  const level=smooth(CAMERA.start,CAMERA.end,P)+(emptyLevel-1)*smooth(...DRAIN,P);
+  const level=tankLevel(P);
   // Ease the first few degrees of pitch into a level camera track. Its
   // vertical velocity continues through the original opening height.
   const u=Math.max(0,Math.min(1,level/tiltTakeup));
@@ -24,7 +64,15 @@ export function projectTank(x,d,z,view,aspect){
   return [.5+(x-.5)*(1+.22*(1-view[3]))/w+(z-.5)*.072*view[3]/Math.max(1,aspect),
     view[0]+view[1]*(.5-z/w)-d*view[2]/w,.22+.60*z-.13*d];
 }
+const glslTable=()=>Array.from(DRAIN.table,v=>v.toFixed(5)).join(',');
 export const TANK_GLSL=`
+const float TANK_CLEAR0=${CLEAR[0].toFixed(4)},TANK_CLEAR1=${CLEAR[1].toFixed(4)};
+const float TANK_DRAIN[${2*(TABLE+1)}]=float[${2*(TABLE+1)}](${glslTable()});
+float tankDrain(float P,int channel){
+  float x=clamp((P-TANK_CLEAR0)/(TANK_CLEAR1-TANK_CLEAR0),0.,1.)*${TABLE}.;
+  int i=min(${TABLE-1},int(x));
+  return mix(TANK_DRAIN[2*i+channel],TANK_DRAIN[2*i+2+channel],x-float(i));
+}
 float tankW(float z,vec4 cam){return 1.+${perspective}*(1.-cam.w)*(1.-z);}
 vec3 tankPoint(vec3 p,vec4 cam,float aspect){
   float w=tankW(p.z,cam);
@@ -36,17 +84,9 @@ vec2 waterXZ(vec2 uv,vec4 cam,float aspect){
   float k=${perspective}*(1.-cam.w),z=fraction*(1.+k)/(1.+k*fraction);
   return vec2(.5+(uv.x-.5-(z-.5)*.072*cam.w/max(1.,aspect))*tankW(z,cam)/(1.+.22*(1.-cam.w)),z);
 }
-// The same plane continued behind its far wall toward its horizon: the drain's
-// open far side (ink-drain.js). In front of the near meniscus it stops at the glass.
-vec2 waterXZOpen(vec2 uv,vec4 cam,float aspect){
-  float k=${perspective}*(1.-cam.w);
-  float fraction=clamp((cam.x+.5*cam.y-uv.y)/cam.y,-.98/max(k,.001),1.);
-  float z=fraction*(1.+k)/(1.+k*fraction);
-  return vec2(.5+(uv.x-.5-(z-.5)*.072*cam.w/max(1.,aspect))*tankW(z,cam)/(1.+.22*(1.-cam.w)),z);
-}
 vec4 waterCamera(float P){
   const vec4 above=vec4(${CAMERA.above.map(v=>v.toFixed(4))}),below=vec4(${CAMERA.below.map(v=>v.toFixed(4))});
-  float level=smoothstep(${CAMERA.start},${CAMERA.end},P)${(emptyLevel-1).toFixed(4)}*smoothstep(${DRAIN[0]},${DRAIN[1]},P);
+  float level=P>=TANK_CLEAR0?tankDrain(P,0):smoothstep(${CAMERA.start},${CAMERA.end},P);
   float u=clamp(level/${tiltTakeup},0.,1.);
   float pitch=level<${tiltTakeup}?${tiltTakeup}*u*u*(2.-u):level;
   vec4 view=mix(above,below,pitch);

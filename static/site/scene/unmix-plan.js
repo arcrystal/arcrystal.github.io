@@ -1,12 +1,12 @@
 // The falling meniscus on scroll and the abbreviated click cure.
 import { pieceAt, START } from './ink-plan.js';
 import { TALL, TYPES } from './staunton.js';
-import { DRAIN } from './ink-tank.js';
+import { CLEAR } from './ink-tank.js';
 
 export const UNMIX = Object.freeze({
   squares: [0.84, 0.9], harden: [0.88, 1.02], span: 0.075,
   // The water clears to the band's world.
-  clear: DRAIN,
+  clear: CLEAR,
 });
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 // The 32 pieces in the order of the board's slots (staunton.js startSlots: the FEN's order), each with its

@@ -4,7 +4,9 @@ import { KEYS,END,piecePoses,ease } from './living-ink-plan.js';
 import { frameCamera } from './staunton.js';
 import { INK_DRIP_INSTANCES } from './glsl/ink-impact.js';
 import { PRECIPITATION } from './ink-tank.js';
-import { MORPH, drainUniforms, emergence } from './ink-drain.js';
+import { CLEAR, waterPlane, emergence, boxCamera, toScreen } from './ink-drain.js';
+import { DRAIN, tankCamera } from './ink-tank.js';
+import { startSlots } from './staunton.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -13,6 +15,18 @@ function sceneModule(relative){
   const url=new URL(relative,import.meta.url);
   url.search=new URL(import.meta.url).search;
   return url.href;
+}
+// Wave units per world unit of the board for the crowns' rings: their packets the size the rain's were.
+const CROWN_WAVES=.45;
+// How much quicker than the rain's the returning water's rings age: they live as many screens of scroll.
+const LAND_AGE=2.2;
+// The tank's surface point (x, z) under a screen point (uv, y up), as glsl/unmix.js waterXZ maps it; null
+// off the band between the far line and the near meniscus.
+function waterUnder(x,y,cam,aspect){
+  const f=(cam[0]+.5*cam[1]-y)/cam[1];
+  if(f<=0||f>=1)return null;
+  const k=.66*(1-cam[3]),z=f*(1+k)/(1+k*f),w=1+k*(1-z);
+  return [.5+(x-.5-(z-.5)*.072*cam[3]/Math.max(1,aspect))*w/(1+.22*(1-cam[3])),z];
 }
 export function createLivingInk(gl,coarse,programs){
   let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,queue=[],uploaded=0,failed=false;
@@ -37,7 +51,7 @@ export function createLivingInk(gl,coarse,programs){
   gl.bindVertexArray(null);
   // The drain's crowns: one record a piece (ink-drain.js emergence), rebuilt if the pieces' heights change.
   const crownGeometry=gl.createVertexArray(),crownRecords=gl.createBuffer();
-  let crownKey='';
+  let crownKey='',crownCount=0;
   gl.bindVertexArray(crownGeometry);
   gl.bindBuffer(gl.ARRAY_BUFFER,crownRecords);
   gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,4,gl.FLOAT,false,0,0);gl.vertexAttribDivisor(0,1);
@@ -45,15 +59,48 @@ export function createLivingInk(gl,coarse,programs){
   gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,1,gl.FLOAT,false,0,0);
   gl.bindVertexArray(null);
   gl.bindBuffer(gl.ARRAY_BUFFER,null);
-  function crowns(){
-    const list=emergence(),key=list.map(c=>c.P.toFixed(6)).join();
+  // The pieces landing under the falling band ring its surface, as the rain rang the rising one: records in
+  // the drips' layout (a zero record first), at the tank's point over each landing, drawn by INK_RIPPLE.
+  const landGeometry=gl.createVertexArray(),landRecords=gl.createBuffer();
+  let landKey='',landCount=0;
+  gl.bindVertexArray(landGeometry);
+  gl.bindBuffer(gl.ARRAY_BUFFER,landRecords);
+  for(let field=0;field<3;field++){
+    gl.enableVertexAttribArray(field);gl.vertexAttribPointer(field,4,gl.FLOAT,false,48,16*field);gl.vertexAttribDivisor(field,1);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER,dripCorners);
+  gl.enableVertexAttribArray(3);gl.vertexAttribPointer(3,1,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null);gl.bindBuffer(gl.ARRAY_BUFFER,null);
+  function landings(box,W,H){
+    const key=`${box.map(v=>Math.round(v)).join()} ${W} ${H} ${meta?.sites?.length}`;
+    if(key!==landKey && meta){
+      landKey=key;
+      const slots=startSlots(),cam=boxCamera(box),aspect=W/H,out=Array(12).fill(0);
+      for(const site of meta.sites){
+        if(site.land<=CLEAR[0])continue;
+        const s=slots[site.slot],at=toScreen(cam,box,[s.x,0,s.z]);
+        if(!at)continue;
+        const tank=waterUnder(at[0]/W,1-at[1]/H,tankCamera(site.land),aspect);
+        if(!tank)continue;
+        out.push(tank[0],tank[1],0,.005, 0,0,site.land,Number(!site.piece.black), 0,0,site.slot*1.7,0);
+      }
+      landCount=out.length/12;
+      gl.bindBuffer(gl.ARRAY_BUFFER,landRecords);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.STATIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,null);
+    }
+    return landCount;
+  }
+  // Two rings a crown: as it breaks through, and a smaller one a moment later as the film drips off it.
+  function crowns(box,W,H){
+    const key=`${box.map(v=>Math.round(v)).join()} ${W} ${H}`;
     if(key!==crownKey){
       crownKey=key;
+      const list=emergence(box,W,H).filter(c=>c.P>CLEAR[0] && c.P<DRAIN.last[1]);
+      crownCount=2*list.length;
       gl.bindBuffer(gl.ARRAY_BUFFER,crownRecords);
-      gl.bufferData(gl.ARRAY_BUFFER,Float32Array.from(list.flatMap(c=>[c.x,c.z,c.P,.02])),gl.STATIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER,Float32Array.from(list.flatMap(c=>[c.x,c.z,c.P,.02,c.x,c.z,c.P+.009,.0032])),gl.STATIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER,null);
     }
-    return list.length;
+    return crownCount;
   }
   function texParams(type,filter,wrap=gl.CLAMP_TO_EDGE){
     gl.texParameteri(type,gl.TEXTURE_MAG_FILTER,filter);gl.texParameteri(type,gl.TEXTURE_MIN_FILTER,filter);
@@ -333,19 +380,29 @@ export function createLivingInk(gl,coarse,programs){
     target(ripples);gl.clear(gl.COLOR_BUFFER_BIT);
     if(P>0 && P<.68){
       const ripple=programs.inkRipple;gl.useProgram(ripple.p);
-      gl.uniform2f(ripple.U.uSize,W,H);gl.uniform1f(ripple.U.uProgress,P);
+      gl.uniform2f(ripple.U.uSize,W,H);gl.uniform1f(ripple.U.uProgress,P);gl.uniform1f(ripple.U.uAgeScale,1);
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
       gl.bindVertexArray(dripGeometry);
       gl.drawArraysInstanced(gl.TRIANGLES,0,6,PRECIPITATION.length+1);
       gl.bindVertexArray(null);gl.disable(gl.BLEND);
     }
-    if(P>MORPH[0] && P<1.2){
-      // Each crown rings the sinking surface as it breaks through (ink-drain.js).
-      const emerge=programs.inkEmerge,{drain}=drainUniforms(P,box,w,h);gl.useProgram(emerge.p);
+    if(P>CLEAR[0] && P<DRAIN.pause[1]){
+      const n=landings(box,w,h);
+      if(n>1){
+        const ripple=programs.inkRipple;gl.useProgram(ripple.p);
+        gl.uniform2f(ripple.U.uSize,W,H);gl.uniform1f(ripple.U.uProgress,P);gl.uniform1f(ripple.U.uAgeScale,LAND_AGE);
+        gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+        gl.bindVertexArray(landGeometry);gl.drawArraysInstanced(gl.TRIANGLES,0,6,n);
+        gl.bindVertexArray(null);gl.disable(gl.BLEND);
+      }
+    }
+    if(P>CLEAR[0] && P<DRAIN.last[1]){
+      // Each crown rings the falling plane as it breaks through (ink-drain.js), in the rain's own packets.
+      const emerge=programs.inkEmerge,plane=waterPlane(P,box,w,h);gl.useProgram(emerge.p);
       gl.uniform2f(emerge.U.uScreen,w,h);gl.uniform4f(emerge.U.uBox,...box);gl.uniform3fv(emerge.U.uEye,cam.eye);
-      gl.uniform4fv(emerge.U.uDrain,drain);gl.uniform1f(emerge.U.uProgress,P);
+      gl.uniform4f(emerge.U.uDrain,plane.h,plane.s,CROWN_WAVES,1);gl.uniform1f(emerge.U.uProgress,P);
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
-      const n=crowns();gl.bindVertexArray(crownGeometry);
+      const n=crowns(box,w,h);gl.bindVertexArray(crownGeometry);
       gl.drawArraysInstanced(gl.TRIANGLES,0,6,n);
       gl.bindVertexArray(null);gl.disable(gl.BLEND);
     }

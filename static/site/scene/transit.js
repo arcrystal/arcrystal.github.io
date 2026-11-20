@@ -602,7 +602,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
         // (The drain, in the board's own world: ink-drain.js.)
         const box = s.board?.rect ?? inkB.box, drain = box ? drainUniforms(transitP(s.p ?? 0), box, w, h) : null;
         const drewU = drawGround({ ...s, mode: 8, h: s.p ?? 0, iceReady: true, b3box: box, b3on: on,
-          b3eye: box ? boxCamera(box).eye : null, drain: drain?.drain, drainO: drain?.offset });
+          b3eye: box ? boxCamera(box).eye : null, drain: drain ?? undefined });
         bind.forEach(([u]) => { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); });
         gl.activeTexture(gl.TEXTURE0);
         return drewU;

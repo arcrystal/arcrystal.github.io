@@ -318,13 +318,15 @@ void main(){
 export const INK_RIPPLE_VERTEX=/* glsl */`#version 300 es
 precision highp float;
 uniform vec2 uSize;uniform float uProgress;
+uniform float uAgeScale; // the clock's pace: 1 for the rain; quicker for rings on the returning water, so they live as many screens
+
 ${TANK_GLSL}
 ${attributes}
 out vec2 plane;
 flat out vec3 wave;
 void main(){
  vec4 cam=waterCamera(uProgress);
- float age=uProgress-clock.z,extent=.016+1.64*max(0.,age);
+ float age=(uProgress-clock.z)*uAgeScale,extent=.016+1.64*max(0.,age);
  plane=(corner(int(vertexNumber))*2.-1.)*extent;
  float aspect=uSize.x/uSize.y;
  float z=outlet.y+.66*plane.y,w=tankW(z,cam);
@@ -351,7 +353,7 @@ void main(){
  o=vec4(max(grad.x,0.),max(-grad.x,0.),max(grad.y,0.),max(-grad.y,0.));
 }`;
 
-// The drain (ink-drain.js): each crown breaking the sinking surface rings it with the same capillary
+// The drain (ink-drain.js): each crown breaking the falling plane rings it with the same capillary
 // packets as a drop, laid on the board's plane and seen by the board's camera. One record a piece:
 // where it stands (world x, z), the moment its crown is uncovered, a radius in wave units.
 export const INK_EMERGE_VERTEX=/* glsl */`#version 300 es
@@ -359,7 +361,7 @@ precision highp float;
 uniform vec2 uScreen;  // CSS px
 uniform vec4 uBox;     // the board's box, CSS px from the top left
 uniform vec3 uEye;
-uniform vec4 uDrain;   // height, tilt, wave units per world unit, hand-over
+uniform vec4 uDrain;   // the plane's height and tilt (ink-drain.js), wave units per world unit, on
 uniform float uProgress;
 layout(location=0) in vec4 crown;
 layout(location=1) in float vertexNumber;
@@ -370,8 +372,8 @@ const float TANY=${Math.tan(.21).toFixed(6)},FRONT=${(BOARD.half+BOARD.frame).to
 void main(){
  int k=int(vertexNumber)%6;
  vec2 c=vec2(k==1||k==2||k==4?1.:-1.,k==2||k==4||k==5?1.:-1.);
- // A ring spreads over about .04 of the clock: the drop's clock, quickened.
- float age=(uProgress-crown.z)*6.,extent=.016+1.64*max(0.,age);
+ // A ring spreads over the drop's clock, quickened to the drain's pace so it lives as many screens.
+ float age=(uProgress-crown.z)*2.6,extent=.016+1.64*max(0.,age);
  plane=c*extent;
  vec3 p=vec3(crown.x,0.,crown.y)+vec3(plane.x,0.,plane.y)/max(uDrain.z,1e-4);
  p.y=uDrain.x+uDrain.y*(p.z-FRONT);

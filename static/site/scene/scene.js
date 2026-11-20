@@ -16,7 +16,7 @@ import { startSlots } from './staunton.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uOrbitSeconds', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom', 'uB3Geo', 'uB3Eye', 'uDrain', 'uDrainO'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom', 'uB3Geo', 'uB3Eye', 'uDrain'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -179,7 +179,6 @@ function createScene() {
     // (Photography → Chess's drain, in the board's world: ink-drain.js.)
     gl.uniform3fv(U.uB3Eye, s.b3eye ?? [0, 16, 13]);
     gl.uniform4fv(U.uDrain, s.drain ?? [99, 0, 0, 0]);
-    gl.uniform2fv(U.uDrainO, s.drainO ?? [0, 0]);
     // (A click into Chess binds the board's picture and its ink itself; a seam's transit has bound them.)
     if (s.b3on && (s.mode === 2 || s.mode === 3)) {
       const ink = transit?.inkClick(cssW, cssH);

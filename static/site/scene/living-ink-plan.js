@@ -13,6 +13,11 @@ const landmarks={
   B:[[.075,.76,.03],[-.06,.85,-.025],[.04,.18,.08]], R:[[.13,.87,.06],[-.14,.89,-.06],[.05,.23,0]],
   Q:[[.105,.83,.06],[-.09,.81,-.06],[.05,.23,0]], K:[[0,.91,0],[.09,.69,-.025],[-.07,.14,.04]]
 };
+export const LANDED=Object.freeze({by:1.11,flight:.03});
+const landBy=(depart,raw)=>{
+  const k=.006,soft=-k*Math.log(Math.exp(-raw/k)+Math.exp(-LANDED.by/k));
+  return Math.min(LANDED.by,Math.max(soft,depart+LANDED.flight));
+};
 export function birthSites(aspect){
   const random=seeded(1987),slots=startSlots(),view=tankCamera(1);
   const order=[1,20,29,12,4,2,19,24,30,8,7,16,27,11,6,28,23,13,26,21,0,9,3,17,31,22,15,5,18,10,25,14];
@@ -28,7 +33,9 @@ export function birthSites(aspect){
     const formPeak=i===0?.768:birth-.027-.010*Math.cos(drop.seed);
     // (The hero knight gathers out of the mist as the left gyre lets go: ink-swirl.js.)
     const formStart=i===0?.722:formPeak-.073-.017*Math.sin(1.7*drop.seed);
-    const land=Math.min(1.135,depart+.071+.029*random());
+    // Every piece is down before the water sinks (ink-tank.js DRAIN): the last flights are eased shorter,
+    // never under LANDED.flight, all down by LANDED.by, while the waterline is still falling.
+    const land=landBy(depart,depart+.071+.029*random());
     const tip=projectTank(drop.x,drop.plunge,drop.z,view,aspect);
     const x=clamp(tip[0]+(i===0?.074*clamp(1.35-aspect)-.006:(random()-.5)*.18),.085,.915);
     // The pale cross rises into open water above the black knight's mane;
