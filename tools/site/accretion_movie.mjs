@@ -47,7 +47,7 @@ try{
     if(r<1)requestAnimationFrame(tick);else resolve();};requestAnimationFrame(tick);}),a,z,ink,o.quarter?.25:1));
  }
  const sheets=path.join(o.out,`${o.size}-stages`);fs.mkdirSync(sheets,{recursive:true});
- let frame=0;for(const P of ink?[.09,.27,.49,.564,.608,.651,.688,.75,.786,.84,.94,1.195]:[.50,.54,.58,.70,.84,.89,.93,.97,1.02,1.08,1.14,1.2]){
+ let frame=0;for(const P of ink?[.09,.49,.564,.62,.645,.68,.72,.786,.84,.94,1.09,1.12,1.138,1.145,1.16,1.195]:[.50,.54,.58,.70,.84,.89,.93,.97,1.02,1.08,1.14,1.2]){
   await p.eval(P=>window.__seek(P),P);await new Promise(r=>setTimeout(r,240));
   await p.screenshot(path.join(sheets,`${String(frame++).padStart(2,'0')}-P${P}.png`));
  }
