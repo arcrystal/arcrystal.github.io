@@ -161,7 +161,7 @@ export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.in
 // water at the same scroll position as before. Every join has zero added slope and curvature.
 // Pins of scroll added to Chess's hold, each over its own window of P.
 export const INK_ADDED = Object.freeze({ free: 3.6, figures: 1.15, drain: 2.4 });
-// The free window: the plumes going under and the living ink (scene/living-mass.js).
+// The free window: the plumes going under and the mist's main event (scene/ink-swirl.js).
 export const INK_FREE = Object.freeze([.53, .745]);
 function accumulatedDistance(P, start, end) {
   const t=clamp01((P-start)/(end-start));

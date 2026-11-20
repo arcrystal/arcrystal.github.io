@@ -9,7 +9,6 @@ import { HELD, HOLD, INK_ADDED, INK_FREE, holdFor, inkRaw, inkAdded, easeFor, tr
 import { TALL, TYPES, BOARD } from '../../../static/site/scene/staunton.js';
 import { D1, MORPH, TILT, SLOPE, FRONT, drainLevel, drainSlope, waterHeight, dryEdge, emergence, waveFit, boxCamera, screenRay } from '../../../static/site/scene/ink-drain.js';
 import { birthSites } from '../../../static/site/scene/living-ink-plan.js';
-import { MASS } from '../../../static/site/scene/living-mass.js';
 
 const near = (a, b, e, m = '') => assert.ok(Math.abs(a - b) <= e, `${m} ${a} != ${b}`);
 const U = UNMIX;
@@ -93,9 +92,8 @@ test('Chess adds scroll below the water and to its drain, and keeps the distance
   // Raw fractions at these landmarks on the previous 7.5-pin clock.
   const old=[[.416,.4475095854],[.53,.5404670178]];
   near(inkAdded(INK_FREE[1]),INK_ADDED.free,1e-12);
-  assert.ok(INK_ADDED.free>3,'the plumes going under and the living ink gain more than three pins of their own');
+  assert.ok(INK_ADDED.free>3,'the plumes going under and the mist\'s main event gain more than three pins of their own');
   near(inkAdded(1.01)-inkAdded(INK_FREE[1]),INK_ADDED.figures,1e-12,'the rank-specific formations gain theirs');
-  assert.ok(INK_FREE[1]>=MASS.end,'the living ink is all within the free window');
   for(const pin of [HOLD.pin,HOLD.pinTouch]){
     const hold=holdFor('ink',pin),before=7.5*pin+hold.leadIn,after=hold.pin*pin+hold.leadIn;
     assert.equal(hold.leadOut,0);

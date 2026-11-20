@@ -94,7 +94,6 @@ void main(){
     vec3 refl=env(reflect(-v,n));
     vec3 wet=black?vec3(.006,.006,.008)*(.4+.6*max(dot(n,LKEY),0.))+fres*refl*.9+lamp(n,v,LKEY,KEY,vec3(.04),.06)*1.5
                  :vec3(.80,.78,.72)*(.55+.45*max((dot(n,LKEY)+.4)/1.4,0.))+fres*refl*.35+lamp(n,v,LKEY,KEY,vec3(.04),.18)*.6;
-    wet=wet*.82;wet=pow(clamp((wet*(2.51*wet+.03))/(wet*(2.43*wet+.59)+.14),0.,1.),vec3(1./2.2));
     // A crease network of the jammed suspension (cells over the piece's own surface).
     vec2 cell=vec2(atan(local.z,local.x)*1.3,local.y*7.)*3.;
     vec2 fc=fract(cell),ic=floor(cell);float d1=8.,d2=8.;
@@ -113,6 +112,8 @@ void main(){
     float edge=pow(1.-nv,3.);
     c+=(black?vec3(.18,.18,.2):vec3(.12,.11,.1))*edge*(1.-lacquer);
   }
+  // Exposed as the board exposes its own pieces (glsl/board3d.js tone), so a solid is the same at touchdown.
+  c*=.82; c=pow(clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.),vec3(1./2.2));
   float coverage=1.;
   float depth=clamp(uModel.w+.021*dot(p,-fwd),.01,.98);
   gl_FragDepth=1.-depth;

@@ -1,8 +1,6 @@
 import { startSlots, frameCamera, project, TYPES, TALL, bodyOf, headOf, halfWidth, crossings, fromY, toR } from './staunton.js';
 import { buildInkRegistration, modelSection, registrationRank } from './ink-registration.js';
 import { DROPS, PRECIPITATION, PIGMENT_TOTALS, LATE, tankCamera, projectTank, seeded, mix, smooth } from './ink-tank.js';
-import { BODIES, MASS, presence, trajectories, massFrame } from './living-mass.js';
-const BODY_IDS=new Set(BODIES.map(b=>b.id));
 
 export const KEYS=80, END=1.146, ease=smooth;
 const TAU=2*Math.PI;
@@ -28,7 +26,7 @@ export function birthSites(aspect){
     const birth=i===0?.802:i===1?.840:type==='Q'&&piece.black?.859:stagger;
     const duration=i===0?.150:.072+.028*random(),depart=birth+duration+.009+.012*random();
     const formPeak=i===0?.768:birth-.027-.010*Math.cos(drop.seed);
-    // (The hero knight gathers out of the living ink as it mists away: living-mass.js.)
+    // (The hero knight gathers out of the mist as the left gyre lets go: ink-swirl.js.)
     const formStart=i===0?.722:formPeak-.073-.017*Math.sin(1.7*drop.seed);
     const land=Math.min(1.135,depart+.071+.029*random());
     const tip=projectTank(drop.x,drop.plunge,drop.z,view,aspect);
@@ -375,9 +373,6 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
   }
   emit({meta:{nx,ny,nz,rows,cols,order,sites,registration,vaporFigures:packVaporFigures(sites),depositedMass:total}});
   const field=new Float32Array(nx*ny*nz*2),dt=END/(KEYS-1);
-  // The living ink (living-mass.js): seeded where the four trunks' heads are as it congeals.
-  const seedFrame=Math.ceil(MASS.start/dt),seedSums=BODIES.map(()=>[0,0,0,0,0]);
-  let massTraj=null;
   const lut=Uint8Array.from({length:2049},(_,i)=>Math.round(255*(1-Math.exp(-i/256))));
   for(let frame=0;frame<KEYS;frame++){
     const P=dt*frame,cam=tankCamera(P),mesh=new Uint16Array(width*height*4);
@@ -399,7 +394,6 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
       const approach=live*ease(.495,.603,P)*(1-ease(.635,.736,P));
       const born=ease(s.hit,s.hit+.017,P);
       const late=LATE_BY_ID.get(id),shown=late?lateShown(s,P):0;
-      const massFade=BODY_IDS.has(id)?presence(P):0,massBody=BODIES.findIndex(b=>b.id===id);
       if(P<s.hit-dt){
         // Invisible stations still carry a valid water crossing on direct seeks.
         const p=projectTank(s.x,0,s.z,cam,aspect),packed=p.map(encode);
@@ -431,8 +425,6 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
             axial.x+=axial.vx*dt/2;axial.z+=axial.vz*dt/2;
           }
         }
-        // The head of a trunk is the living ink while it lives (its sheets and mist give way to it).
-        const bodyRow=1-.9*massFade*ease(.3,.62,v);
         const roll=clamp((v-.61)/.39),body=Math.min(1,v/.64);
         const stem=id<2?.16:.23+.45*(.5+.5*Math.sin(seed));
         const shortTail=id<2?stem+.16:Math.max(stem+.1,1-4.8*s.bulk/s.plunge);
@@ -541,7 +533,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const mist=clamp(.11+.19*(1-lip)+.13*reach+.09*Math.sin(g.phase+6*v)+exchange+shed,.045,.79);
           const offset=4*((b*rows+j)*width+k);
           mesh[offset]=encode(pos[0]);mesh[offset+1]=encode(pos[1]);mesh[offset+2]=encode(pos[2]);
-          mesh[offset+3]=Math.round(65535*free*(1-mist)*(1-.92*shown)*bodyRow);
+          mesh[offset+3]=Math.round(65535*free*(1-mist)*(1-.92*shown));
           const mass=g.mass*supplied;
           ledger[frame*sourceCount+owner]+=transfer*mass/total[owner];
           const loc=frame*6+3*s.white;
@@ -551,7 +543,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
             // As the figure locks to its solid the mist round it condenses onto its outline: tighter, denser.
             const condense=lock*(1-transfer);
             const softness=(.010+spread*(.79+.20*breathing*pulse+.52*lift))*Math.min(1,aspect)*(1-.45*condense);
-            const amount=free*(bulk/.065)*(.035+.17*lip+.085*sleeve+.21*tongue+.19*lift)*(.26+.74*fluke)*(1+.5*condense)*bodyRow;
+            const amount=free*(bulk/.065)*(.035+.17*lip+.085*sleeve+.21*tongue+.19*lift)*(.26+.74*fluke)*(1+.5*condense);
             const loft=gesture*(1-wetRoll)*(.022+.064*tongue)+lift*(.028+.095*fluke);
             splat(field,nx,ny,nz,pos[0]+(shear*.033+lift*bulk*.43)*Math.sin(twist+age*8)/Math.max(1,aspect),
               pos[1]+loft+shear*.050*Math.cos(twist+v*5),pos[2],softness,amount*mist,s.white);
@@ -596,30 +588,11 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           // The tissues first compact into a profile on the same optical
           // chord. Only at the end does its remaining thread touch the solid.
           const follow=g.owner===id?0:ease(g.end-Math.min(.028,site.duration*.23),g.end,P);
-          const wet=born*(1-ease(g.capture,g.end,P))*bodyRow;
+          const wet=born*(1-ease(g.capture,g.end,P));
           const offset=4*((b*rows+j)*width+cols+rail);
           for(let axis=0;axis<3;axis++)mesh[offset+axis]=encode(mix(pos[axis],g.target[axis],follow));
           mesh[offset+3]=Math.round(65535*wet);
-          if(frame===seedFrame && massBody>=0 && v>=.72){const t=seedSums[massBody];t[0]+=pos[0];t[1]+=pos[1];t[2]+=pos[2];t[3]+=pos[0]*pos[0];t[4]++;}
         }
-      }
-    }
-    if(frame===seedFrame){
-      const seeds=seedSums.map(([x,y,z,xx,n])=>{const mx=x/n,sd=Math.sqrt(Math.max(0,xx/n-mx*mx));return [mx,y/n,z/n,Math.max(.05,Math.min(.11,1.25*sd*aspect))];});
-      massTraj=trajectories(seeds,aspect);
-      emit({mass:massTraj.slice()});
-    }
-    // The living ink re-mists: puffs off its skin as it turns gaseous, beads off its recoiling tips.
-    if(massTraj && P>MASS.start && P<MASS.end){
-      for(const m of massFrame(massTraj,P,0,aspect)){
-        if(m.here<=0)continue;
-        const gas=m.state.gas;
-        for(let k=0;k<12;k++){
-          const y=1-2*(k+.5)/12,r=Math.sqrt(1-y*y),a=2.39996*k+m.spin,d=[r*Math.cos(a),y,r*Math.sin(a)];
-          const at=[0,1,2].map(i=>m.c[i]+d[i]*m.R*(1.05+.4*gas));
-          splat(field,nx,ny,nz,at[0]/aspect,at[1],Math.min(.9,at[2]),m.R*.5*Math.min(1,aspect),(.05+.3*gas)*m.here,m.white);
-        }
-        for(const t of m.ten){const tip=t[t.length-1];splat(field,nx,ny,nz,tip[0]/aspect,tip[1],Math.min(.9,tip[2]),.012,.07*m.here,m.white);}
       }
     }
     // As each solid sets, the last of its solvent leaves it: curls of steam (ivory) or soot (black) rise

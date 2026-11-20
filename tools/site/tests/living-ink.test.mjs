@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { KEYS,END,bakeLivingInk,birthSites,piecePoses,decodePosition,pocketFlow } from '../../../static/site/scene/living-ink-plan.js';
+import { KEYS,END,bakeLivingInk,birthSites,piecePoses,decodePosition,pocketFlow,fillRadius,filledShare,frontDistance,setOf } from '../../../static/site/scene/living-ink-plan.js';
 import { CAMERA,DROPS,PRECIPITATION,PIGMENT_TOTALS,LATE,poolsOfPaint,dropDepth,dropLedger,tankCamera,projectTank } from '../../../static/site/scene/ink-tank.js';
 import { INK_DRIP_INSTANCES } from '../../../static/site/scene/glsl/ink-impact.js';
-import { BODIES, MASS, SAMPLES, GLASS, BOX } from '../../../static/site/scene/living-mass.js';
 import { frameCamera,project,TALL,TYPES } from '../../../static/site/scene/staunton.js';
 
 // Four optical rails at the end of each row carry the depth and footprint of
@@ -116,7 +115,7 @@ test('the hero knight and all other plumes land on their own board squares',()=>
 });
 
 test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces, conserving both pigments',()=>{
-  let meta,issued=0,finished,massPaths;
+  let meta,issued=0,finished;
   const vaporFrames=new Map(),seenSlots=new Set();
   const aspect=.46,dt=END/(KEYS-1);
   const freeFrames=[.55,.62,.69].map(P=>Math.round(P/dt)),freeSheets=[];
@@ -136,16 +135,6 @@ test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces,
       return;
     }
     if(packet.ledger){finished=packet;return;}
-    if(packet.mass){
-      // The living ink's paths: one per body, every sample, in the frame (living-mass.js).
-      assert.equal(issued,Math.ceil(MASS.start/dt),'seeded where the trunks are as it congeals');
-      assert.equal(packet.mass.length,SAMPLES*BODIES.length*4);
-      for(let k=0;k<packet.mass.length;k+=4){
-        const [x,y,z,r]=packet.mass.subarray(k,k+4);
-        assert.ok(x>=BOX.x[0]-1e-6 && x<=BOX.x[1]+1e-6 && y>=BOX.y[0]-1e-6 && y<=BOX.y[1]+1e-6 && z<GLASS-.1 && r>.03 && r<.14,'in view and behind the glass');
-      }
-      massPaths=packet.mass;return;
-    }
     const {frame,density,mesh}=packet;
     assert.equal(frame,issued++);
     assert.equal(mesh.length,4*(meta.cols+4)*meta.rows*32);
@@ -188,7 +177,6 @@ test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces,
     if(thickness)freeSheets.push(thickness);
   });
   assert.equal(issued,KEYS);
-  assert.ok(massPaths,'the living ink was seeded');
   assert.equal(seenSlots.size,32);
   const [enter,current,leave]=freeSheets;
   const knots=current.filter((v,i)=>v>Math.max(enter[i],leave[i])+.06);
@@ -210,5 +198,24 @@ test('the packed sheets grow into tall submerged plumes and all 32 vapor pieces,
       assert.ok(g>=0 && g<=1.00003 && (f===0||g>=finished.ledger[32*(f-1)+i]-1e-6));
       if(f===KEYS-1)assert.ok(Math.abs(g-1)<3e-5);
     }
+  }
+});
+
+test('a solid fills exactly the share of its volume its deposited pigment is', () => {
+  for (let type = 0; type < 6; type++) {
+    let prev = -1;
+    for (const g of [0, .1, .25, .5, .75, .9, 1]) {
+      const R = fillRadius(type, g);
+      assert.ok(R >= prev, 'the front only advances');
+      prev = R;
+      if (g > 0 && g < 1) assert.ok(Math.abs(filledShare(type, R) - g) < 1e-3, `type ${type}: ${filledShare(type, R)} for ${g}`);
+    }
+    assert.ok(frontDistance(type, 0, .5, 0) >= 0);
+  }
+  // And it sets after it has begun to fill, finishing before it flies to the board.
+  for (const s of birthSites(1.6)) {
+    assert.equal(setOf(s, s.birth + .5 * s.duration), 0);
+    assert.equal(setOf(s, s.birth + s.duration), 1);
+    assert.ok(s.depart >= s.birth + s.duration);
   }
 });

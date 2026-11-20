@@ -22,7 +22,6 @@ import { createLivingInk } from './living-ink.js';
 import { drainUniforms, boxCamera } from './ink-drain.js';
 import { INK_IMPACT_VERTEX, INK_IMPACT_FRAGMENT, INK_RIPPLE_VERTEX, INK_RIPPLE_FRAGMENT, INK_EMERGE_VERTEX } from './glsl/ink-impact.js';
 import { INK_VOLUME, INK_PIECE, INK_SHEET_VERTEX, INK_SHEET_FRAGMENT, INK_THREAD_FRAGMENT, INK_WAKE_VERTEX } from './glsl/living-ink.js';
-import { INK_MASS, INK_MASS_BLIT } from './glsl/living-mass.js';
 import { VERTEX } from './glsl/index.js';
 import { UNIT_PROGRAMS } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
@@ -123,8 +122,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     { name: 'inkSheet', vs: INK_SHEET_VERTEX, fs: INK_SHEET_FRAGMENT },
     { name: 'inkRipple', vs: INK_RIPPLE_VERTEX, fs: INK_RIPPLE_FRAGMENT },
     { name: 'inkEmerge', vs: INK_EMERGE_VERTEX, fs: INK_RIPPLE_FRAGMENT },
-    { name: 'inkMass', vs: VERTEX, fs: INK_MASS },
-    { name: 'inkMassBlit', vs: VERTEX, fs: INK_MASS_BLIT },
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
   if (ext) {
@@ -388,7 +385,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
   const inkB = { box: null, W: 0, H: 0, mask: null, key: '' };
   // (Away from the homepage, a click into Chess still builds the board: the tile's size, in the middle.)
   const inkBox = (W, H) => { if (inkB.box) return inkB.box; const w = Math.min(560, W * 0.86), h = w / 1.2; return [(W - w) / 2, (H - h) / 2, w, h]; };
-  const inkFits = () => liquid.ready() && !!inkB.mask && !!programs.inkFigure && !!programs.inkSheet && !!programs.inkRipple && !!programs.inkWake && !!programs.inkEmerge && !!programs.inkMass && !!programs.inkMassBlit;
+  const inkFits = () => liquid.ready() && !!inkB.mask && !!programs.inkFigure && !!programs.inkSheet && !!programs.inkRipple && !!programs.inkWake && !!programs.inkEmerge;
   function bake(W,H) {
     if (gl.isContextLost() || !W || !H) return;
     const b3 = board3d?.();
