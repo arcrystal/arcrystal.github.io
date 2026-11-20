@@ -1,7 +1,7 @@
 // Photography → Chess's misty main event (static/site/scene/ink-swirl.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RAYLEIGH, SPIN, rollUp, breath, BREATH, swell, ORBIT, orbitAt, spinAt } from '../../../static/site/scene/ink-swirl.js';
+import { RAYLEIGH, SPIN, rollUp, breath, BREATH, swell, ORBIT, orbitAt, spinAt, DISCHARGES, dischargePath, dischargeAt } from '../../../static/site/scene/ink-swirl.js';
 import { inkRaw, holdFor, HOLD } from '../../../static/site/lerp.js';
 
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);
@@ -58,4 +58,23 @@ test('nothing pulses: every repeating motion takes several screens of scroll; th
   assert.equal(orbitAt(ORBIT.window[0]), 0);
   near(orbitAt(ORBIT.window[1]), ORBIT.angle, 1e-12);
   assert.ok(ORBIT.window[1] <= .745 && ORBIT.angle < Math.PI);
+});
+
+test('the discharges stream: staggered, never fired together, their trails laid where they stay, hooked at the tip', () => {
+  const starts = DISCHARGES.map(d => d.start).sort((a, b) => a - b);
+  for (let i = 1; i < starts.length; i++) assert.ok(starts[i] - starts[i - 1] > 5e-4, 'never two at once');
+  for (let i = 3; i < starts.length; i++) assert.ok(starts[i] - starts[i - 3] > .006, 'never a burst of them');
+  for (const d of DISCHARGES) {
+    // The path is the jet's alone, whatever the moment: what it has laid does not move.
+    assert.deepEqual(dischargePath(d), dischargePath(d));
+    const p = dischargePath(d), end = p.at(-1), mid = p[Math.floor(p.length / 2)];
+    // It runs out before it turns: half way along it is well away from the head; its tip has hooked back.
+    assert.ok(Math.hypot(mid[0], mid[1]) > .4 * d.length);
+    const out = Math.max(...p.map(q => Math.hypot(q[0], q[1])));
+    assert.ok(Math.hypot(end[0], end[1]) < out - 1e-3, 'the tip curls back');
+    // It goes forward only, and is gone by the end of its life.
+    let prev = 0;
+    for (let P = d.start; P < d.start + d.life; P += d.life / 50) { const a = dischargeAt(d, P); if (!a) continue; assert.ok(a.run >= prev); prev = a.run; }
+    assert.equal(dischargeAt(d, d.start + d.life + 1e-6), null);
+  }
 });

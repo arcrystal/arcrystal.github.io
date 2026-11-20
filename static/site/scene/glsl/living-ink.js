@@ -361,7 +361,7 @@ void main(){
    // The cap rolls up: each of its two cores winds the study's filaments round itself, a turn and more by
    // the end of the event, the core faster than its rim (a Lamb–Oseen core, falling as 1/r² outside it),
    // so the filaments are drawn into spiral curls; it never turns back.
-   float wind=6.2831853*uRollUp*(1.45+.7*fract(seed*.37))*rim*smoothstep(0.,.11,envelope);
+   float wind=6.2831853*uRollUp*(1.8+.8*fract(seed*.37))*rim*smoothstep(0.,.11,envelope);
    float lr=dot(l,l),rr=dot(r,r);
    leftRoll+=wind*(lr<1e-8?1.:(1.-exp(-lr/.0072))*.0072/lr);
    rightRoll-=wind*(rr<1e-8?1.:(1.-exp(-rr/.0056))*.0056/rr);
@@ -369,6 +369,14 @@ void main(){
    dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*l;
    cs=cos(rightRoll);sn=sin(rightRoll);
    dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*r;
+   // Lower down, the skirt the cap drags behind it rolls the other way (Kelvin–Helmholtz curls on the
+   // shear between the falling plume and the water it leaves), a turn and a half or so by the end.
+   vec2 skirtL=vec2(.27+.04*sin(seed),.36),skirtR=vec2(.71-.04*cos(seed),.30);
+   vec2 sl=dyeUV-skirtL,sr=dyeUV-skirtR;
+   float slr=dot(sl,sl),srr=dot(sr,sr),curl=6.2831853*uRollUp*(1.25+.6*fract(seed*.61))*smoothstep(0.,.11,envelope);
+   float aL=-curl*(slr<1e-8?1.:(1.-exp(-slr/.0045))*.0045/slr),aR=curl*(srr<1e-8?1.:(1.-exp(-srr/.004))*.004/srr);
+   cs=cos(aL);sn=sin(aL);dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*sl;
+   cs=cos(aR);sn=sin(aR);dyeUV+=mat2(cs-1.,sn,-sn,cs-1.)*(dyeUV-skirtR);
    // The cap breathes (ink-swirl.js): it swells and settles (l = 0) and wobbles in a free drop's l = 2 and
    // l = 3 modes, their axes slowly turning; the two inks out of step, so black draws in as ivory lets go.
    // Swollen, the same pigment covers more: it thins by the swell's area.

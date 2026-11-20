@@ -1,7 +1,7 @@
 import { startSlots, frameCamera, project, TYPES, TALL, bodyOf, headOf, halfWidth, crossings, fromY, toR } from './staunton.js';
 import { buildInkRegistration, modelSection, registrationRank } from './ink-registration.js';
 import { DROPS, PRECIPITATION, PIGMENT_TOTALS, LATE, tankCamera, projectTank, seeded, mix, smooth } from './ink-tank.js';
-import { ORBIT, orbitAt } from './ink-swirl.js';
+import { ORBIT, orbitAt, DISCHARGES, dischargePath, dischargeAt } from './ink-swirl.js';
 
 export const KEYS=80, END=1.146, ease=smooth;
 const TAU=2*Math.PI;
@@ -352,6 +352,18 @@ export function orbitCentres(P,aspect){
       half:Math.hypot(heads[1][0]-heads[0][0],heads[1][1]-heads[0][1])/2,angle:sense*swing};
   });
 }
+// Where a plume's head is at P (x by the aspect, y up: screen heights; depth), turned with its pair.
+export function headAt(id,P,aspect){
+  const s=DROPS[id],column=freeColumn(s,aspect),under=ease(.342,.545,P),life=1-Math.exp(-Math.max(0,P-s.hit)*(id<2?5.4:6.6));
+  const at=projectTank(s.x,mix(s.plunge,column.depth,under)*life*.9,s.z,tankCamera(P),aspect);
+  let x=at[0]*aspect,y=at[1];
+  const o=orbitAt(P)>0?orbitCentres(P,aspect).find(o=>o.pair.includes(id)):null;
+  if(o){
+    const c=Math.cos(o.angle),sn=Math.sin(o.angle),dx=x-o.centre[0],dy=y-o.centre[1];
+    x=o.centre[0]+c*dx-sn*dy;y=o.centre[1]+sn*dx+c*dy;
+  }
+  return [x,y,at[2]];
+}
 // A stack of material rings spans each drop from its trailing column to its
 // overturning nose. Rim stations turn through the meridian as the vortex rolls.
 // The moving axis is integrated separately so the thick head has inertia.
@@ -396,6 +408,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
   emit({meta:{nx,ny,nz,rows,cols,order,sites,registration,vaporFigures:packVaporFigures(sites),depositedMass:total}});
   const field=new Float32Array(nx*ny*nz*2),dt=END/(KEYS-1);
   const lut=Uint8Array.from({length:2049},(_,i)=>Math.round(255*(1-Math.exp(-i/256))));
+  const jets=new Map();
   for(let frame=0;frame<KEYS;frame++){
     const P=dt*frame,cam=tankCamera(P),mesh=new Uint16Array(width*height*4);
     field.fill(0);
@@ -627,6 +640,23 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           for(let axis=0;axis<3;axis++)mesh[offset+axis]=encode(mix(pos[axis],g.target[axis],follow));
           mesh[offset+3]=Math.round(65535*wet);
         }
+      }
+    }
+    // The heads' discharges (ink-swirl.js): each jet lays its trail from where its head was when it left,
+    // densest at its running tip, the trail behind spreading and thinning into mist.
+    for(const d of DISCHARGES){
+      if(d.id>=drops.length)continue;
+      const at=dischargeAt(d,P);
+      if(!at)continue;
+      if(!jets.has(d))jets.set(d,{from:headAt(d.id,d.start,aspect),path:dischargePath(d)});
+      const {from,path}=jets.get(d),n=path.length,white=drops[d.id].white,narrow=Math.min(1,aspect);
+      for(let i=0;i<n;i++){
+        const f=i/(n-1);
+        if(f>at.run)break;
+        const tip=Math.exp(-(((at.run-f)/.16)**2));
+        const r=(d.width*(.7+.7*tip)+.02*at.age*(1-tip))*narrow;
+        const amount=at.fade*(.16+.42*tip)*(1-.3*(1-f)*(1-tip));
+        splat(field,nx,ny,nz,(from[0]+path[i][0])/aspect,from[1]+path[i][1],Math.min(.97,from[2]+.025*Math.sin(d.seed+4*f)),r,amount,white);
       }
     }
     // As each solid sets, the last of its solvent leaves it: curls of steam (ivory) or soot (black) rise

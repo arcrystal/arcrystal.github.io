@@ -58,7 +58,49 @@ export const spinAt = (P, time = 0) => 30 * Math.max(0, P - .55) + .06 * time;
 // the mist and the veils move as one and each figure gathers from wherever its plume has come to.
 export const ORBIT = Object.freeze({
   pairs: Object.freeze([[0, 23, -1], [10, 1, 1]]),
-  angle: .62 * Math.PI,
+  angle: .8 * Math.PI,
   window: [.575, .74],
 });
 export const orbitAt = P => ORBIT.angle * smooth(...ORBIT.window, P);
+
+// ---- discharges ---------------------------------------------------------------------------------------
+// Now and then a head throws off a jet of ink. It lays a trail along a fixed path that runs nearly straight
+// and then turns ever tighter (θ(s) = θ0 + κ0 s + A (s/L)³: its curvature grows as s²), so its tip rolls
+// up into a hook, as a vortex-led jet does. The jet slows as it entrains water
+// (L = Lmax(1 − e^{−t/τ})); the trail it has laid stays where it was laid and only spreads and thins into
+// mist. Staggered, a few at a time, never together: they stream, they do not pulse. Baked into the mist
+// (living-ink-plan.js), in screen heights, x scaled by the aspect.
+export const DISCHARGE = Object.freeze({ sources: Object.freeze([0, 23, 10, 1, 4, 7, 14, 17, 21, 28]), each: 3, window: [.575, .735], life: [.055, .085], points: 22 });
+const rng = seed => () => { seed = (Math.imul(1664525, seed) + 1013904223) >>> 0; return seed / 4294967296; };
+export const DISCHARGES = Object.freeze((() => {
+  const r = rng(90210), out = [], n = DISCHARGE.sources.length * DISCHARGE.each;
+  for (let k = 0; k < n; k++) {
+    const id = DISCHARGE.sources[k % DISCHARGE.sources.length];
+    // Spread evenly through the window (a golden-ratio stagger: no two close, no gap long).
+    const start = DISCHARGE.window[0] + (DISCHARGE.window[1] - DISCHARGE.window[0]) * ((k * .6180339887 + .13) % 1);
+    const side = r() < .5 ? -1 : 1, length = .11 + .12 * r();
+    // Out to one side and a little up or down; turning one way, tighter toward the tip.
+    const theta0 = side > 0 ? -.5 + 1.0 * r() : Math.PI - .5 + 1.0 * r();
+    const turn = (r() < .5 ? -1 : 1);
+    out.push(Object.freeze({ id, start, life: DISCHARGE.life[0] + (DISCHARGE.life[1] - DISCHARGE.life[0]) * r(), length,
+      theta0, k0: turn * (.5 + 1.5 * r()), hook: turn * Math.PI * (1.1 + .6 * r()), width: .012 + .008 * r(), seed: r() * 6.283 }));
+  }
+  return out;
+})());
+// The jet's path, from where it leaves the head (0) to the end of its run: points [x, y] and the arc length.
+export function dischargePath(d) {
+  const pts = [[0, 0, 0]], n = DISCHARGE.points, ds = d.length / (n - 1);
+  let x = 0, y = 0;
+  for (let i = 1; i < n; i++) {
+    const s = (i - .5) * ds, u = s / d.length, th = d.theta0 + d.k0 * s + d.hook * u * u * u;
+    x += Math.cos(th) * ds; y += Math.sin(th) * ds;
+    pts.push([x, y, i * ds]);
+  }
+  return pts;
+}
+// How far along its path the jet has run at P (0 … 1), and how much of its pigment is left in the trail.
+export function dischargeAt(d, P) {
+  const age = (P - d.start) / d.life;
+  if (age <= 0 || age >= 1) return null;
+  return { run: 1 - Math.exp(-age * 4.2), fade: smooth(0, .08, age) * (1 - smooth(.62, 1, age)), age };
+}
