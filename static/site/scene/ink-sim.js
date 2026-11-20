@@ -51,9 +51,9 @@ export const SIM = Object.freeze({
   // surface tension σ (fluid cells, per step²); sinking (black more than ivory: Rayleigh–Taylor between
   // them); fed per step toward the schedule's fill at each head's core, by the mist condensing round it, and
   // melted back to mist as it dissolves.
-  body: Object.freeze({ scale: 1.5, sharpen: .02, width: 0, tension: .04, black: -2e-4, ivory: -5e-5, feed: .06, condense: .02, melt: .03,
+  body: Object.freeze({ scale: 1.5, sharpen: .02, width: 0, tension: .04, black: -2e-4, ivory: -5e-5, feed: .045, condense: .02, melt: .03,
     // Viscosity (ν per step, cells²) by Jacobi sweeps: black thick, ivory thicker at rest (it thins under shear: step 3).
-    nu: Object.freeze([3, 5]), sweeps: 2, water: .06,
+    nu: Object.freeze([3, 5]), sweeps: 2, water: .035,
     // Ivory thins under shear (Carreau): ν∞ as a share of ν at rest, λ (steps), n.
     carreau: Object.freeze([.06, 8, .3]),
     // Black's memory (FENE-P, in the black bodies only): λ (steps), L², G (the polymer's modulus), the most
@@ -67,6 +67,19 @@ export const SIM = Object.freeze({
   stir: Object.freeze({ scale: .9, attack: .15, release: 1.2 }),
   // The flow's energy (mean |u|², cells²/step²) held in a band by P; overdamped, proportional only.
   thermostat: Object.freeze({ tau: 4, gain: 1.4, min: .25, max: 3.5 }),
+  // The convection: heat lifts the water and the vents' ink weighs it down (cells per step², per unit); heat
+  // cools (per step) and spreads; cold vent ink condenses into the bodies below `condenseBelow`, hot bodies
+  // melt into vent ink above `meltAbove` (per step: quick, so a phase change is seen); bodies sheared hard
+  // heat up; vent ink also thins into the water (`fade`, per step), so not all of it returns to the bodies.
+  // The screen's mist kept: the live mist holds this share of the bake's (its haze cleared).
+  convect: Object.freeze({ lift: 7e-4, weight: 2.5e-4, cool: 1 / 70, spread: .06, condense: .025, condenseBelow: .2, melt: .06, meltAbove: .5, shearHeat: .8, fade: .008 }),
+  thin: .55,
+  // The motes: how many (a square of side² on desktop, phone), how often a dead one is thrown again (per
+  // step, while a vent fires), how much pigment each, and the shutter of its motion blur (steps).
+  motes: Object.freeze({ desktop: 128, phone: 96, respawn: .02, mass: .22, shutter: 2.5 }),
+  // The vents: from each live body, now and then (per second, more when stirred), a jet of hot ink, mostly
+  // sideways (the plumes already fall), its way drifting as it runs (so it snakes), for `life` seconds.
+  jet: Object.freeze({ rate: .3, most: 6, spread: .45, turn: 1.4, life: Object.freeze([.6, 1.4]), push: .022, heat: .09, ink: .12, radius: .28 }),
   // Each live head: a carrier (radius × the head's size), a drag on the water toward the head's velocity,
   // and vortex impulses: a Poisson process (per second), each a pair of Lamb–Oseen cores.
   head: Object.freeze({ reach: 1.6, drag: .012, rate: .22, gamma: 60, core: .35, spread: .55 }),
@@ -76,7 +89,7 @@ export const live = P => P > SIM.window[0] && P < SIM.window[1];
 // What should show at P (0 … 1).
 export const showAt = P => smooth(SIM.show[0], SIM.show[1], P) * (1 - smooth(SIM.show[2], SIM.show[3], P));
 // The energy the flow is held at (P, stir 0 … 1): quiet as it takes over, fullest while the bodies live.
-export const energyAt = (P, stir = 0) => (.012 + .05 * smooth(.575, .63, P) * (1 - smooth(.72, .785, P))) * (1 + 1.6 * stir);
+export const energyAt = (P, stir = 0) => (.016 + .065 * smooth(.575, .63, P) * (1 - smooth(.72, .785, P))) * (1 + 1.6 * stir);
 
 // The grid for a CSS-px viewport: cells of one size in x and y, about SIM.cells of them.
 export function simSize(w, h, mobile) {
@@ -145,6 +158,33 @@ export function createThermostat() {
     },
     get gain() { return gain; },
     get mean() { return mean; },
+  };
+}
+
+// The vents (SIM.jet): a Poisson process for each live body (one with a fill), each jet starting at its
+// body's edge on its own way, mostly sideways (±spread of the horizontal), drifting by its own turn so it
+// snakes, swelling in and out over its life (never a cut). Returns this step's jets: [x, y (cells), way,
+// push], [radius, heat, ink, ivory].
+export function createJets(seed) {
+  const r = rng(seed), live = [];
+  return {
+    step(heads, stir, steps = 1) {
+      const J = SIM.jet, dt = steps * SIM.h;
+      for (const j of live) j.age += dt;
+      for (let i = live.length - 1; i >= 0; i--) if (live[i].age >= live[i].life || !heads.some(h => h.id === live[i].id)) live.splice(i, 1);
+      for (const hd of heads) {
+        if (hd.fill < .3 || live.length >= J.most || r() >= J.rate * (1 + 2.5 * stir) * dt) continue;
+        const side = r() < .5 ? 0 : Math.PI;
+        live.push({ id: hd.id, way: side + (r() - .5) * 2 * J.spread, turn: (r() - .5) * 2 * J.turn, age: 0, life: J.life[0] + (J.life[1] - J.life[0]) * r(), push: J.push * (.7 + .6 * r()) * (1 + .6 * stir) });
+      }
+      return live.map(j => {
+        const hd = heads.find(h => h.id === j.id), way = j.way + j.turn * j.age, k = j.age / j.life;
+        const rise = Math.min(1, k / .2), swell = rise * rise * (3 - 2 * rise) * (1 - Math.max(0, (k - .7) / .3) ** 2);
+        return [[hd.x + Math.cos(way) * .85 * hd.radius, hd.y + Math.sin(way) * .85 * hd.radius, way, j.push * swell],
+          [Math.max(2, J.radius * hd.radius), J.heat * swell, J.ink * swell, hd.ivory]];
+      });
+    },
+    reset() { live.length = 0; },
   };
 }
 

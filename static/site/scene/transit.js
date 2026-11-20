@@ -23,7 +23,7 @@ import { drainUniforms, boxCamera } from './ink-drain.js';
 import { INK_IMPACT_VERTEX, INK_IMPACT_FRAGMENT, INK_RIPPLE_VERTEX, INK_RIPPLE_FRAGMENT, INK_EMERGE_VERTEX } from './glsl/ink-impact.js';
 import { INK_VOLUME, INK_PIECE, INK_SHEET_VERTEX, INK_SHEET_FRAGMENT, INK_THREAD_FRAGMENT, INK_WAKE_VERTEX } from './glsl/living-ink.js';
 import { VERTEX } from './glsl/index.js';
-import { SIM_PASSES } from './glsl/ink-sim.js';
+import { SIM_PASSES, MOTES_VERTEX, MOTES_FRAGMENT } from './glsl/ink-sim.js';
 import { INK_BODIES } from './glsl/living-forms.js';
 import { UNIT_PROGRAMS } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
@@ -127,6 +127,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     // The live ink's fluid (glsl/ink-sim.js).
     ...Object.entries(SIM_PASSES).map(([k, fs]) => ({ name: `sim${k[0].toUpperCase()}${k.slice(1)}`, vs: VERTEX, fs })),
     { name: 'inkBodies', vs: VERTEX, fs: INK_BODIES },
+    { name: 'inkMotes', vs: MOTES_VERTEX, fs: MOTES_FRAGMENT },
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
   if (ext) {

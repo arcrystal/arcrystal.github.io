@@ -308,7 +308,8 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
   col=mix(piece.rgb,vec3(dot(piece.rgb,vec3(.2126,.7152,.0722))),.85)+col*(1.-piece.a);
   // The living ink's motes, in front of what they orbit and behind the veils.
   if(P>.5 && P<.84){
-    vec2 m=texture(uMotes,uv).rg*pigmentThrough;
+    // (Not over the live ink's bodies: a speck passing behind one is hidden by it.)
+    vec2 m=texture(uMotes,uv).rg*pigmentThrough*(1.-texture(uBodies,uv).a);
     float tau=m.r+m.g;
     if(tau>1e-4)col=mix(col,(m.r*vec3(.016,.015,.018)+m.g*vec3(.93,.915,.875))/tau,1.-exp(-tau));
   }

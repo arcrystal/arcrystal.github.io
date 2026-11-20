@@ -1,7 +1,7 @@
 // Photography → Chess's live ink: the part of the fluid with no GPU in it (static/site/scene/ink-sim.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SIM, live, showAt, energyAt, simSize, rng, createStir, createForcing, createThermostat, createImpulses } from '../../../static/site/scene/ink-sim.js';
+import { SIM, live, showAt, energyAt, simSize, rng, createStir, createForcing, createThermostat, createImpulses, createJets } from '../../../static/site/scene/ink-sim.js';
 import { formSchedule, FORMS } from '../../../static/site/scene/living-forms.js';
 import { HOLD } from '../../../static/site/lerp.js';
 
@@ -120,4 +120,29 @@ test('every live head\'s body is gone before its figure starts to gather, on des
   }
   assert.ok(FORMS.length <= 14);
   void HOLD; void rng;
+});
+
+test('the vents: from live bodies only, mostly sideways, a few at a time, swelling in and out, seeded', () => {
+  const heads = [{ id: 0, x: 120, y: 100, radius: 30, weight: 1, fill: 1, ivory: 0 }, { id: 1, x: 300, y: 120, radius: 25, weight: 1, fill: 1, ivory: 1 }, { id: 2, x: 200, y: 60, radius: 25, weight: 1, fill: .1, ivory: 0 }];
+  const a = createJets(11), b = createJets(11);
+  let n = 0, most = 0, sideways = 0, starts = 0, before = 0;
+  for (let i = 0; i < 60 * 300; i++) {
+    const ja = a.step(heads, 0), jb = b.step(heads, 0);
+    assert.deepEqual(ja, jb, 'seeded');
+    most = Math.max(most, ja.length);
+    for (const [[x, y, way, push], [radius, heat, ink]] of ja) {
+      n++;
+      assert.ok(push >= 0 && push <= SIM.jet.push * 1.6 * 1.3 + 1e-9 && heat <= SIM.jet.heat + 1e-9 && ink <= SIM.jet.ink + 1e-9);
+      assert.ok(Math.hypot(x - 120, y - 100) < 40 || Math.hypot(x - 300, y - 120) < 35, 'at a body with a fill, never the thin one');
+    }
+    // (A new jet is pushed last: its way on its first step.)
+    if (ja.length > before) { starts++; if (Math.abs(Math.cos(ja.at(-1)[0][2])) > Math.cos(SIM.jet.spread + .05)) sideways++; }
+    before = ja.length;
+  }
+  assert.ok(n > 0 && most <= SIM.jet.most);
+  assert.ok(sideways / starts > .9, `starts sideways: ${sideways}/${starts}`);
+  // Swelling in and out: no jet starts or ends at full push.
+  const c = createJets(3), pushes = [];
+  for (let i = 0; i < 60 * 60; i++) { const j = c.step(heads.slice(0, 1), 0); pushes.push(j.reduce((t, x) => t + x[0][3], 0)); }
+  for (let i = 1; i < pushes.length; i++) assert.ok(Math.abs(pushes[i] - pushes[i - 1]) < .25 * SIM.jet.push * 1.6, 'no jump in a jet\'s push');
 });

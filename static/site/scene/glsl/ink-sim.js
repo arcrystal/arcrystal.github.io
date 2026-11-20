@@ -3,7 +3,7 @@
 // the whole grid with the shared triangle (glsl/index.js VERTEX), reads by texelFetch or by texture at cell
 // centres (i + ½), and writes no NaN or Inf (clean). Pressure and divergence are 32-bit: they are
 // differences of large numbers.
-export const HEADS_MAX = 14, VORTICES_MAX = 16;
+export const HEADS_MAX = 14, VORTICES_MAX = 16, JETS_MAX = 6;
 
 const head = outs => /* glsl */ `#version 300 es
 precision highp float;
@@ -41,6 +41,14 @@ vec2 carrier(vec2 x) {
   }
   return c;
 }
+`;
+
+// The vents (ink-sim.js createJets): each a nozzle at a live body's edge, shooting hot ink mostly sideways.
+const JETS = /* glsl */ `
+uniform vec4 uJet[${JETS_MAX}];   // nozzle x, y (cells), the way it points (radians), its push (cells per step²)
+uniform vec4 uJetB[${JETS_MAX}];  // its radius (cells), heat and ink per step, ivory (1) or black (0)
+uniform int uJets;
+float jetAt(int i, vec2 x) { vec2 d = x - uJet[i].xy; return exp(-dot(d, d) / (uJetB[i].x * uJetB[i].x)); }
 `;
 
 // The bake's mist, as columns: (black, ivory, black·depth, ivory·depth) per screen point, one tile a key
@@ -108,8 +116,9 @@ void main() {
   // The forces, as this step's change of velocity: vorticity confinement (small eddies kept alive), the dye's
   // buoyancy, the large-scale curl-noise forcing (its gain the thermostat's), each head's drag on the water
   // toward its own velocity and the scroll's stir turning the water round it, and this step's impulses.
-  forces: HEAD + HEADS + /* glsl */ `
-uniform sampler2D uU, uAux, uMist, uB, uTension, uC;
+  forces: HEAD + HEADS + JETS + /* glsl */ `
+uniform sampler2D uU, uAux, uMist, uB, uTension, uC, uV;
+uniform vec2 uConvect;          // heat's lift and the vent ink's weight (cells per step², per unit)
 uniform vec3 uElastic;          // G (the polymer's modulus), L², the most a stress may be
 uniform vec2 uBodyBuoy;         // black body's and ivory body's buoyancy (cells per step², per unit)
 uniform vec4 uMode[6];          // a mode of the stream function: k (per cell), phase, amplitude
@@ -139,6 +148,11 @@ void main() {
   vec4 m = at(uMist, c), body = lin(uB, x);
   f.y += uFluid.y * m.r + uFluid.z * m.g + uBodyBuoy.x * body.r + uBodyBuoy.y * body.g;
   f += at(uTension, c).xy;
+  // Convection: heat lifts the water, the vent's ink weighs it down (hot ink rises, cools and sinks).
+  vec4 vent = at(uV, c);
+  f.y += uConvect.x * vent.b - uConvect.y * (vent.r + vent.g);
+  // The vents' push, along each nozzle's way.
+  for (int i = 0; i < ${JETS_MAX}; i++) { if (i >= uJets) break; f += uJet[i].w * jetAt(i, x) * vec2(cos(uJet[i].z), sin(uJet[i].z)); }
   // The polymer's stress, τ = G w (f A − I) (w: how much black ink is there), and its divergence.
   if (uElastic.x > 0.) {
     mat2 tl = stress(c - ivec2(1, 0), x - vec2(1, 0)), tr = stress(c + ivec2(1, 0), x + vec2(1, 0)), tb = stress(c - ivec2(0, 1), x - vec2(0, 1)), tt = stress(c + ivec2(0, 1), x + vec2(0, 1));
@@ -270,8 +284,12 @@ void main() {
   // flow (and the heads' carriers) bring it, diffused there ten times faster along the flow than across it
   // (never below 0), and is drawn back toward the bake's own mist: slowly near a live head, faster far from
   // one. The detail: where the flow carried it from, D_t + u·∇D = u − D/τ (screen units), held within uTau.y.
-  carry: head('layout(location = 0) out vec4 mist;\nlayout(location = 1) out vec4 detail;') + HEADS + MOMENTS + /* glsl */ `
-uniform sampler2D uM, uD, uU, uB, uAux;
+  carry: head('layout(location = 0) out vec4 mist;\nlayout(location = 1) out vec4 detail;\nlayout(location = 2) out vec4 vent;') + HEADS + JETS + MOMENTS + /* glsl */ `
+uniform sampler2D uM, uD, uU, uB, uAux, uV;
+uniform float uThin;            // how much of the bake's mist the live mist keeps (the screen cleared)
+uniform vec4 uHeat;             // per step: cooling, heat's diffusion, condensing rate, the temperature it condenses below
+uniform vec3 uMelt;             // per step: melting rate, the temperature it melts above; heating by shear
+uniform float uFade;            // per step: vent ink thinning into the water
 uniform vec2 uExchange;         // per step: mist condensing into a congealing head's body, body melting to mist
 uniform vec2 uErode;            // (the bodies pass's shear erosion: what it strips arrives here as mist)
 uniform float uCarry;
@@ -309,7 +327,10 @@ void main() {
   // (What the bodies' skins lose to shear, as the bodies pass strips it: rate × 4φ(1 − φ) of each ink.)
   vec2 stripped = min(.5, uErode.x * max(0., at(uAux, ivec2(x)).z - uErode.y)) * 4. * body.rg * (1. - bs);
   m.rg += takes * body.rg + stripped; m.ba += takes * body.rg * body.b / max(body.r + body.g, 1e-4);
-  m += max(mix(uRelax.y, uRelax.x, near), uRelax.z) * (moments(x / uCells) - m);
+  // Drawn back toward the bake's mist, thinned, and its faint haze cleared (only its body kept).
+  vec4 goal = moments(x / uCells);
+  goal *= uThin * smoothstep(0., .02, goal.r + goal.g);
+  m += max(mix(uRelax.y, uRelax.x, near), uRelax.z) * (goal - m);
   // (Never denser than the bake's densest mist: nothing here may pile up without end.)
   m.rg = min(m.rg, vec2(.6)); m.ba = min(m.ba, m.rg);
   mist = clean(m);
@@ -318,6 +339,26 @@ void main() {
   float n = length(d);
   if (n > uTau.y) d *= uTau.y / n;
   detail = clean(vec4(d, 0, 0));
+  // The vents' hot ink (rg) and heat (b): carried by the water, the heat spreading and cooling; fed at the
+  // nozzles; cold ink condenses into the bodies, hot bodies melt into it (the bodies pass takes and gives
+  // the same), and bodies sheared hard heat up.
+  vec4 v = lin(uV, x - u), vn = .25 * (lin(uV, x - u + vec2(1, 0)) + lin(uV, x - u - vec2(1, 0)) + lin(uV, x - u + vec2(0, 1)) + lin(uV, x - u - vec2(0, 1)));
+  v.b += uSteps * uHeat.y * (vn.b - v.b);
+  v.rg += uSteps * .02 * (vn.rg - v.rg);
+  v.b *= 1. - uSteps * uHeat.x;
+  for (int i = 0; i < ${JETS_MAX}; i++) {
+    if (i >= uJets) break;
+    float g = uSteps * jetAt(i, x);
+    v.b += g * uJetB[i].y;
+    v.rg += g * uJetB[i].z * vec2(1. - uJetB[i].w, uJetB[i].w);
+  }
+  float shear = at(uAux, ivec2(x)).z;
+  v.b += uSteps * uMelt.z * shear * shear * bs;
+  float cold = smoothstep(uHeat.w, .4 * uHeat.w, v.b), hot = smoothstep(uMelt.y, 1.6 * uMelt.y, v.b);
+  v.rg += uSteps * (uMelt.x * hot * body.rg - uHeat.z * cold * v.rg);
+  v.rg *= 1. - uSteps * uFade;
+  v.rg = min(max(v.rg, vec2(0)), vec2(.6)); v.b = clamp(v.b, 0., 2.);
+  vent = clean(v);
 }`,
   // Surface tension on the bodies (CSF), as a force on the fluid's grid: σ(κ + 1/R)∇φ, φ the bodies' share
   // (black and ivory together) read at the fluid's cells, κ the interface's curvature in the screen's plane
@@ -344,7 +385,10 @@ void main() {
   // schedule at each live head's core and by the mist condensing onto it, and melted back to mist as the
   // head dissolves. (.b: the bodies' depth × share.)
   bodies: HEAD + HEADS + /* glsl */ `
-uniform sampler2D uB, uM, uAux;
+uniform sampler2D uB, uM, uAux, uV;
+uniform vec4 uHeat;             // (as the carry pass: cooling, diffusion, condensing rate, its temperature)
+uniform vec3 uMelt;             // (melting rate, its temperature, shear heating)
+uniform float uSteps;
 uniform vec2 uErode;            // shear erosion: rate per step per unit of strain rate over the threshold, threshold
 uniform vec2 uSharp;            // the contrast β (per step), unused
 uniform vec3 uFeed;             // per step: toward the schedule's fill at a core, condensing, melting
@@ -356,7 +400,7 @@ void main() {
   f = clamp(f + uSharp.x * f * (1. - f) * (2. * f - 1.), 0., 1.);
   float mass = me.r + me.g, z = mass > 1e-4 ? me.b / mass : .5;
   vec2 x = gl_FragCoord.xy / uScale;
-  vec4 mist = lin(uM, x);
+  vec4 mist = texture(uM, gl_FragCoord.xy / uCells);
   vec2 added = vec2(0);
   float zAdded = 0., held = 0.;
   for (int i = 0; i < ${HEADS_MAX}; i++) {
@@ -366,7 +410,7 @@ void main() {
     vec4 hb = uHeadB[i];
     held = max(held, uHead[i].w * (1. - hb.z) * exp(-r2 / (9. * R * R)));
     vec2 ink = vec2(1. - hb.x, hb.x);
-    float core = exp(-r2 / (.3 * R * R)), e = exp(-r2 / (R * R)), melt = exp(-r2 / (2.25 * R * R)) * hb.z;
+    float core = exp(-r2 / (.2 * R * R)), e = exp(-r2 / (R * R)), melt = exp(-r2 / (2.25 * R * R)) * hb.z;
     float fill = hb.y * (1. - hb.z) * uHead[i].w;
     // Fed at its core toward the schedule's fill (so the body regrows where its plume is, however the flow
     // has flung it), and by the mist condensing round it; melted as it dissolves.
@@ -378,8 +422,14 @@ void main() {
   }
   // (Flung far from every live head, a body thins back to mist: none outlives the heads.)
   f *= 1. - .006 * (1. - held);
+  // The convection's phase changes: cold vent ink condenses onto it (or into new beads where it is thick),
+  // and it melts where the water is hot (the carry pass's mirror).
+  vec4 vent = texture(uV, gl_FragCoord.xy / uCells);
+  float cold = smoothstep(uHeat.w, .4 * uHeat.w, vent.b), hot = smoothstep(uMelt.y, 1.6 * uMelt.y, vent.b);
+  f += uSteps * (uHeat.z * cold * vent.rg - uMelt.x * hot * f);
+  zAdded += uSteps * uHeat.z * cold * (vent.r + vent.g) * .5;
   // Sheared hard, its skin is stripped into mist (only at the edge: 4φ(1 − φ)).
-  float shear = lin(uAux, x).z;
+  float shear = texture(uAux, gl_FragCoord.xy / uCells).z;
   f -= min(.5, uErode.x * max(0., shear - uErode.y)) * 4. * f * (1. - f);
   f = clamp(f, 0., 1.);
   float s = f.r + f.g;
@@ -445,6 +495,44 @@ void main() {
   for (int j = 0; j < 4; j++) for (int i = 0; i < 4; i++) s += texture(uD, (x + 4. * vec2(float(i) - 1.5, float(j) - 1.5)) / uFine).xy;
   o = clean(vec4(s / 16., 0, 0));
 }`,
+  // The motes (state on a square texture, one texel a mote: position and velocity in fluid cells; age, life,
+  // ink, Stokes time in steps). A live mote lags the water by its own Stokes time (light ones follow it,
+  // heavy ones are flung out of eddies and gather where it strains) and settles a little; a dead one is
+  // thrown again, now and then, from a vent's nozzle along its way: a vent's pigment, carried off in its
+  // stream, coiling with it and sinking as it cools.
+  moteStep: head('layout(location = 0) out vec4 o0;\nlayout(location = 1) out vec4 o1;') + JETS + /* glsl */ `
+uniform sampler2D uP0, uP1, uU;
+uniform vec2 uGrid;             // the fluid's cells
+uniform float uTick, uSteps, uRespawn;
+float hash(float n) { return fract(sin(n * 12.9898 + 78.233) * 43758.5453); }
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 a = texelFetch(uP0, c, 0), b = texelFetch(uP1, c, 0);
+  float id = float(c.y) * uCells.x + float(c.x), k = id * 1.618 + uTick * .7319;
+  b.x += uSteps;
+  if (b.x >= b.y) {
+    // Dead: thrown again now and then, from one of the vents now firing.
+    if (uJets > 0 && hash(k) < uRespawn * uSteps) {
+      int j = int(floor(hash(k + 3.1) * float(uJets))) % uJets;
+      // (Spread through the nozzle and some way along the stream, every speed and a fan of ways: a cloud,
+      // never a file of specks along one path.)
+      float way = uJet[j].z + (hash(k + 5.7) - .5) * 1.6, r = 1.6 * uJetB[j].x * sqrt(hash(k + 7.3));
+      float th = 6.2831853 * hash(k + 9.1);
+      vec2 along = vec2(cos(uJet[j].z), sin(uJet[j].z));
+      a.xy = uJet[j].xy + r * vec2(cos(th), sin(th)) + along * 3. * uJetB[j].x * hash(k + 21.7);
+      a.zw = (.25 + 1.5 * hash(k + 11.9)) * 1.4 * vec2(cos(way), sin(way)) + .3 * (vec2(hash(k + 23.3), hash(k + 29.9)) - .5);
+      b = vec4(0., 140. + 160. * hash(k + 13.7), uJetB[j].w, 3. + 30. * hash(k + 17.3) * hash(k + 19.1));
+    } else b.x = b.y;
+  } else {
+    vec2 u = texture(uU, a.xy / uGrid).xy;
+    float lag = min(1., uSteps / b.w);
+    a.zw += (u - a.zw) * lag;
+    a.zw.y -= uSteps * .0025 * (b.w / 33.);
+    a.xy += uSteps * a.zw;
+    if (any(lessThan(a.xy, vec2(-4))) || any(greaterThan(a.xy, uGrid + 4.))) b.x = b.y;
+  }
+  o0 = clean(a); o1 = clean(b);
+}`,
   // The thermostat on the GPU (ink-sim.js createThermostat, the same law): the energy just measured, eased
   // over τ, and a gain proportional to how far it is from the target; nothing is read back to the page.
   thermo: HEAD + /* glsl */ `
@@ -487,3 +575,44 @@ void main() {
   o = vec4(s.x / max(n, 1.), s.y, s.z / max(n, 1.), s.w / max(n, 1.));
 }`,
 };
+
+// The motes drawn: each a short streak from where it was a moment ago to where it is (its motion blur), a
+// pixel and a half wide, antialiased across, added into the motes target (R black, G ivory optical depth).
+export const MOTES_VERTEX = /* glsl */ `#version 300 es
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D uP0, uP1;
+uniform vec2 uGrid, uSize;      // the fluid's cells; the target (px)
+uniform float uSide, uMass, uShutter;
+out vec2 across;
+out float mass;
+flat out float ivory;
+void main() {
+  int n = gl_VertexID / 6, corner = gl_VertexID % 6;
+  ivec2 c = ivec2(n % int(uSide), n / int(uSide));
+  vec4 a = texelFetch(uP0, c, 0), b = texelFetch(uP1, c, 0);
+  float life = b.x / max(b.y, 1.);
+  if (b.x >= b.y || b.y <= 0.) { gl_Position = vec4(2., 2., 2., 1.); return; }
+  vec2 px = uSize / uGrid, head = a.xy * px, tail = (a.xy - a.zw * uShutter) * px;
+  vec2 d = head - tail;
+  float len = length(d);
+  vec2 t = len > .01 ? d / len : vec2(1, 0), nrm = vec2(-t.y, t.x);
+  float w = 1.1;
+  vec2 q = corner == 0 || corner == 3 ? vec2(0, -1) : corner == 1 ? vec2(1, -1) : corner == 2 || corner == 4 ? vec2(1, 1) : vec2(0, 1);
+  vec2 p = mix(tail - t * w, head + t * w, q.x) + nrm * w * q.y;
+  gl_Position = vec4(2. * p / uSize - 1., 0., 1.);
+  across = vec2(q.y, 0.);
+  // (Its pigment spread over its streak, so a quick one is fainter; it fades in and out.)
+  mass = uMass * smoothstep(0., .08, life) * (1. - smoothstep(.6, 1., life)) * min(1., 3. / (len + 3.));
+  ivory = b.z;
+}`;
+export const MOTES_FRAGMENT = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 across;
+in float mass;
+flat in float ivory;
+out vec4 o;
+void main() {
+  float k = mass * (1. - smoothstep(.35, 1., abs(across.x)));
+  o = vec4(k * (1. - ivory), k * ivory, 0, 0);
+}`;

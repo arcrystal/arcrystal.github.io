@@ -370,7 +370,7 @@ export function createLivingInk(gl,coarse,programs){
     bind(0,gl.TEXTURE_2D_ARRAY,volume,view.U.uVolume);
     bind(1,gl.TEXTURE_3D,noise,view.U.uNoise);bind(2,gl.TEXTURE_2D,figures.depthTexture,view.U.uFigureDepth);
     bind(3,gl.TEXTURE_2D,sheetDepth.textures[0],view.U.uSheetDepth);
-    liveInk.bindVolume(view.U,[4,5,6]);
+    liveInk.bindVolume(view.U,[4,5,6,7]);
     gl.uniform2f(view.U.uSize,layers.w,layers.h);gl.uniform3f(view.U.uCells,meta.nx,meta.ny,meta.nz);
     gl.uniform1f(view.U.uAspect,w/h);gl.uniform1f(view.U.uProgress,P);gl.uniform1f(view.U.uKey,key);
     gl.uniform1f(view.U.uBreath,breath);gl.uniform1f(view.U.uFlowPhase,flowPhase);gl.drawArrays(gl.TRIANGLES,0,3);
@@ -384,6 +384,7 @@ export function createLivingInk(gl,coarse,programs){
       const cdpr=Math.min(devicePixelRatio||1,w<900?1.25:1.5),Wm=Math.max(1,Math.round(w*cdpr)),Hm=Math.max(1,Math.round(h*cdpr));
       motes=resize(motes,Wm,Hm,1,false,gl.RG16F);
       target(motes);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+      liveInk.drawMotes(Wm,Hm);
     }
     air=resize(air,W,H,1);
     // Airborne paint reflects the room directly. Keep it separate from

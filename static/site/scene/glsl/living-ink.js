@@ -148,7 +148,7 @@ ${suspendedCurrent}
 uniform float uSpin; // the event's clock (ink-swirl.js spinAt): only ever forward
 // The live ink (live-ink.js): its mist's columns (black, ivory, black·depth, ivory·depth), where its fine
 // detail has been carried from (screen units), the bake's own columns, and how much of it shows.
-uniform sampler2D uMoments,uLiveMist,uLiveDetail;
+uniform sampler2D uMoments,uLiveMist,uLiveDetail,uLiveVent; // (uLiveVent: the vents' hot ink, rg)
 uniform float uLive;
 layout(location=0) out vec4 rear;
 layout(location=1) out vec4 front;
@@ -214,6 +214,9 @@ void main(){
   vec2 gain=vec2(1),extra=vec2(0),zLive=vec2(.5),carried=vec2(0);
   if(uLive>0.){
     vec4 L=texture(uLiveMist,uv),B=bakedColumn(uv);
+    // (The vents' ink is live mist too, at the live mist's depth.)
+    vec2 hot=texture(uLiveVent,uv).rg;
+    L.zw+=hot*mix(vec2(.5),clamp(L.zw/max(L.xy,vec2(1e-4)),.05,.95),step(vec2(1e-3),L.xy));L.xy+=hot;
     vec2 cover=smoothstep(.0015,.012,B.xy);
     gain=mix(vec2(1),cover*min(L.xy/max(B.xy,vec2(1e-4)),vec2(2.5)),uLive);
     // (Only what reads: a trace of live mist where the bake has none would fill empty samples for nothing.)
@@ -344,7 +347,8 @@ void main(){
  if(uLive>0.)p.xy+=uLive*textureLod(uLiveDetail,p.xy,0.).xy;
  position=vec3(p.xy*vec2(uSize.x/uSize.y,1.),p.z);
  gl_Position=vec4(2.*p.xy-1.,0.,1.);
- amount=data.w;
+ // (Thinner while the live ink runs: the screen cleared for it, its trunks less of a wall of falling lines.)
+ amount=data.w*(1.-.75*uLive);
 }`;
 export const INK_SHEET_FRAGMENT=/* glsl */`#version 300 es
 precision highp float;
