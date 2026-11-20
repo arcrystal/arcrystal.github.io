@@ -2,7 +2,8 @@
 // Frame times through one seam's hold, by how far its transition has come: scrolls from where the
 // strip first shows to just past its release at an even pace, on the GPU, and reports rAF intervals
 // in seven stretches of the scene clock P (−0.2 … 1.2).
-//   node tools/site/seam_perf.mjs --seam ink [--size 1440x900] [--dpr 2] [--secs 24] [--passes 2] [--base URL] [--strict]
+//   node tools/site/seam_perf.mjs --seam ink [--size 1440x900] [--dpr 2] [--secs 24] [--passes 2] [--base URL] [--strict] [--unlocked]
+// --unlocked turns off vsync and the frame-rate limit, so a frame's interval is what it costs (headroom).
 // --seam: the style the seam goes to (cosmos, glass, folio, darkroom, ink). --strict exits 1 when any
 // stretch has a frame over 20 ms or a 90th percentile over 17.5 ms. --passes runs it again from the
 // top (a first pass pays for what is made once; later ones show what every pass pays). The frames over
@@ -18,15 +19,17 @@ const { values: o } = parseArgs({ options: {
   base: { type: 'string', default: 'http://127.0.0.1:8100' },
   strict: { type: 'boolean', default: false },
   passes: { type: 'string', default: '1' },
+  unlocked: { type: 'boolean', default: false },
+  init: { type: 'string', multiple: true, default: [] },
 } });
 const [width, height] = o.size.split('x').map(Number);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const browser = await launch({ preset: 'gpu' });
+const browser = await launch({ preset: 'gpu', args: o.unlocked ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : [] });
 let over = 0;
 try {
   // Narrow sides (≤ 500 px) are phones: touch and a mobile viewport, as cdp.mjs parseSize has them.
-  const page = await browser.newPage({ width, height, deviceScaleFactor: Number(o.dpr), mobile: Math.min(width, height) <= 500 });
+  const page = await browser.newPage({ width, height, deviceScaleFactor: Number(o.dpr), mobile: Math.min(width, height) <= 500, init: o.init });
   await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
   await page.waitFor(() => /\bgl\b/.test(document.documentElement.className), { timeout: 20000 });
   await page.waitFor(() => !document.documentElement.classList.contains('site-loading'), { timeout: 125000 });
@@ -45,7 +48,7 @@ try {
     const a = hold.leadIn * vh, b = hold.leadOut * vh, y0 = T - a, y1 = T + R + b + 60;
     scrollTo({ top: y0, behavior: 'instant' });
     await new Promise(r => setTimeout(r, 900));
-    const edges = [-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2], out = edges.slice(0, -1).map(() => []), slow = [], tasks = [];
+    const edges = [-0.2, 0, 0.2, 0.4, 0.555, 0.8, 1.0, 1.2], out = edges.slice(0, -1).map(() => []), slow = [], tasks = [];
     const po = typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame')
       ? new PerformanceObserver(l => { for (const e of l.getEntries()) tasks.push({ at: e.startTime, ms: e.duration, render: e.renderStart ? +(e.startTime + e.duration - e.renderStart).toFixed(1) : null, scripts: (e.scripts || []).map(x => `${(x.sourceURL || '').split('/').pop()}:${x.sourceFunctionName || x.invoker || ''} ${x.duration.toFixed(0)}`).slice(0, 3) }); }) : null;
     po?.observe({ type: 'long-animation-frame', buffered: false });

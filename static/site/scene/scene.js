@@ -354,6 +354,7 @@ function createScene() {
 
   // Dynamic resolution: drop the buffer scale when frames run long, recover when they are quick.
   function adapt(dt, racing) {
+    if (globalThis.__noAdapt) return; // (tools/site/ink_profile.mjs measures at a fixed resolution)
     if (dt > 0.0205) { slow++; fast = 0; } else if (dt < 0.0178) { fast++; slow = Math.max(0, slow - 1); }
     // Frames just over budget miss every other vsync: no run of slow frames, but half of them late.
     // Their share over the last fifty or so counts too.

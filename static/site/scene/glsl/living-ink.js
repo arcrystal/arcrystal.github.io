@@ -146,6 +146,10 @@ uniform vec3 uCells;
 uniform float uProgress,uKey,uBreath,uAspect,uFlowPhase;
 ${suspendedCurrent}
 uniform float uSpin; // the event's clock (ink-swirl.js spinAt): only ever forward
+// The live ink (live-ink.js): its mist's columns (black, ivory, black·depth, ivory·depth), where its fine
+// detail has been carried from (screen units), the bake's own columns, and how much of it shows.
+uniform sampler2D uMoments,uLiveMist,uLiveDetail;
+uniform float uLive;
 layout(location=0) out vec4 rear;
 layout(location=1) out vec4 front;
 vec3 coord(vec3 p,float k){
@@ -173,6 +177,12 @@ vec2 orbitKey(vec2 xy,bool later){
   }
   return vec2(q.x/uAspect,q.y);
 }
+// The bake's columns at a screen point, between its two keys as density() reads them.
+vec4 bakedColumn(vec2 xy){
+  vec2 a=coord(vec3(xy,.5),floor(uKey)).xy,b=coord(vec3(xy,.5),ceil(uKey)).xy;
+  if(uOrbit[0].w>.5 || uOrbit[1].w>.5){a=coord(vec3(orbitKey(xy,false),.5),floor(uKey)).xy;b=coord(vec3(orbitKey(xy,true),.5),ceil(uKey)).xy;}
+  return mix(texture(uMoments,a),texture(uMoments,b),fract(uKey));
+}
 vec2 density(vec3 p){
   if(uOrbit[0].w<.5 && uOrbit[1].w<.5)return mix(readVolume(p,floor(uKey)),readVolume(p,ceil(uKey)),fract(uKey));
   return mix(readVolume(vec3(orbitKey(p.xy,false),p.z),floor(uKey)),readVolume(vec3(orbitKey(p.xy,true),p.z),ceil(uKey)),fract(uKey));
@@ -198,20 +208,40 @@ void main(){
   vec2 rolling=flicker*vec2(.028*sin(.76*uFlowPhase+uv.y*4.),.023*cos(.59*uFlowPhase+uv.x*5.));
   // The mist's fine detail drifts on, steadily, with the event's clock: it streams, it does not pulse.
   float boil=uSpin;
-  for(int i=0;i<36;i++){
+  // The live mist moves the bake's: where the bake has a column here, its own is scaled to the live one's;
+  // what the live flow has carried where the bake has none is laid in at the live mist's own depth. Its
+  // fine detail is read where the flow carried it from.
+  vec2 gain=vec2(1),extra=vec2(0),zLive=vec2(.5),carried=vec2(0);
+  if(uLive>0.){
+    vec4 L=texture(uLiveMist,uv),B=bakedColumn(uv);
+    vec2 cover=smoothstep(.0015,.012,B.xy);
+    gain=mix(vec2(1),cover*min(L.xy/max(B.xy,vec2(1e-4)),vec2(2.5)),uLive);
+    // (Only what reads: a trace of live mist where the bake has none would fill empty samples for nothing.)
+    extra=uLive*(1.-cover)*max(L.xy-.004,vec2(0));
+    zLive=clamp(L.zw/max(L.xy,vec2(1e-4)),.05,.95);
+    carried=uLive*texture(uLiveDetail,uv).xy;
+  }
+  // Front to back (from the observer toward the far wall), each half kept by its own transmittance, which is
+  // the same picture as compositing back to front; once both are spent nothing behind can show, so stop.
+  float Tf=1.,Tr=1.;
+  float pzLow=min(min(pz.x>0.?pz.x:2.,pz.y>0.?pz.y:2.),min(pz.z>0.?pz.z:2.,pz.w>0.?pz.w:2.));
+  for(int i=35;i>=0;i--){
     float z=(float(i)+.5+.10*stagger)/36.;
+    if(Tr<.004 && (Tf<.004 || pieceZ<=0. || z<pzLow))break;
     vec2 drift=mix(currentFar,currentNear,z);
     vec3 p=vec3(uv-drift,z);
 
-    vec2 coarse=density(p);
+    // (A live column with no bake under it: spread over depth round the live mist's own, σ .08.)
+    vec2 laid=extra*exp(-.5*pow((z-zLive)/.08,vec2(2)))*4.99;
+    vec2 coarse=density(p)*gain+laid;
     if(max(coarse.x,coarse.y)<.003)continue;
-    vec3 material=vec3(p.x*uAspect,p.y,p.z*.67);
+    vec3 material=vec3((p.x-carried.x)*uAspect,p.y-carried.y,p.z*.67);
     vec3 v=texture(uNoise,material*.91+vec3(rolling,.023*uBreath)+vec3(.0025*boil,.044*uProgress+.006*boil,.003*boil)).rgb-.5;
     vec3 f=texture(uNoise,material*2.7+v*.81+vec3(-.002*boil,-.13*uProgress-.009*boil,.027*uBreath+.005*boil)).rgb-.5;
     vec3 warp=v*.104+f*.045;
     vec3 g=texture(uNoise,material*5.5+v*1.24+f*.89).rgb-.5;
     warp+=g*.022;
-    vec2 dye=density(p+warp/vec3(uAspect,1,1));
+    vec2 dye=density(p+warp/vec3(uAspect,1,1))*gain+laid;
     vec3 fold=texture(uNoise,material*5.1+v*1.45+f*.54).rgb;
     vec4 fine=texture(uNoise,material*8.4+1.8*v+.94*f+.75*g);
     vec3 curl=texture(uNoise,material*12.+2.4*v+1.5*f+1.2*g).rgb;
@@ -231,7 +261,7 @@ void main(){
     sheets*=.52+.87*smoothstep(.48,.80,pleat)+1.15*membrane;
     sheets*=.78+.62*ridge;
     float black=dye.x*sheets*(.15+1.4*carved), white=dye.y*sheets*(.25+1.3*carved),total=black+white;
-    vec2 light=density(p+vec3(-.026,.036,.092)+warp*.6);
+    vec2 light=density(p+vec3(-.026,.036,.092)+warp*.6)*gain+laid;
     float transmission=exp(-2.65*(light.x+.56*light.y));
     float edge=clamp((coarse.x+coarse.y-light.x-light.y)*2.8,0.,1.);
     float incidence=clamp(.46+1.7*(fold.r-fine.g)+.62*(curl.b-curl.g),.08,1.);
@@ -251,8 +281,8 @@ void main(){
     vec4 sampleLight=vec4(emission*a,a);
     // (In front of what stands here in how many of the four taps.)
     float inFront=pieceZ>0.?.25*(float(pz.x>0.&&z>pz.x)+float(pz.y>0.&&z>pz.y)+float(pz.z>0.&&z>pz.z)+float(pz.w>0.&&z>pz.w)):0.;
-    front=sampleLight*inFront+front*(1.-a*inFront);
-    rear=sampleLight*(1.-inFront)+rear*(1.-a*(1.-inFront));
+    front+=Tf*sampleLight*inFront;Tf*=1.-a*inFront;
+    rear+=Tr*sampleLight*(1.-inFront);Tr*=1.-a*(1.-inFront);
   }
 }`;
 
@@ -269,6 +299,10 @@ uniform int uOrder[32],uCols,uRows;
 uniform vec4 uVaporFigure[32];
 uniform float uKey,uProgress,uBreath,uFlowPhase;
 uniform vec2 uSize;
+// The live ink's flow carries the veils too (live-ink.js): each point of a sheet sits where the flow has
+// carried it, a little way from where the bake put it, and is drawn back as the flow lets go.
+uniform highp sampler2D uLiveDetail;
+uniform float uLive;
 ${suspendedCurrent}
 out vec3 position;
 out vec2 cloth;
@@ -305,6 +339,9 @@ void main(){
  float angle=6.2831853*cloth.x;
  p.xy+=swing*(.0045+.0025*cos(angle*2.))*vec2(sin(6.*cloth.y+angle+seed+uBreath)*uSize.y/uSize.x,cos(5.*cloth.y-angle+seed+uBreath));
  p.xy+=suspendedDrift(p.xy,p.z,uSize.x/uSize.y,uProgress,uFlowPhase);
+ // (Its large scales only (live-ink.js smooths them): a sheet bends with the flow; the fine detail is the
+ // mist's.)
+ if(uLive>0.)p.xy+=uLive*textureLod(uLiveDetail,p.xy,0.).xy;
  position=vec3(p.xy*vec2(uSize.x/uSize.y,1.),p.z);
  gl_Position=vec4(2.*p.xy-1.,0.,1.);
  amount=data.w;

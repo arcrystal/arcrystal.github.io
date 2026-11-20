@@ -81,37 +81,3 @@ export function trackAt(tracks, keyF, f) {
   for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) out[c] += b[j] * at(k - 1 + j, c);
   return out;
 }
-
-// ---- the motes ----------------------------------------------------------------------------------------
-// Each form's motes lie along short material lines (LINE motes each), every line laid out from one of the
-// form's two cores (the cap's ring, seen side on, the cores turning opposite ways). A line turns about its
-// core on a Lamb–Oseen orbit, θ = θ0 + s Ω(r0) W, its inner end faster than its outer, so the line is drawn
-// out into a spiral thread; as it stretches it thins (its motes' mass falls as 1/stretch). The orbit's
-// radius is r0·g(P): wide as the motes lift out of the mist, drawn in as the form congeals, flung wide as
-// it dissolves; turning faster drawn in (W = ∫ g⁻¹ dτ, τ in screens of the event's clock), and never wound
-// past an arm's worth.
-// (A line is drawn as the soft thread through its motes, so it stays whole however far it is drawn out.)
-export const MOTE = Object.freeze({ line: 48, perPixel: .014, min: 9000, max: 48000, width: 3.2, sigma: 1.4,
-  spin: .36, core: .75, cores: .5, gather: .03, fling: .035, curl: 1.2, wind: 9 });
-// The orbit's radius scale g at P for a form, and how much of the form's motes show.
-export function moteState(f, P) {
-  const g = (1.75 - 1.12 * smooth(f.c0 - MOTE.gather, f.c1, P)) * (1 + 2.6 * smooth(f.d0, f.d1 + MOTE.fling, P));
-  const show = smooth(f.c0 - MOTE.gather - .02, f.c0, P) * (1 - smooth(f.d1 - .01, f.d1 + MOTE.fling, P));
-  return { g, show };
-}
-// W at P: the winding so far, τ the event's clock in screens.
-export function moteWinding(f, P, pin = HOLD.pin) {
-  const a = f.c0 - MOTE.gather - .02;
-  // (Already a little wound when they first show: soft curls, never straight sticks.)
-  if (P <= a) return MOTE.curl;
-  const n = 48, h = (P - a) / n;
-  let w = 0;
-  for (let i = 0; i < n; i++) {
-    const p0 = a + i * h, p1 = p0 + h, g = moteState(f, (p0 + p1) / 2).g;
-    w += (clockP(p1, pin) - clockP(p0, pin)) * EVENT_CLOCK.screens / g;
-  }
-  // (Capped softly: a thread is drawn into an arm, never wound into rings.)
-  return MOTE.curl + MOTE.wind * Math.tanh(w / MOTE.wind);
-}
-// Ω(r0) for a line's start r0 (in units of the form's size): a Lamb–Oseen core, radians per screen.
-export const omega = r0 => { const a2 = MOTE.core * MOTE.core, r2 = Math.max(r0 * r0, 1e-6); return MOTE.spin * (1 - Math.exp(-r2 / a2)) * a2 / r2 / (1 - Math.exp(-1)); };
