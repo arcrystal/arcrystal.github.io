@@ -7,7 +7,7 @@ import { PRECIPITATION } from './ink-tank.js';
 import { CLEAR, waterPlane, emergence, boxCamera, toScreen } from './ink-drain.js';
 import { DRAIN, tankCamera } from './ink-tank.js';
 import { startSlots } from './staunton.js';
-import { rollUp, breath as capBreath } from './ink-swirl.js';
+import { rollUp, breath as capBreath, flowAt } from './ink-swirl.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -304,7 +304,7 @@ export function createLivingInk(gl,coarse,programs){
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
     const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
     const breath=Math.sin(time*.43);
-    const flowPhase=time*.69;
+    const flowPhase=time*.69,flow=flowAt(P,time);
     const sheetsLive=P>.127 && P<END;
     function drawSheets(depthOnly){
       const sheet=programs.inkSheet;gl.useProgram(sheet.p);
@@ -314,7 +314,7 @@ export function createLivingInk(gl,coarse,programs){
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
       gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
-      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time));
+      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time));gl.uniform3fv(sheet.U.uInkFlow,flow);
       if(sheetLayout!==meta){
         gl.uniform4fv(sheet.U.uVaporFigure,meta.vaporFigures);
         gl.uniform1iv(sheet.U.uOrder,meta.order);
@@ -335,7 +335,7 @@ export function createLivingInk(gl,coarse,programs){
       gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);
     }
     const view=programs.unmixSeen;
-    target(layers);gl.useProgram(view.p);
+    target(layers);gl.useProgram(view.p);gl.uniform3fv(view.U.uInkFlow,flow);
     bind(0,gl.TEXTURE_2D_ARRAY,volume,view.U.uVolume);
     bind(1,gl.TEXTURE_3D,noise,view.U.uNoise);bind(2,gl.TEXTURE_2D,figures.depthTexture,view.U.uFigureDepth);
     bind(3,gl.TEXTURE_2D,sheetDepth.textures[0],view.U.uSheetDepth);

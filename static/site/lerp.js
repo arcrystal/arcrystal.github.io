@@ -72,7 +72,7 @@ export const seamAt = h => 0.26 + 0.48 * clamp01(h);
 // scale on the pin; leadIn, leadOut). A negative leadOut finishes before the next band enters.
 export const HOLD = {
   pin: 1.75, pinTouch: 0.9, leadIn: 0.95, leadOut: 0.2,
-  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 13.8 } },
+  by: { cosmos: { pin: 1.6, leadOut: 0.75 }, glass: { pin: 5.4 }, folio: { pin: 3.2, leadOut: 0.06 }, darkroom: { pin: 4.4 }, ink: { pin: 12.8 } },
 };
 // Racing's, Photography's and Chess's bands surface in place inside their transitions (home.js wraps
 // each with its hold): the hold ends, and the band scrolls on, at the transition's very end. HELD: the P
@@ -160,7 +160,7 @@ export const darkroomEase = DARKROOM_TABLE.ease, darkroomRaw = DARKROOM_TABLE.in
 // which falls as the water rose and then sinks through the board. A drop reaches the
 // water at the same scroll position as before. Every join has zero added slope and curvature.
 // Pins of scroll added to Chess's hold, each over its own window of P.
-export const INK_ADDED = Object.freeze({ free: 3.6, figures: 1.15, drain: 1.55 });
+export const INK_ADDED = Object.freeze({ free: 2.6, figures: 1.15, drain: 1.55 });
 // The free window: the plumes going under and the mist's main event (scene/ink-swirl.js).
 export const INK_FREE = Object.freeze([.53, .745]);
 function accumulatedDistance(P, start, end) {

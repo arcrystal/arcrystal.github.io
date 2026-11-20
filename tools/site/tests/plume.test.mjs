@@ -89,7 +89,7 @@ test('Chess adds scroll below the water and to its drain, and keeps the distance
   // Raw fractions at these landmarks on the previous 7.5-pin clock.
   const old=[[.416,.4475095854],[.53,.5404670178]];
   near(inkAdded(INK_FREE[1]),INK_ADDED.free,1e-12);
-  assert.ok(INK_ADDED.free>3,'the plumes going under and the mist\'s main event gain more than three pins of their own');
+  assert.ok(INK_ADDED.free>2.5,'the plumes going under and the mist\'s main event gain more than two and a half pins of their own');
   near(inkAdded(1.01)-inkAdded(INK_FREE[1]),INK_ADDED.figures,1e-12,'the rank-specific formations gain theirs');
   for(const pin of [HOLD.pin,HOLD.pinTouch]){
     const hold=holdFor('ink',pin),before=7.5*pin+hold.leadIn,after=hold.pin*pin+hold.leadIn;

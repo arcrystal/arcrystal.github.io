@@ -1,5 +1,6 @@
 import { PIECE_SHAPES, PIECE_MATERIAL } from './board3d.js';
 import { LATE } from '../ink-tank.js';
+import { FLOW_GLSL, FLOW } from '../ink-swirl.js';
 
 // Each draw is scissored to one posed piece. Its optical depth travels with
 // the shaded hit, so the participating medium can be integrated on either side.
@@ -145,6 +146,7 @@ uniform vec2 uSize;
 uniform vec3 uCells;
 uniform float uProgress,uKey,uBreath,uAspect,uFlowPhase;
 ${suspendedCurrent}
+${FLOW_GLSL}
 layout(location=0) out vec4 rear;
 layout(location=1) out vec4 front;
 vec3 coord(vec3 p,float k){
@@ -171,20 +173,31 @@ void main(){
   vec2 currentFar=suspendedDrift(uv,0.,uAspect,uProgress,uFlowPhase);
   float flicker=smoothstep(.46,.55,uProgress)*(1.-smoothstep(.71,.84,uProgress));
   vec2 rolling=flicker*vec2(.028*sin(.76*uFlowPhase+uv.y*4.),.023*cos(.59*uFlowPhase+uv.x*5.));
+  // The flow (ink-swirl.js): the mist comes from where the water carried it; the far water a phase behind
+  // the near, so the depths part ways. Packed tight, the same pigment darkens; spread, it thins.
+  vec3 flowFar=vec3(0.,0.,1.),flowNear=vec3(0.,0.,1.);
+  if(uInkFlow.z>0.){
+    vec2 q=vec2(uv.x*uAspect,uv.y);
+    flowFar=inkFlow(q,uInkFlow.x,uInkFlow.y);flowNear=inkFlow(q,uInkFlow.x+${FLOW.depth.toFixed(2)},uInkFlow.y+.9);
+    flowFar.xy*=uInkFlow.z/vec2(uAspect,1.);flowNear.xy*=uInkFlow.z/vec2(uAspect,1.);
+    flowFar.z=mix(1.,flowFar.z,uInkFlow.z);flowNear.z=mix(1.,flowNear.z,uInkFlow.z);
+  }
+  float boil=uInkFlow.x*uInkFlow.z;
   for(int i=0;i<36;i++){
     float z=(float(i)+.5+.10*stagger)/36.;
-    vec2 drift=mix(currentFar,currentNear,z);
+    vec3 carried=mix(flowFar,flowNear,z);
+    vec2 drift=mix(currentFar,currentNear,z)+carried.xy;
     vec3 p=vec3(uv-drift,z);
 
     vec2 coarse=density(p);
     if(max(coarse.x,coarse.y)<.003)continue;
     vec3 material=vec3(p.x*uAspect,p.y,p.z*.67);
-    vec3 v=texture(uNoise,material*.91+vec3(rolling,.023*uBreath)+vec3(0,.044*uProgress,0)).rgb-.5;
-    vec3 f=texture(uNoise,material*2.7+v*.81+vec3(0,-.13*uProgress,.027*uBreath)).rgb-.5;
+    vec3 v=texture(uNoise,material*.91+vec3(rolling,.023*uBreath)+vec3(0,.044*uProgress+.006*boil,.004*boil)).rgb-.5;
+    vec3 f=texture(uNoise,material*2.7+v*.81+vec3(0,-.13*uProgress-.011*boil,.027*uBreath+.007*boil)).rgb-.5;
     vec3 warp=v*.104+f*.045;
     vec3 g=texture(uNoise,material*5.5+v*1.24+f*.89).rgb-.5;
     warp+=g*.022;
-    vec2 dye=density(p+warp/vec3(uAspect,1,1));
+    vec2 dye=density(p+warp/vec3(uAspect,1,1))*carried.z;
     vec3 fold=texture(uNoise,material*5.1+v*1.45+f*.54).rgb;
     vec4 fine=texture(uNoise,material*8.4+1.8*v+.94*f+.75*g);
     vec3 curl=texture(uNoise,material*12.+2.4*v+1.5*f+1.2*g).rgb;
@@ -241,6 +254,8 @@ uniform vec4 uVaporFigure[32];
 uniform float uKey,uProgress,uBreath,uFlowPhase;
 uniform vec2 uSize;
 ${suspendedCurrent}
+${FLOW_GLSL}
+out float packed;
 out vec3 position;
 out vec2 cloth;
 out float amount;out vec3 surfaceNormal;
@@ -276,6 +291,14 @@ void main(){
  float angle=6.2831853*cloth.x;
  p.xy+=swing*(.0045+.0025*cos(angle*2.))*vec2(sin(6.*cloth.y+angle+seed+uBreath)*uSize.y/uSize.x,cos(5.*cloth.y-angle+seed+uBreath));
  p.xy+=suspendedDrift(p.xy,p.z,uSize.x/uSize.y,uProgress,uFlowPhase);
+ // The water carries the veils as it carries the mist (ink-swirl.js), the far ones a phase behind.
+ packed=1.;
+ if(uInkFlow.z>0.){
+   float aspect=uSize.x/uSize.y;
+   vec3 carried=inkFlow(vec2(p.x*aspect,p.y),uInkFlow.x+${FLOW.depth.toFixed(2)}*p.z,uInkFlow.y+.9*p.z);
+   p.xy+=uInkFlow.z*carried.xy/vec2(aspect,1.);
+   packed=mix(1.,carried.z,uInkFlow.z);
+ }
  position=vec3(p.xy*vec2(uSize.x/uSize.y,1.),p.z);
  gl_Position=vec4(2.*p.xy-1.,0.,1.);
  amount=data.w;
@@ -300,7 +323,8 @@ uniform bool uDepthOnly;
 uniform vec2 uSize;uniform float uProgress,uBreath,uFlowPhase;
 uniform float uRollUp; // how far the plume heads' caps have rolled up (ink-swirl.js rollUp): 0 … 1, never back
 uniform vec4 uBreathe; // the caps' breath (ink-swirl.js breath): its depth, then the phases of l = 0, 2, 3
-in vec3 position;in vec2 cloth;in float amount;in vec3 surfaceNormal;
+uniform vec3 uInkFlow; // the water's flow clock (ink-swirl.js flowAt): the rolls and folds run with it
+in vec3 position;in vec2 cloth;in float amount;in vec3 surfaceNormal;in float packed;
 flat in float ivory,seed,section,sourceId;
 flat in vec4 figure;
 out vec4 o;
@@ -327,7 +351,7 @@ void main(){
    // A late head is its study: the rolls only stir it, so it stays the picture it was drawn as.
    float lateStudy=LATE[int(sourceId)],isLate=lateStudy>=0.?smoothstep(.50,.53,uProgress)*(1.-smoothstep(.635,.70,uProgress)):0.;
    free*=1.-.6*isLate;
-   float turn=(uProgress-.505)*34.+seed*.35+.57*uFlowPhase;
+   float turn=(uProgress-.505)*34.+seed*.35+.57*uFlowPhase+.9*uInkFlow.x*uInkFlow.z;
    float left=.33+.077*sin(turn*.64);
    vec2 leftCore=vec2(left,.68+.094*cos(turn*.83+seed));
    vec2 rightCore=vec2(.68-.062*cos(turn*.70),.57+.13*sin(turn*.69+seed));
@@ -341,7 +365,7 @@ void main(){
    // The cap rolls up: each of its two cores winds the study's filaments round itself, a turn and more by
    // the end of the event, the core faster than its rim (a Lamb–Oseen core, falling as 1/r² outside it),
    // so the filaments are drawn into spiral curls; it never turns back.
-   float wind=6.2831853*uRollUp*(.85+.5*fract(seed*.37))*rim*smoothstep(0.,.11,envelope);
+   float wind=6.2831853*uRollUp*(1.45+.7*fract(seed*.37))*rim*smoothstep(0.,.11,envelope);
    float lr=dot(l,l),rr=dot(r,r);
    leftRoll+=wind*(lr<1e-8?1.:(1.-exp(-lr/.0072))*.0072/lr);
    rightRoll-=wind*(rr<1e-8?1.:(1.-exp(-rr/.0056))*.0056/rr);
@@ -354,8 +378,8 @@ void main(){
    // Swollen, the same pigment covers more: it thins by the swell's area.
    vec2 bc=dyeUV-vec2(.5,.7);
    float ba=atan(bc.y,bc.x),bp=seed*1.3+3.14159*ivory;
-   float swell=uBreathe.x*(.075*sin(uBreathe.y+bp)+.04*cos(2.*(ba-.4*uBreathe.y-seed))*sin(uBreathe.z+bp)
-     +.03*cos(3.*(ba+.3*uBreathe.y+seed))*sin(uBreathe.w+bp))*smoothstep(.3,.75,v);
+   float swell=uBreathe.x*(.12*sin(uBreathe.y+bp)+.065*cos(2.*(ba-.4*uBreathe.y-seed))*sin(uBreathe.z+bp)
+     +.05*cos(3.*(ba+.3*uBreathe.y+seed))*sin(uBreathe.w+bp))*smoothstep(.3,.75,v);
    dyeUV=vec2(.5,.7)+bc/(1.+swell);
    float thinned=1./((1.+swell)*(1.+swell));
    bool mirrored=mod(sourceId,3.)>1.5;
@@ -422,7 +446,7 @@ void main(){
    float foreground=sourceId<1.5||sourceId==10.||sourceId==23.||lateStudy>=0.?1.:0.;
    // Fewer dense axes keep the water between the four foreground plumes clear.
    share=mix(share,mix(share*.53,max(.98,share)*1.18,foreground),free);
-   float thick=amount*border*filling*optical*share*column*mix(1.,.57,suspending)*thinned;
+   float thick=amount*border*filling*optical*share*column*mix(1.,.57,suspending)*thinned*packed;
    float lift=free*smoothstep(.36,.88,v)*smoothstep(-.35,.88,cos((uProgress-.622)*69.+sourceId*.86+(v-.78)*5.4));
    // Solvent opens channels through the head, leaving its wet filaments
    // connected. The lofted portion is shaded in the companion mist volume.
@@ -459,7 +483,7 @@ void main(){
  vec2 m=vec2(cloth.x*6.2831853,cloth.y);
  float a=m.x,v=m.y,lip=smoothstep(.55,.83,v);
  float free=smoothstep(.43,.555,uProgress)*(1.-smoothstep(.682,.778,uProgress));
- float twist=(uProgress-.51)*32.+seed+.51*uFlowPhase;
+ float twist=(uProgress-.51)*32.+seed+.51*uFlowPhase+1.1*uInkFlow.x*uInkFlow.z;
  a+=free*(.71*sin(twist-6.*v)+.32*sin(11.*v-.61*twist));
  v+=free*.032*sin(3.*a+twist-8.*v);
  float whirl=sin(3.*a+seed+9.*v+1.3*sin(a-10.*v));
@@ -485,7 +509,7 @@ void main(){
  // of a pixel. Feather that coverage and keep only its thick rolled fibers.
  float rimCoverage=smoothstep(.012,.19,abs(normal.z));
  float fiberCoverage=.09+.91*smoothstep(.23,.79,vein+.43*lip);
- float optical=amount*(sourceId<1.5?.15:.072)*thickness*fiberCoverage*rimCoverage/(.38+.62*abs(normal.z));
+ float optical=amount*(sourceId<1.5?.15:.072)*thickness*fiberCoverage*rimCoverage/(.38+.62*abs(normal.z))*packed;
  // A traveling high-curvature ridge catches the light as a veil is drawn
  // to a point. Its opaque shoulder is carried by the interior optical sheets.
  float tendon=exp(-14.*abs(sin(2.*a+13.*v+.90*meander-.72*twist)));
