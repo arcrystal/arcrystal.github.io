@@ -64,7 +64,7 @@ export function formSchedule(sites) {
     // (Staggered: no two forms congeal or dissolve together.)
     const c0 = late ? Math.max(.597 + .0065 * (k - 4), lateBelow(id)) : k < 4 ? .585 + .008 * k : .60 + .007 * (k - 10);
     const c1 = c0 + .04;
-    const d1 = Math.min(sites[id].formStart - .004, .755 + .0022 * k), d0 = Math.max(c1 + .02, beforeScreens(d1, 2.2));
+    const d1 = Math.min(sites[id].formStart - .004, .733 + .0018 * k), d0 = Math.max(c1 + .02, beforeScreens(d1, 2.2));
     return Object.freeze({ id, white: DROPS[id].white, c0, c1, d0, d1 });
   });
 }

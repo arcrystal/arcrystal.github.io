@@ -15,7 +15,7 @@ export const SIM = Object.freeze({
   // It runs inside window; it shows by `show` (P), each change of what shows eased over `fade` seconds of the
   // clock, so a jump in the scroll fades rather than cuts. (From .565: the camera is still from there.)
   window: Object.freeze([.555, .80]),
-  show: Object.freeze([.565, .59, .762, .795]),
+  show: Object.freeze([.565, .59, .765, .80]),
   fade: .5,
   // Cells on the grid (the bake's mist is 101×63 on desktop, 38×72 on a phone: this is several times finer).
   cells: Object.freeze({ desktop: 98304, phone: 55296 }),
@@ -45,8 +45,10 @@ export const SIM = Object.freeze({
   mist: Object.freeze({ along: .06, across: .004, near: 1 / 700, far: 1 / 260, handoff: 1 / 24, carried: .75 }),
   // Fine detail rides the flow (D_t + u·∇D = u − D/τ), τ in seconds; never more than `max` of the screen.
   detail: Object.freeze({ tau: 3, max: .06 }),
-  // The veils take this share of the carried detail's large scales (more folds them over themselves).
+  // The veils take this share of the carried detail's large scales (more folds them over themselves); and
+  // inside this window (P) their depth prepass is skipped (living-ink.js draw).
   veils: .55,
+  sheetDepthOff: Object.freeze([.575, .775]),
   // The glossy bodies, on a grid 1.5× the fluid's each way: held sharp by a gentle contrast (per step);
   // surface tension σ (fluid cells, per step²); sinking (black more than ivory: Rayleigh–Taylor between
   // them); fed per step toward the schedule's fill at each head's core, by the mist condensing round it, and
@@ -72,24 +74,29 @@ export const SIM = Object.freeze({
   // melt into vent ink above `meltAbove` (per step: quick, so a phase change is seen); bodies sheared hard
   // heat up; vent ink also thins into the water (`fade`, per step), so not all of it returns to the bodies.
   // The screen's mist kept: the live mist holds this share of the bake's (its haze cleared).
-  convect: Object.freeze({ lift: 7e-4, weight: 2.5e-4, cool: 1 / 70, spread: .06, condense: .025, condenseBelow: .2, melt: .06, meltAbove: .5, shearHeat: .8, fade: .008 }),
+  convect: Object.freeze({ lift: 7e-4, weight: 2.5e-4, cool: 1 / 70, spread: .06, condense: .011, condenseBelow: .22, melt: .03, meltAbove: .5, shearHeat: .8, fade: .013 }),
   thin: .55,
   // The motes: how many (a square of side² on desktop, phone), how often a dead one is thrown again (per
   // step, while a vent fires), how much pigment each, and the shutter of its motion blur (steps).
   motes: Object.freeze({ desktop: 128, phone: 96, respawn: .02, mass: .22, shutter: 2.5 }),
   // The vents: from each live body, now and then (per second, more when stirred), a jet of hot ink, mostly
   // sideways (the plumes already fall), its way drifting as it runs (so it snakes), for `life` seconds.
-  jet: Object.freeze({ rate: .3, most: 6, spread: .45, turn: 1.4, life: Object.freeze([.6, 1.4]), push: .022, heat: .09, ink: .12, radius: .28 }),
+  jet: Object.freeze({ rate: .3, most: 6, spread: .45, turn: 1.4, life: Object.freeze([.6, 1.4]), push: .022, heat: .09, ink: .035, radius: .28 }),
   // Each live head: a carrier (radius × the head's size), a drag on the water toward the head's velocity,
   // and vortex impulses: a Poisson process (per second), each a pair of Lamb–Oseen cores.
   head: Object.freeze({ reach: 1.6, drag: .012, rate: .22, gamma: 60, core: .35, spread: .55 }),
 });
 
 export const live = P => P > SIM.window[0] && P < SIM.window[1];
+// The handoff to the figures (0 … 1): the water calms, the vents and kicks stop, the live mist is drawn onto
+// the bake's and the carried detail and the veils go home, all before what shows of it fades: so the fade
+// has nothing left to morph, and the figures gather from still water, as they did before the live ink.
+export const HANDOFF = Object.freeze([.705, .765]);
+export const handoffAt = P => smooth(HANDOFF[0], HANDOFF[1], P);
 // What should show at P (0 … 1).
 export const showAt = P => smooth(SIM.show[0], SIM.show[1], P) * (1 - smooth(SIM.show[2], SIM.show[3], P));
 // The energy the flow is held at (P, stir 0 … 1): quiet as it takes over, fullest while the bodies live.
-export const energyAt = (P, stir = 0) => (.016 + .065 * smooth(.575, .63, P) * (1 - smooth(.72, .785, P))) * (1 + 1.6 * stir);
+export const energyAt = (P, stir = 0) => (.016 + .065 * smooth(.575, .63, P)) * (1 - .85 * handoffAt(P)) * (1 + 1.6 * stir * (1 - handoffAt(P)));
 
 // The grid for a CSS-px viewport: cells of one size in x and y, about SIM.cells of them.
 export function simSize(w, h, mobile) {

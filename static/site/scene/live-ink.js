@@ -2,7 +2,7 @@
 // It owns the grids, steps them on the clock, and lends the mist (and the flow-carried detail) to the mist
 // volume (glsl/living-ink.js INK_VOLUME), which keeps its look and moves with it. Without 32-bit float
 // targets it never runs, and the mist is the bake's alone.
-import { SIM, live, showAt, energyAt, simSize, createStir, createForcing, createImpulses, createJets } from './ink-sim.js';
+import { SIM, live, showAt, energyAt, handoffAt, simSize, createStir, createForcing, createImpulses, createJets } from './ink-sim.js';
 import { HEADS_MAX, VORTICES_MAX, JETS_MAX } from './glsl/ink-sim.js';
 import { FORMS, trackAt, solidity } from './living-forms.js';
 import { smooth } from './ink-tank.js';
@@ -152,17 +152,19 @@ export function createLiveInk(gl, programs, { coarse }) {
   // One step of the fluid, carrying m of its steps (m = 2 when the governor has eased off: every other frame).
   function step(ctx, stirNow, pace, m = 1) {
     const g = grid, U = g.U, M = g.M, D = g.D;
-    const list = placeHeads(ctx, m);
-    const cores = impulses.step(list, stirNow.amount, m);
+    const list = placeHeads(ctx, m), ho = handoffAt(simP);
+    // (Through the handoff the kicks and vents stop: what drives the water is let go.)
+    const driving = list.map(h => ({ ...h, weight: h.weight * (1 - ho), fill: h.fill * (1 - ho) }));
+    const cores = impulses.step(driving, stirNow.amount, m);
     vortexCount = Math.min(VORTICES_MAX, cores.length);
     vortices.fill(0);
     cores.slice(0, VORTICES_MAX).forEach((c, i) => vortices.set(c, 4 * i));
     for (let i = 0; i < m; i++) forcing.step();
-    const fired = jets.step(list, stirNow.amount, m);
+    const fired = jets.step(driving, stirNow.amount, m);
     jetCount = Math.min(JETS_MAX, fired.length); jetA.fill(0); jetB.fill(0);
     fired.slice(0, JETS_MAX).forEach(([a, b], i) => { jetA.set(a, 4 * i); jetB.set(b, 4 * i); });
     const C = SIM.convect, jetsUniforms = u => { gl.uniform4fv(u.uJet, jetA); gl.uniform4fv(u.uJetB, jetB); gl.uniform1i(u.uJets, jetCount); };
-    const heat = u => { gl.uniform4f(u.uHeat, C.cool, C.spread, C.condense, C.condenseBelow); gl.uniform3f(u.uMelt, C.melt, C.meltAbove, C.shearHeat); if (u.uFade) gl.uniform1f(u.uFade, C.fade); };
+    const heat = u => { gl.uniform4f(u.uHeat, C.cool, C.spread, C.condense, C.condenseBelow); gl.uniform3f(u.uMelt, C.melt, C.meltAbove, C.shearHeat); if (u.uFade) gl.uniform1f(u.uFade, C.fade * (1 + 8 * ho)); };
     pass('simAux', g.aux, { uU: U[0].tex });
     pass('simTension', g.tension, { uB: g.B[0].tex }, u => gl.uniform1f(u.uSigma, m * knob('tension', SIM.body.tension)));
     const Pm = SIM.body.polymer;
@@ -210,15 +212,15 @@ export function createLiveInk(gl, programs, { coarse }) {
     pass('simCarry', g.carry[1], { uM: M[0].tex, uD: D[0].tex, uU: U[0].tex, uMoments: moments.tex, uB: g.B[0].tex, uAux: g.aux.tex, uV: g.V[0].tex }, u => {
       jetsUniforms(u); heat(u);
       // (The screen cleared through the event, the bake's mist whole again for the handoff.)
-      gl.uniform1f(u.uThin, 1 - (1 - SIM.thin) * smooth(.57, .61, simP) * (1 - smooth(.735, .78, simP)));
+      gl.uniform1f(u.uThin, 1 - (1 - SIM.thin) * smooth(.57, .61, simP) * (1 - ho));
       gl.uniform2f(u.uErode, m * SIM.body.erode[0], SIM.body.erode[1]);
       headsUniforms(u); bakeUniforms(u, ctx);
       const relax = k => 1 - Math.pow(1 - k, m);
       gl.uniform2f(u.uExchange, m * SIM.body.condense, m * SIM.body.melt);
       gl.uniform1f(u.uCarry, SIM.mist.carried); gl.uniform1f(u.uSteps, m);
       gl.uniform2f(u.uKappa, m * SIM.mist.along, m * SIM.mist.across);
-      gl.uniform3f(u.uRelax, relax(SIM.mist.near), relax(SIM.mist.far), relax(SIM.mist.handoff * smooth(.74, .79, simP)));
-      gl.uniform2f(u.uTau, m / (SIM.detail.tau * 60), SIM.detail.max);
+      gl.uniform3f(u.uRelax, relax(SIM.mist.near), relax(SIM.mist.far), relax(SIM.mist.handoff * ho));
+      gl.uniform2f(u.uTau, m * (1 + 10 * ho) / (SIM.detail.tau * 60), SIM.detail.max);
     });
     swap(M); swap(D); swap(g.V); swap(g.carry);
     // The bodies: carried (with the heads' carriers, wholly), then kept sharp, fed and melted.
@@ -399,7 +401,8 @@ export function createLiveInk(gl, programs, { coarse }) {
   // The carried detail, for the veils (glsl/living-ink.js INK_SHEET_VERTEX).
   function bindSheets(U, unit) {
     const on = !!(running && grid && shown > 0) && !dev()?.hideSheets;
-    gl.uniform1f(U.uLive, on ? shown * SIM.veils : 0);
+    // (The veils are home before the figures gather from them: their share goes with the handoff.)
+    gl.uniform1f(U.uLive, on ? shown * SIM.veils * (1 - handoffAt(simP)) : 0);
     gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, on ? grid.Ds.tex : null); gl.uniform1i(U.uLiveDetail, unit);
   }
 

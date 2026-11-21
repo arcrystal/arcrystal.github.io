@@ -32,10 +32,16 @@ void main() {
   if (uLive <= 0. || (near.r + near.g < .02 && thick(uv) < .02)) discard;
   vec4 b = catmull(uv);
   float t = max(b.r + b.g, 0.);
-  float aa = max(fwidth(t) * .75, 1e-3);
-  float a = smoothstep(.5 - aa, .5 + aa, t);
-  // (A thread thinner than the contour: as much of it as there is.)
-  a = max(a, smoothstep(.12, .45, t) * 1.1 * t);
+  // How condensed the ink is here (0: mist just thickening; 1: oobleck), from the body's own share and
+  // its surroundings' (the wide thickness), so a whole body turns together: condensing ink comes in as a
+  // soft, matte, translucent cloud and gains a clean edge, bulge and gloss only as it sets; melting ink
+  // goes back the same way. Nothing pops at the contour.
+  vec4 tk = texture(uThick, uv);
+  float set = smoothstep(.3, .85, .5 * t + .5 * (tk.b + tk.a));
+  float aa = max(fwidth(t) * .75, 1e-3), w = mix(.32, aa, set);
+  float a = smoothstep(.5 - w, .5 + w, t);
+  // (A thread thinner than the contour: as much of it as there is; a cloud: as dense as it is.)
+  a = max(a, smoothstep(.06, .45, t) * mix(.9, 1.1, set) * t);
   a *= uLive;
   if (a < .004) discard;
   float z = clamp(b.b / max(t, 1e-3), .02, .98);
@@ -48,7 +54,7 @@ void main() {
   // The bulge: the smoothed thickness as a height.
   // The surface's slope (per body cell; live-ink.js keeps it, interpolated here so the normals are smooth).
   vec2 sl = texture(uSlope, uv).rg;
-  float hx = sl.x, hy = sl.y, gain = 1.;
+  float gain = mix(.15, 1., set), hx = sl.x, hy = sl.y;
   vec3 n = normalize(vec3(-hx * gain, -hy * gain, 1.));
   // Marbling: the shares, sharpened to bands with a soft edge a pixel or two wide.
   float s = b.g / max(t, 1e-3), sw = max(fwidth(s), .02);
@@ -64,10 +70,11 @@ void main() {
   float ang = .5 * atan(2. * Cv.y, Cv.x - Cv.z);
   vec2 along = vec2(cos(ang), sin(ang)), px = gl_FragCoord.xy;
   float lines = .5 + .5 * sin(dot(px, vec2(-along.y, along.x)) * 2.2 + 3. * sin(dot(px, along) * .013));
-  float taut = smoothstep(.3, 3., stretch) * (1. - ivory_pre(b));
+  // (Only a faint sheen where it is drawn well out: lines any stronger read as ribbed cloth, not liquid.)
+  float taut = .35 * smoothstep(1.5, 8., stretch) * (1. - ivory_pre(b)) * set;
   float streak = mix(.5 + .5 * sin(dot(uv * vec2(uSize.x / uSize.y, 1.), vec2(31., 47.)) * 3. + 9. * hx * gain + 7. * hy * gain), lines, taut);
   vec3 black = vec3(.008, .007, .009) * (.4 + .6 * max(nl, 0.)) + (.06 + fres) * chamber * (.75 + .25 * streak) + spec * vec3(.95, .93, .9) * (1. + .8 * taut * lines)
-             + .05 * taut * lines * chamber
+             + .02 * taut * lines * chamber
              + vec3(.11, .08, .085) * pow(1. - nv, 2.2);
   float wrap = max((nl + .5) / 1.5, 0.);
   vec3 milk = mix(vec3(.50, .52, .54), vec3(.94, .925, .88), wrap) * (.92 + .08 * streak);
@@ -77,6 +84,9 @@ void main() {
   // (Thin ivory lets the water's light through.)
   milk = mix(vec3(.62), milk, smoothstep(.35, .9, thick(uv) * 1.4));
   vec3 c = mix(black, milk, ivory);
+  // (Unset, it is ink in water still: the mist's own soot and steam, lit from the ceiling, no gloss.)
+  vec3 cloud = mix(mix(vec3(.035, .033, .036), vec3(.16, .15, .15), .4 * nv), mix(vec3(.55, .56, .57), vec3(.86, .85, .81), .6), ivory);
+  c = mix(cloud, c, smoothstep(.15, .9, set));
   c *= .82; c = pow(clamp((c * (2.51 * c + .03)) / (c * (2.43 * c + .59) + .14), 0., 1.), vec3(1. / 2.2));
   o = vec4(c * a, a);
 }`;

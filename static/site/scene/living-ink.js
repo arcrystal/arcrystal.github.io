@@ -11,6 +11,7 @@ import { rollUp, breath as capBreath, spinAt, orbitAt } from './ink-swirl.js';
 import { clockP, FORMS, trackAt, solidity } from './living-forms.js';
 import { HOLD } from '../lerp.js';
 import { createLiveInk, LIVE_PROGRAMS } from './live-ink.js';
+import { SIM } from './ink-sim.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -362,7 +363,9 @@ export function createLivingInk(gl,coarse,programs){
     sheetDepth=resize(sheetDepth,layers.w,layers.h,1,true);
     target(sheetDepth);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     if(sheetsLive){
-      gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);
+      // (Not while the live ink holds the screen: its veils are thinned there, the mist's split round them
+      // hardly shows, and their geometry is the dearest thing drawn; the frames go to the fluid instead.)
+      if(!(P>SIM.sheetDepthOff[0] && P<SIM.sheetDepthOff[1])){gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);}
     }
     const view=programs.unmixSeen;
     target(layers);gl.useProgram(view.p);gl.uniform1f(view.U.uSpin,spin);

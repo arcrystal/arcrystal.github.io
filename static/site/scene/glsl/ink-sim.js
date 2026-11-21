@@ -354,7 +354,7 @@ void main() {
   }
   float shear = at(uAux, ivec2(x)).z;
   v.b += uSteps * uMelt.z * shear * shear * bs;
-  float cold = smoothstep(uHeat.w, .4 * uHeat.w, v.b), hot = smoothstep(uMelt.y, 1.6 * uMelt.y, v.b);
+  float cold = smoothstep(uHeat.w, .1 * uHeat.w, v.b), hot = smoothstep(.7 * uMelt.y, 2.2 * uMelt.y, v.b);
   v.rg += uSteps * (uMelt.x * hot * body.rg - uHeat.z * cold * v.rg);
   v.rg *= 1. - uSteps * uFade;
   v.rg = min(max(v.rg, vec2(0)), vec2(.6)); v.b = clamp(v.b, 0., 2.);
@@ -425,7 +425,7 @@ void main() {
   // The convection's phase changes: cold vent ink condenses onto it (or into new beads where it is thick),
   // and it melts where the water is hot (the carry pass's mirror).
   vec4 vent = texture(uV, gl_FragCoord.xy / uCells);
-  float cold = smoothstep(uHeat.w, .4 * uHeat.w, vent.b), hot = smoothstep(uMelt.y, 1.6 * uMelt.y, vent.b);
+  float cold = smoothstep(uHeat.w, .1 * uHeat.w, vent.b), hot = smoothstep(.7 * uMelt.y, 2.2 * uMelt.y, vent.b);
   f += uSteps * (uHeat.z * cold * vent.rg - uMelt.x * hot * f);
   zAdded += uSteps * uHeat.z * cold * (vent.r + vent.g) * .5;
   // Sheared hard, its skin is stripped into mist (only at the edge: 4φ(1 − φ)).
