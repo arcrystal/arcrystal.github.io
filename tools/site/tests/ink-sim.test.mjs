@@ -1,7 +1,7 @@
 // Photography → Chess's live ink: the part of the fluid with no GPU in it (static/site/scene/ink-sim.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SIM, live, showAt, energyAt, simSize, rng, createStir, createForcing, createThermostat, createImpulses, createJets } from '../../../static/site/scene/ink-sim.js';
+import { SIM, live, showAt, energyAt, simSize, rng, createStir, createForcing, createThermostat, createImpulses, createPuffs } from '../../../static/site/scene/ink-sim.js';
 import { formSchedule, FORMS } from '../../../static/site/scene/living-forms.js';
 import { HOLD } from '../../../static/site/lerp.js';
 
@@ -33,7 +33,14 @@ test('the step stays inside its limits: one a frame at most, advection, pressure
   assert.ok(near < far, 'freer near a live head');
   assert.ok(SIM.pressure.warm < 1 && SIM.pressure.desktop >= SIM.pressure.phone);
   assert.ok(SIM.damping > 0 && SIM.damping < .01);
-  assert.ok(SIM.detail.max <= .08 && SIM.veils <= .6);
+  // (The viscosity is explicit, on the same stencil: stable below ¼; the haze's clearing, per step, under 1.)
+  assert.ok(SIM.viscosity > 0 && SIM.viscosity < .25);
+  assert.ok(SIM.clear.broad < .05 && SIM.clear.filament < SIM.clear.broad, 'a tendril outlasts an even veil');
+  assert.ok(SIM.confinement.water < SIM.confinement.edge && SIM.confinement.edge < .5);
+  assert.ok(SIM.buoyancy.black < SIM.buoyancy.ivory && SIM.buoyancy.ivory < 0, 'both inks sink, black faster');
+  // (The carried detail goes as far as its stretch allows, never past a seventh of the screen.)
+  // (The veils on a leash; the mist's texture rides the flow in phases of a few seconds, never far from home.)
+  assert.ok(SIM.detail.max <= .1 && SIM.veils <= .9 && SIM.ride.period >= 1.5 && SIM.ride.period <= 6 && SIM.ride.most <= .5);
 });
 
 test('the scroll\'s stir: bounded, quick to rise and slow to settle, its sense the scroll\'s', () => {
@@ -111,38 +118,46 @@ test('impulses: each head is kicked when it comes alive, then at random; a kick 
   assert.equal(once.step([{ ...heads[0], weight: 1 }], 0).length, 2);
 });
 
-test('every live head\'s body is gone before its figure starts to gather, on desktop and phone', () => {
+test('every live head lets go before its figure starts to gather, on desktop and phone', () => {
   // The bake's sites as formSchedule reads them (formStart only): here from the schedule's own rule.
   const sites = Array.from({ length: 32 }, () => ({ formStart: .74 }));
   for (const f of formSchedule(sites)) {
-    // The head stops steering by d1 + .02 (live-ink.js placeHeads); its body is the mist's again by then.
+    // The head stops steering by d1 + .02 (live-ink.js placeHeads), and the handoff has drawn the mist home.
     assert.ok(f.d1 <= sites[f.id].formStart - .004 + 1e-9);
   }
   assert.ok(FORMS.length <= 14);
   void HOLD; void rng;
 });
 
-test('the vents: from live bodies only, mostly sideways, a few at a time, swelling in and out, seeded', () => {
-  const heads = [{ id: 0, x: 120, y: 100, radius: 30, weight: 1, fill: 1, ivory: 0 }, { id: 1, x: 300, y: 120, radius: 25, weight: 1, fill: 1, ivory: 1 }, { id: 2, x: 200, y: 60, radius: 25, weight: 1, fill: .1, ivory: 0 }];
-  const a = createJets(11), b = createJets(11);
-  let n = 0, most = 0, sideways = 0, starts = 0, before = 0;
-  for (let i = 0; i < 60 * 300; i++) {
-    const ja = a.step(heads, 0), jb = b.step(heads, 0);
-    assert.deepEqual(ja, jb, 'seeded');
-    most = Math.max(most, ja.length);
-    for (const [[x, y, way, push], [radius, heat, ink]] of ja) {
-      n++;
-      assert.ok(push >= 0 && push <= SIM.jet.push * 1.6 * 1.3 + 1e-9 && heat <= SIM.jet.heat + 1e-9 && ink <= SIM.jet.ink + 1e-9);
-      assert.ok(Math.hypot(x - 120, y - 100) < 40 || Math.hypot(x - 300, y - 120) < 35, 'at a body with a fill, never the thin one');
+test('the puffs: from live heads only, out and down (or now and then a long throw), a few at a time, swelling in and out, seeded', () => {
+  const heads = [{ id: 0, x: 120, y: 100, radius: 30, weight: 1 }, { id: 1, x: 300, y: 120, radius: 25, weight: 1 }, { id: 2, x: 200, y: 60, radius: 25, weight: .2 }];
+  const a = createPuffs(11), b = createPuffs(11), F = SIM.puff;
+  let starts = 0, down = 0, most = 0;
+  const lastStart = new Map();
+  for (let i = 0; i < 60 * 600; i++) {
+    const pa = a.step(heads, 0), pb = b.step(heads, 0);
+    assert.deepEqual(pa, pb, 'seeded');
+    most = Math.max(most, pa.puffs.length);
+    for (const [[x, y, , push], [radius]] of pa.puffs) {
+      assert.ok(push >= 0 && push <= F.push * 1.2 * 2 + 1e-9 && radius >= 2);
+      assert.ok(Math.hypot(x - 120, y - 100) < 30 || Math.hypot(x - 300, y - 120) < 25, 'inside a live head, never the faint one');
     }
-    // (A new jet is pushed last: its way on its first step.)
-    if (ja.length > before) { starts++; if (Math.abs(Math.cos(ja.at(-1)[0][2])) > Math.cos(SIM.jet.spread + .05)) sideways++; }
-    before = ja.length;
+    // (A puff starts with its pair of vortices; it is pushed last.)
+    if (pa.kicks.length) {
+      assert.equal(pa.kicks.length, 2);
+      const [k1, k2] = pa.kicks;
+      assert.ok(Math.sign(k1[2]) === -Math.sign(k2[2]) && Math.abs(Math.abs(k1[2]) - Math.abs(k2[2])) > 0, 'an unequal, opposite pair');
+      starts++;
+      const [[[, , way]]] = pa.puffs.slice(-1), id = Math.hypot(k1[0] - 120, k1[1] - 100) < Math.hypot(k1[0] - 300, k1[1] - 120) ? 0 : 1;
+      if (Math.sin(way) < -Math.sin(F.down[0]) + 1e-9) down++;
+      if (lastStart.has(id)) assert.ok(i - lastStart.get(id) >= F.gap * 60 - 1, 'never two from one head within the gap');
+      lastStart.set(id, i);
+    }
   }
-  assert.ok(n > 0 && most <= SIM.jet.most);
-  assert.ok(sideways / starts > .9, `starts sideways: ${sideways}/${starts}`);
-  // Swelling in and out: no jet starts or ends at full push.
-  const c = createJets(3), pushes = [];
-  for (let i = 0; i < 60 * 60; i++) { const j = c.step(heads.slice(0, 1), 0); pushes.push(j.reduce((t, x) => t + x[0][3], 0)); }
-  for (let i = 1; i < pushes.length; i++) assert.ok(Math.abs(pushes[i] - pushes[i - 1]) < .25 * SIM.jet.push * 1.6, 'no jump in a jet\'s push');
+  assert.ok(most <= F.most && starts > 40, `${starts} starts`);
+  assert.ok(down / starts > .6, `mostly out and down: ${down}/${starts}`);
+  // Swelling in and out: no jump in a puff's push.
+  const c = createPuffs(3), pushes = [];
+  for (let i = 0; i < 60 * 60; i++) { const p = c.step(heads.slice(0, 1), 0); pushes.push(p.puffs.reduce((t, x) => t + x[0][3], 0)); }
+  for (let i = 1; i < pushes.length; i++) assert.ok(Math.abs(pushes[i] - pushes[i - 1]) < .25 * F.push * 2.4, 'no jump in a puff\'s push');
 });

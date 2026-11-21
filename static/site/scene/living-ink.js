@@ -8,9 +8,10 @@ import { CLEAR, waterPlane, emergence, boxCamera, toScreen } from './ink-drain.j
 import { DRAIN, tankCamera } from './ink-tank.js';
 import { startSlots } from './staunton.js';
 import { rollUp, breath as capBreath, spinAt, orbitAt } from './ink-swirl.js';
-import { clockP, FORMS, trackAt, solidity } from './living-forms.js';
+import { clockP } from './living-forms.js';
 import { HOLD } from '../lerp.js';
 import { createLiveInk, LIVE_PROGRAMS } from './live-ink.js';
+import { createVortexInk } from './vortex-ink.js';
 import { SIM } from './ink-sim.js';
 
 // Workers have their own module map. Send the versioned planner URL from
@@ -36,11 +37,12 @@ function waterUnder(x,y,cam,aspect){
 export function createLivingInk(gl,coarse,programs){
   // The live ink (live-ink.js): the event's fluid, stepped on the clock; it moves the mist.
   const liveInk=createLiveInk(gl,programs,{coarse});
+  const vortexInk=createVortexInk(gl,programs,{coarse});
   const orbitData=new Float32Array(8),orbitTurn=new Float32Array(4);
-  let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,tracks=null,queue=[],uploaded=0,failed=false;
+  let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,tracks=null,ringPlan=null,queue=[],uploaded=0,failed=false;
   let pigment=null,knightPigment=null,figurePigment=null,bathRoom=null,plates=null,sheetDepth=null,interiorCount=0,sheetCount=0;
   let registration=null,volume=null,mesh=null,grid=null,indices=null,ripples=null,noise=null,noiseData=null,cam=null,camAspect=0;
-  let layers=null,figures=null,threads=null,air=null,motes=null,bodies=null,warmFence=null,warmed=false,sheetLayout=null;
+  let layers=null,figures=null,threads=null,air=null,warmFence=null,warmed=false,sheetLayout=null;
   // Instance zero draws the wet lip. Each other record describes one physical
   // drop for both the airborne silhouette and its water-surface impulse.
   const dripGeometry=gl.createVertexArray(),dripEvents=gl.createBuffer(),dripCorners=gl.createBuffer();
@@ -135,7 +137,7 @@ export function createLivingInk(gl,coarse,programs){
     for(const t of [volume,mesh,registration])if(t)gl.deleteTexture(t);
     if(grid)gl.deleteVertexArray(grid);
     if(indices)gl.deleteBuffer(indices);
-    grid=indices=volume=mesh=registration=meta=ledger=tracks=noiseData=sheetLayout=null;queue=[];uploaded=0;failed=false;
+    grid=indices=volume=mesh=registration=meta=ledger=tracks=ringPlan=noiseData=sheetLayout=null;queue=[];uploaded=0;failed=false;
   }
   function prepare(w,h,box,board){
     const aspect=w/h,mobile=coarse||w<700;
@@ -160,7 +162,7 @@ export function createLivingInk(gl,coarse,programs){
             }
             meta=data.meta;noiseData=data.noise;
           }
-          else if(data.ledger){ledger=data.ledger;tracks=data.tracks;job.terminate();worker=null;}
+          else if(data.ledger){ledger=data.ledger;tracks=data.tracks;ringPlan=data.rings;job.terminate();worker=null;}
           else queue.push(data);
         };
         job.onerror=()=>{if(worker===job){stop();failed=true;}};
@@ -299,14 +301,15 @@ export function createLivingInk(gl,coarse,programs){
       orbitData.set([o.centre[0],o.centre[1],Math.max(.02,o.half),1],4*i);
       orbitTurn.set([o.sense*(orbitAt(P)-orbitAt(P0)),o.sense*(orbitAt(P1)-orbitAt(P))],2*i);
     });
-    // The live ink steps here, on the clock (live-ink.js), before the bodies, pieces and mist it moves.
-    liveInk.frame({P,dt:frame.dt??0,vel:s.vel??0,w,h,mobile:coarse||w<700,tracks,forms:meta.forms,aspect:w/h,
+    // The live ink steps here, on the clock (live-ink.js), before the pieces and the mist it moves.
+    // The vortex rings (vortex-ink.js) draw the plumes from the first drop to the last piece; without their
+    // plan (or under __vortex.off) the bake's mist and the 2D fluid do.
+    vortexInk.frame({P,dt:frame.dt??0,aspect:w/h,plan:ringPlan,sites:meta.sites});
+    if(!vortexInk.active)liveInk.frame({P,dt:frame.dt??0,vel:s.vel??0,w,h,mobile:coarse||w<700,tracks,forms:meta.forms,aspect:w/h,
       keyOf:p=>Math.max(0,Math.min(KEYS-1,p/END*(KEYS-1))),orbit:orbitData,orbitTurn});
     gl.disable(gl.BLEND);gl.disable(gl.SCISSOR_TEST);target(figures);
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-    // (The live ink's glossy bodies write no depth: the mist, drawn at a fraction of the screen's resolution,
-    // would split round their edges in steps. They lie over the mist behind the pieces, and hide the veils.)
     const piece=programs.inkFigure;
     gl.useProgram(piece.p);board.bindPieceProfiles(piece.U);gl.enable(gl.SCISSOR_TEST);
     gl.uniform1f(piece.U.uStudies,1);
@@ -314,7 +317,9 @@ export function createLivingInk(gl,coarse,programs){
     bind(4,gl.TEXTURE_2D,knightPigment,piece.U.uKnightPigment);
     bind(5,gl.TEXTURE_2D,figurePigment,piece.U.uFigurePigment);
     for(const [id,pose] of poses.entries()){
-      if(pose.growth<=.001 || pose.flight===1)continue;
+      // (Its ink stage: the vortex ink unmixed into it (vortex-ink.js inkStage), before and while it fills.)
+      const stage=vortexInk.inkStage(meta.sites[id],P,pose.set);
+      if((pose.growth<=.001 && stage<=.001) || pose.flight===1)continue;
       const {x,y,pixels,tall,distance,roll,spin,elev,growth,type,black,z,slopeX,slopeY}=pose;
       const radius=Math.ceil(pixels*scale*(1.2+Math.abs(slopeX)+Math.abs(slopeY)));
       gl.scissor(Math.floor(x*scale-radius),Math.floor(y*scale-radius),2*radius+2,2*radius+2);
@@ -322,25 +327,17 @@ export function createLivingInk(gl,coarse,programs){
       gl.uniform4f(piece.U.uTurn,spin,roll,elev,growth);gl.uniform4f(piece.U.uModel,type,Number(black),tall,z);
       gl.uniform2f(piece.U.uInkOrientation,id,meta.sites[id].piece.spin+meta.sites[id].turn);
       gl.uniform3fv(piece.U.uNuclei,pose.nuclei);gl.uniform1f(piece.U.uSeed,pose.slot);
-      gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.drawArrays(gl.TRIANGLES,0,3);
+      gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.uniform1f(piece.U.uInkStage,stage);gl.drawArrays(gl.TRIANGLES,0,3);
     }
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
-    // (Only when they have changed: the fluid steps every other frame when its governor has eased off.)
-    // (Eased off, at .7 of the size: their contour is the fluid's own curve, and comes up clean.)
-    const bs=liveInk.lite?.7:1,WB=Math.round(W*bs),HB=Math.round(H*bs);
-    if(liveInk.bodiesChanged||bodies?.w!==WB||bodies?.h!==HB){
-      bodies=resize(bodies,WB,HB,1);target(bodies);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-      liveInk.drawBodies(WB,HB,false);
-    }
     const breath=Math.sin(time*.43);
     const flowPhase=time*.69,spin=spinAt(P,time),Pc=clockP(P,coarse||w<700?HOLD.pinTouch:HOLD.pin);
-    const sheetsLive=P>.127 && P<END;
+    const sheetsLive=P>.127 && P<END && !vortexInk.active;
     function drawSheets(depthOnly){
       const sheet=programs.inkSheet;gl.useProgram(sheet.p);
       bind(0,gl.TEXTURE_2D_ARRAY,mesh,sheet.U.uMesh);
       bind(1,gl.TEXTURE_2D,figures.textures[0],sheet.U.uFigures);
       bind(7,gl.TEXTURE_2D,figures.depthTexture,sheet.U.uFigureDepth);
-      bind(8,gl.TEXTURE_2D,bodies.textures[0],sheet.U.uBodies);
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
       gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
@@ -373,7 +370,8 @@ export function createLivingInk(gl,coarse,programs){
     bind(0,gl.TEXTURE_2D_ARRAY,volume,view.U.uVolume);
     bind(1,gl.TEXTURE_3D,noise,view.U.uNoise);bind(2,gl.TEXTURE_2D,figures.depthTexture,view.U.uFigureDepth);
     bind(3,gl.TEXTURE_2D,sheetDepth.textures[0],view.U.uSheetDepth);
-    liveInk.bindVolume(view.U,[4,5,6,7]);
+    if(vortexInk.active)gl.uniform1f(view.U.uLive,0);else liveInk.bindVolume(view.U,[4,5,6]);
+    vortexInk.bindVolume(view.U,[7,11]);bind(12,gl.TEXTURE_2D,pigment,view.U.uStudy);
     gl.uniform2f(view.U.uSize,layers.w,layers.h);gl.uniform3f(view.U.uCells,meta.nx,meta.ny,meta.nz);
     gl.uniform1f(view.U.uAspect,w/h);gl.uniform1f(view.U.uProgress,P);gl.uniform1f(view.U.uKey,key);
     gl.uniform1f(view.U.uBreath,breath);gl.uniform1f(view.U.uFlowPhase,flowPhase);gl.drawArrays(gl.TRIANGLES,0,3);
@@ -381,13 +379,6 @@ export function createLivingInk(gl,coarse,programs){
     if(sheetsLive){
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
       drawSheets(false);gl.disable(gl.BLEND);
-    }
-    // The live ink's motes (ink-sim.js), at the canvas's own resolution, black and ivory added.
-    {
-      const cdpr=Math.min(devicePixelRatio||1,w<900?1.25:1.5),Wm=Math.max(1,Math.round(w*cdpr)),Hm=Math.max(1,Math.round(h*cdpr));
-      motes=resize(motes,Wm,Hm,1,false,gl.RG16F);
-      target(motes);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-      liveInk.drawMotes(Wm,Hm);
     }
     air=resize(air,W,H,1);
     // Airborne paint reflects the room directly. Keep it separate from
@@ -453,10 +444,10 @@ export function createLivingInk(gl,coarse,programs){
     return true;
   }
   return {prepare,draw,ready:()=>warmed,progress:()=>uploaded/KEYS,failed:()=>failed,
-    get textures(){return [layers.textures[0],layers.textures[1],figures.textures[0],threads.textures[0],ripples.textures[0],air.textures[0],bathRoom,motes?.textures[0]??null,bodies?.textures[0]??null];},
+    get textures(){return [layers.textures[0],layers.textures[1],figures.textures[0],threads.textures[0],ripples.textures[0],air.textures[0],bathRoom];},
     dispose(){
-      stop();liveInk.dispose();
-      for(const target of [ripples,sheetDepth,layers,figures,threads,air,motes,bodies])release(target);
+      stop();liveInk.dispose();vortexInk.dispose();
+      for(const target of [ripples,sheetDepth,layers,figures,threads,air])release(target);
       for(const tex of [pigment,knightPigment,figurePigment,bathRoom,noise])if(tex)gl.deleteTexture(tex);
       gl.deleteVertexArray(dripGeometry);gl.deleteBuffer(dripEvents);gl.deleteBuffer(dripCorners);
       gl.deleteVertexArray(crownGeometry);gl.deleteBuffer(crownRecords);

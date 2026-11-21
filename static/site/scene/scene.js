@@ -16,7 +16,7 @@ import { startSlots } from './staunton.js';
 export const STYLE_ID = { house: 0, ink: 1, glass: 2, cosmos: 3, folio: 4, darkroom: 5 };
 const UNIFORMS = ['uRes', 'uDpr', 'uTime', 'uOrbitSeconds', 'uMode', 'uA', 'uB', 'uH', 'uVel', 'uPointer', 'uPtrOn', 'uCard', 'uCardR',
   'uCardMix', 'uRegion', 'uCrystal', 'uHover', 'uE', 'uPoint', 'uOrigin', 'uView', 'uTexA', 'uTexB', 'uSim', 'uSimOn', 'uGrid',
-  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom', 'uB3Geo', 'uB3Eye', 'uDrain', 'uMotes', 'uBodies'];
+  'uReach', 'uBaked', 'uIceAtlas', 'uIceSpectrum', 'uIceReady', 'uIceDetail', 'uNoDrops', 'uSkyP', 'uGas', 'uTerrain', 'uTerrainDetail', 'uPlate', 'uPlateOn', 'uFlow', 'uB3', 'uB3Mask', 'uB3Box', 'uB3On', 'uInkAir', 'uBathRoom', 'uB3Geo', 'uB3Eye', 'uDrain'];
 // The reach takes its time: it grows out to every edge before the new world fills in behind it.
 const COVER_MS = 1300, REVEAL_MS = 1200, CLOSE_MS = 260, FOG_MS = 900;
 const EFFECT_PX = 6e6;
@@ -107,8 +107,6 @@ function createScene() {
         gl.uniform1i(U.uB3Geo, 13);
         gl.uniform1i(U.uInkAir, 9);
         gl.uniform1i(U.uBathRoom, 10);
-        gl.uniform1i(U.uMotes, 14);
-        gl.uniform1i(U.uBodies, 15);
         // Draw once, off screen, so the driver finishes the work before the first visible frame.
         gl.viewport(0, 0, 1, 1);
         gl.drawArrays(gl.TRIANGLES, 0, 3);

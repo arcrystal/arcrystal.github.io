@@ -14,8 +14,6 @@ uniform sampler2D uB3;       // Chess's board in three dimensions (board3d.js): 
 uniform sampler2D uB3Mask;   // its ink over the screen: pigment (R, G), which piece (B: slot + 1 over 64, the board 1), how high (A) (unit 12)
 uniform vec4 uB3Box;         // the board's box on the screen (CSS px)
 uniform float uB3On;
-uniform sampler2D uMotes;    // the living ink's motes: black (R) and ivory (G) optical depth, added (living-forms.js, unit 14)
-uniform sampler2D uBodies;   // the live ink's glossy bodies, premultiplied (live-ink.js, unit 15)
 const vec2 UM_HARDEN = ${v2(UNMIX.harden)}, UM_SQUARES = ${v2(UNMIX.squares)}, UM_CLEAR = ${v2(UNMIX.clear)};
 const float UM_SPAN = ${f(UNMIX.span)}, UM_MARGIN = ${f(MARGIN)};
 const float UM_ORDER[32] = float[32](${SLOTS.map(s => f(s.order)).join(', ')});
@@ -287,10 +285,11 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
     for(int k=1;k<=10;k++){
       vec2 t=uv+step*(float(k)-.5+.5*hash(q+float(k)));
       if(t.y>.995)break;
-      lit*=1.-.5*texture(uFlow,t).a;
+      lit*=1.-.6*texture(uFlow,t).a;
     }
     float beams=.62+.38*noise(vec2(uv.x*7.+uv.y*1.5,.04*T+P*3.));
-    col+=vec3(.088,.080,.074)*on*lit*beams*smoothstep(-.1,.85,uv.y);
+    // (A little stronger while the live ink holds the screen: its clear water between the plumes is lit.)
+    col+=vec3(.088,.080,.074)*(1.+.3*smoothstep(.57,.61,P)*(1.-smoothstep(.72,.78,P)))*on*lit*beams*smoothstep(-.1,.85,uv.y);
   }
   if (P>.875 && uB3On>.5) {
     vec4 board=umBoard(uRegion.xy+q);
@@ -303,16 +302,7 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
   vec4 rear=texture(uFlow,uv)*pigmentThrough, front=texture(uGas,uv)*pigmentThrough;
   vec4 piece=texture(uTexA,uv), lines=texture(uTexB,uv)*pigmentThrough;
   col=rear.rgb+col*(1.-rear.a);
-  // The live ink's bodies (their own colour, not the pieces' greyed one), behind whatever piece stands here.
-  if(P>.55 && P<.81){vec4 body=texture(uBodies,uv)*pigmentThrough;col=body.rgb+col*(1.-body.a);}
   col=mix(piece.rgb,vec3(dot(piece.rgb,vec3(.2126,.7152,.0722))),.85)+col*(1.-piece.a);
-  // The living ink's motes, in front of what they orbit and behind the veils.
-  if(P>.5 && P<.84){
-    // (Not over the live ink's bodies: a speck passing behind one is hidden by it.)
-    vec2 m=texture(uMotes,uv).rg*pigmentThrough*(1.-texture(uBodies,uv).a);
-    float tau=m.r+m.g;
-    if(tau>1e-4)col=mix(col,(m.r*vec3(.016,.015,.018)+m.g*vec3(.93,.915,.875))/tau,1.-exp(-tau));
-  }
   col=lines.rgb+col*(1.-lines.a);
   col=front.rgb+col*(1.-front.a);
 

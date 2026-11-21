@@ -1,5 +1,5 @@
-// Photography → Chess: the living ink (glsl/living-forms.js, the motes and the forms), and the clock the
-// whole event's motion keeps.
+// Photography → Chess: the living ink's clock (the one the whole event's motion keeps), and the plume heads'
+// schedule and tracks the live ink steers by (live-ink.js).
 //
 // The scroll does not run evenly through P: a screen covers a little P where the event is slow to scroll
 // and much where it is quick, and a phone's hold is half a desktop's. A wave that turns with P therefore
@@ -7,7 +7,7 @@
 // clockP(P) is P outside [EVENT_CLOCK.from, EVENT_CLOCK.to], and inside it runs on at one P per
 // EVENT_CLOCK.screens screens of this device's own scroll. Scrolling back rewinds it exactly.
 import { inkRaw, holdFor, HOLD } from '../lerp.js';
-import { DROPS, LATE, smooth } from './ink-tank.js';
+import { DROPS, LATE } from './ink-tank.js';
 
 export const EVENT_CLOCK = Object.freeze({ from: .555, to: .80, screens: 48 });
 const screensOf = pin => { const h = holdFor('ink', pin), T = h.pin * pin + h.leadIn; return P => inkRaw(P, pin) * T; };
@@ -38,10 +38,10 @@ export const CLOCKS = Object.freeze([
 ].map(Object.freeze));
 function RAYLEIGH_MAX() { return Math.sqrt(3 * 2 * 5) / Math.sqrt(8); }
 
-// ---- the forms ----------------------------------------------------------------------------------------
-// One living form per plume head: the four trunks, the six late heads, four more between them. Each rides
-// its plume's own centroid (the bake's tracks: living-ink-plan.js), congeals out of its mist, lives, and
-// dissolves back just before its own figure starts to gather.
+// ---- the heads ----------------------------------------------------------------------------------------
+// The live ink steers by these plume heads: the four trunks, the six late heads, four more between them.
+// Each rides its plume's own centroid (the bake's tracks: living-ink-plan.js), wakes as the event begins
+// and lets go just before its own figure starts to gather.
 export const FORMS = Object.freeze([0, 1, 10, 23, 8, 25, 30, 19, 26, 13, 4, 7, 17, 28]);
 const screensDesktop = P => { const h = holdFor('ink', HOLD.pin); return inkRaw(P, HOLD.pin) * (h.pin * HOLD.pin + h.leadIn); };
 function beforeScreens(P, screens) {
@@ -56,20 +56,18 @@ function lateBelow(id, y = .8) {
   const fall = (1.10 - y) / (1.10 - end), t = 1 - Math.pow(1 - fall, 1 / 2.2);
   return d.hit + .02 + t * (.64 - d.hit - .02);
 }
-// The schedule, from the bake's sites (living-ink-plan.js birthSites): for each form, when it begins to
-// congeal (c0), is whole (c1), begins to dissolve (d0) and is gone (d1), and its ink.
+// The schedule, from the bake's sites (living-ink-plan.js birthSites): for each head, when it comes in
+// (c0 … c1), begins to let go (d0) and has let go (d1), and its ink.
 export function formSchedule(sites) {
   return FORMS.map((id, k) => {
     const late = LATE.some(l => l.id === id);
-    // (Staggered: no two forms congeal or dissolve together.)
+    // (Staggered: no two heads come in or let go together.)
     const c0 = late ? Math.max(.597 + .0065 * (k - 4), lateBelow(id)) : k < 4 ? .585 + .008 * k : .60 + .007 * (k - 10);
     const c1 = c0 + .04;
     const d1 = Math.min(sites[id].formStart - .004, .733 + .0018 * k), d0 = Math.max(c1 + .02, beforeScreens(d1, 2.2));
     return Object.freeze({ id, white: DROPS[id].white, c0, c1, d0, d1 });
   });
 }
-// How solid a form is at P: 0 mist … 1 whole.
-export const solidity = (f, P) => smooth(f.c0, f.c1, P) * (1 - smooth(f.d0, f.d1, P));
 // The forms' tracks between two keys (tracks: KEYS × FORMS × 4, x and y as shares of the screen, depth,
 // spread), by a uniform cubic B-spline through the keys: smooth to the second derivative, so a form's
 // path never kinks at a key.

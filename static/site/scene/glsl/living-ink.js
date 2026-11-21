@@ -1,5 +1,6 @@
 import { PIECE_SHAPES, PIECE_MATERIAL } from './board3d.js';
 import { LATE } from '../ink-tank.js';
+import { PHASES } from './ink-sim.js';
 
 // Each draw is scissored to one posed piece. Its optical depth travels with
 // the shaded hit, so the participating medium can be integrated on either side.
@@ -12,6 +13,7 @@ uniform vec3 uNuclei[3];
 uniform float uSeed;
 uniform vec2 uInkOrientation; // index of the pigment study and its birth yaw
 uniform vec2 uCure; // the liquid front's radius (model units: living-ink-plan.js fillRadius), how far it has set
+uniform float uInkStage; // the ink stage (0 … 1): the plume, unmixed, has become the piece's own shape in ink
 vec3 rotatePiece(vec3 p) {
   float c=cos(uTurn.y), s=sin(uTurn.y);
   p.xy=mat2(c,s,-s,c)*p.xy;
@@ -64,19 +66,43 @@ void main(){
   float along=-dot(origin,ray), R=.94;
   float chord=R*R-dot(origin+along*ray,origin+along*ray);
   if(chord<=0.) discard;
-  float t=along-sqrt(chord),end=along+sqrt(chord),d;
+  float t=along-sqrt(chord),end=along+sqrt(chord),d=1.;
   vec3 p;
   // Thin tines and the cross's arms need small steps near them; the hit is relative to the pixel's size.
   float hitAt=max(.0007,.6/uPose.z);
-  for(int i=0;i<96;i++){
+  // The ink stage: the plume the vortex ink drew here, played backward, gathers into the piece's own whole
+  // shape, in its own ink (the piece's study, registered to it): translucent, its dense folds darkest. The
+  // liquid then fills it from its landmarks and sets inside it (below), and the ink is let go as it sets: so
+  // the piece is made of the ink that came to it, never revealed from behind it.
+  vec4 inkLayer=vec4(0);float inkZ=0.;
+  bool black=uModel.y>.5;
+  if(uInkStage>.001){
+    float ti=t,di=1.;vec3 pi;
+    for(int i=0;i<72;i++){
+      pi=origin+ti*ray;vec3 qi=rotatePiece(pi);qi.y+=uModel.z*.5;di=shape(int(uModel.x),qi);
+      if(di<hitAt || ti>end)break;
+      ti+=max(.0008,di*.8);
+    }
+    if(di<=1.5*hitAt && ti<=end){
+      vec3 qi=rotatePiece(pi)+vec3(0.,uModel.z*.5,0.);
+      vec2 si=studyInk(int(uModel.x),uInkOrientation.x,uInkOrientation.y,qi,uModel.z);
+      float dense=clamp(1.-si.x,0.,1.),a=uInkStage*clamp(.22+1.05*dense,0.,1.);
+      vec3 ink=black?mix(vec3(.16,.155,.15),vec3(.012,.011,.013),dense):mix(vec3(.64,.63,.61),vec3(.9,.88,.83),dense);
+      ink*=.82;ink=pow(clamp((ink*(2.51*ink+.03))/(ink*(2.43*ink+.59)+.14),0.,1.),vec3(1./2.2));
+      inkLayer=vec4(ink*a,a);inkZ=clamp(uModel.w+.021*dot(pi,-fwd),.01,.98);
+    }
+  }
+  if(uTurn.w>.001)for(int i=0;i<96;i++){
     p=origin+t*ray; d=deposit(p); if(d<hitAt || t>end)break;
     t+=max(.0006,d*(uTurn.w>.98?.8:.64));
   }
-  if(d>1.2*hitAt || t>end)discard;
+  if(uTurn.w<=.001 || d>1.2*hitAt || t>end){
+    if(inkLayer.a<.002)discard;
+    gl_FragDepth=1.-inkZ;o=inkLayer;return;
+  }
   vec2 e=vec2(.003,0);
   vec3 n=normalize(vec3(deposit(p+e.xyy)-deposit(p-e.xyy),deposit(p+e.yxy)-deposit(p-e.yxy),deposit(p+e.yyx)-deposit(p-e.yyx)));
   vec3 q=rotatePiece(p)+vec3(0.,uModel.z*.5,0.);
-  bool black=uModel.y>.5;
   int type=int(uModel.x);
   // (The same ink under the lacquer as the board's own piece: glsl/board3d.js studyInk.)
   gInk=studyInk(type,uInkOrientation.x,uInkOrientation.y,q,uModel.z);
@@ -116,7 +142,8 @@ void main(){
   float coverage=1.;
   float depth=clamp(uModel.w+.021*dot(p,-fwd),.01,.98);
   gl_FragDepth=1.-depth;
-  o=vec4(c*coverage,coverage);
+  // (Its ink, while it lasts, over the solid filling it.)
+  o=vec4(inkLayer.rgb+c*coverage*(1.-inkLayer.a),coverage);
 }`;
 
 // Horizontal differential motion is expressed in screen-height units, then
@@ -146,10 +173,12 @@ uniform vec3 uCells;
 uniform float uProgress,uKey,uBreath,uAspect,uFlowPhase;
 ${suspendedCurrent}
 uniform float uSpin; // the event's clock (ink-swirl.js spinAt): only ever forward
-// The live ink (live-ink.js): its mist's columns (black, ivory, black·depth, ivory·depth), where its fine
-// detail has been carried from (screen units), the bake's own columns, and how much of it shows.
-uniform sampler2D uMoments,uLiveMist,uLiveDetail,uLiveVent; // (uLiveVent: the vents' hot ink, rg)
-uniform float uLive;
+// The live ink (live-ink.js): its mist's columns (black, ivory, black·depth, ivory·depth), its larger
+// scales; how far the flow has carried the mist's texture in each of its two phases (screen units), and
+// their clock (glsl/ink-sim.js PHASES); the bake's own columns; and how much of it shows.
+uniform sampler2D uMoments,uLiveMist,uLivePhases;
+uniform float uLive,uPhase;
+${PHASES}
 layout(location=0) out vec4 rear;
 layout(location=1) out vec4 front;
 vec3 coord(vec3 p,float k){
@@ -183,6 +212,155 @@ vec4 bakedColumn(vec2 xy){
   if(uOrbit[0].w>.5 || uOrbit[1].w>.5){a=coord(vec3(orbitKey(xy,false),.5),floor(uKey)).xy;b=coord(vec3(orbitKey(xy,true),.5),ceil(uKey)).xy;}
   return mix(texture(uMoments,a),texture(uMoments,b),fract(uKey));
 }
+// The mist's noise at a point of its material: every octave, each warped by the ones below.
+struct Grain{vec3 v,f,g,fold,curl;vec4 fine;float cavity;};
+Grain grainAt(vec3 material,vec2 rolling,float boil){
+  Grain q;
+  q.v=texture(uNoise,material*.91+vec3(rolling,.023*uBreath)+vec3(.0025*boil,.044*uProgress+.006*boil,.003*boil)).rgb-.5;
+  q.f=texture(uNoise,material*2.7+q.v*.81+vec3(-.002*boil,-.13*uProgress-.009*boil,.027*uBreath+.005*boil)).rgb-.5;
+  q.g=texture(uNoise,material*5.5+q.v*1.24+q.f*.89).rgb-.5;
+  q.cavity=texture(uNoise,material*2.65+1.1*q.v+.48*q.f).a;
+  q.fold=texture(uNoise,material*5.1+q.v*1.45+q.f*.54).rgb;
+  q.fine=texture(uNoise,material*8.4+1.8*q.v+.94*q.f+.75*q.g);
+  q.curl=texture(uNoise,material*12.+2.4*q.v+1.5*q.f+1.2*q.g).rgb;
+  return q;
+}
+// Two phases of it blended keeping its contrast (each about its mean, the weights over the root of their
+// sum of squares): mid-blend the texture is as crisp as either alone, so nothing breathes.
+Grain blendGrain(Grain a,Grain b,float wa,float wb){
+  float k=inversesqrt(wa*wa+wb*wb);
+  Grain q;
+  q.v=(wa*a.v+wb*b.v)*k;q.f=(wa*a.f+wb*b.f)*k;q.g=(wa*a.g+wb*b.g)*k;
+  q.fold=.5+(wa*(a.fold-.5)+wb*(b.fold-.5))*k;q.curl=.5+(wa*(a.curl-.5)+wb*(b.curl-.5))*k;
+  q.fine=.5+(wa*(a.fine-.5)+wb*(b.fine-.5))*k;q.cavity=.42+(wa*(a.cavity-.42)+wb*(b.cavity-.42))*k;
+  // (Kept in range: what is read from them later assumes it.)
+  q.v=clamp(q.v,-.5,.5);q.f=clamp(q.f,-.5,.5);q.g=clamp(q.g,-.5,.5);
+  q.fold=clamp(q.fold,0.,1.);q.curl=clamp(q.curl,0.,1.);q.fine=clamp(q.fine,0.,1.);q.cavity=clamp(q.cavity,0.,1.);
+  return q;
+}
+// The vortex ink (vortex-ink.js): across its span it takes the bake's place (uVortex 1).
+uniform float uVortex;
+vec2 density(vec3 p);
+// The ink at p: the bake's, or the vortex ink's across its span.
+// The ring heads (vortex-ink.js): each plume's head is a vortex ring, its ink drawn here exactly, at the
+// screen's own resolution. In a ring's meridian (its cross-section) the ink turns round the core as a
+// Lamb–Oseen vortex does, the core fastest, so read backward (unwound by the angle turned at its distance
+// from the core) every point finds where its ink began: the drop's ink, a sheet with sharp edges. Wound,
+// those edges are the alternating dark and clear layers of a real ink scroll. Its Widnall wave lobes it
+// round the ring, ahead and behind. Units: screen heights (x by the aspect), depth one to one.
+// The heads (uHeads: a column each, five texels: centre (x·aspect, y, depth) and radius; axis (the way it
+// travels) and core radius; how far it rolls at its core in a cycle, wave mode, amplitude, phase; ivory,
+// density, the sheet's half-thickness, seed; its stem's length, its plume study (0 … 3), its rolling's
+// clock (cycles)), the most important first. Each pixel finds, once, the few whose reach covers it (the
+// head round its centre, its stem back up its way, and what the shading reads to one side), and the
+// march reads only those.
+uniform int uHeadCount;
+uniform sampler2D uHeads;
+// A head's reach about its axis in its own radii: the study covers about 3.3 round it, lobes and all, 3.7
+// back up its stem and 1.2 ahead. 1 at the edge of its reach: its ink is let go smoothly before it, so no
+// edge of a reach is ever drawn.
+float headReach(vec2 at,vec4 A,vec4 B){
+  vec2 a0=A.xy+B.xy*1.2*A.w,a1=A.xy-B.xy*3.7*A.w,ab=a0-a1;
+  float t=clamp(dot(at-a1,ab)/max(dot(ab,ab),1e-8),0.,1.);
+  return length(at-a1-t*ab)/(3.3*A.w);
+}
+int gList[24];
+int gCount=0;
+void findHeads(vec2 uv){
+  vec2 at=vec2(uv.x*uAspect,uv.y);
+  for(int i=0;i<64;i++){
+    if(i>=uHeadCount || gCount>=24)break;
+    vec4 A=texelFetch(uHeads,ivec2(i,0),0),B=texelFetch(uHeads,ivec2(i,1),0);
+    // (Its reach (headReach), and the mist's drift past the pixel, a little more.)
+    if(headReach(at,A,B)<1.+.04/A.w){gList[gCount]=i;gCount++;}
+  }
+}
+uniform sampler2D uStudy; // the plume studies (data/ink-density.webp: transmission, 2 × 2 tiles)
+// The study's darkness at a point of a ring's meridian (m: from its core, outward and forward, screen
+// heights): never quite round, each azimuth reading the study a little further out or in (lob), higher or
+// lower (tvShift), by lobes of its own.
+float studyDark(vec2 m,float lob,float tvShift,float R,float variant,float right,out float inside){
+  float ks=.225/R,tv=.80+m.y*ks+tvShift,reach=(.225+m.x*ks)*(1.+lob);
+  vec2 tile=vec2(mod(variant,2.),floor(variant*.5)),uvR=vec2(.5+reach,tv),uvL=vec2(.5-reach,tv);
+  // (Feathered well inside its tile's edges, and the photograph's paper white taken off: only its ink.)
+  inside=smoothstep(.01,.12,min(min(uvR.x,1.-uvR.x),min(tv,1.-tv)))*smoothstep(-.02,.06,reach);
+  // (Read soft, a few mip levels down: revolved, a thin line of the photograph would be a thin shell, and
+  // a thin shell seen edge-on draws as a hard line. Its fine grain is the volume's own noise. Its left half
+  // toward the screen's left, its right toward the right, met smoothly.)
+  float tr=mix(textureLod(uStudy,(tile+clamp(uvL,.003,.997))*.5,1.7).r,textureLod(uStudy,(tile+clamp(uvR,.003,.997))*.5,1.7).r,right);
+  return inside*max(0.,1.-tr-.07)/.93;
+}
+// (A complex product: the azimuth's powers without sines.)
+vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+// sin(kφ + a), from z = e^{ikφ} and e = (cos a, sin a).
+float sinOf(vec2 z,vec2 e){return z.y*e.x+z.x*e.y;}
+vec2 headInkAt(vec3 p,out vec3 mat,out float near){
+  vec3 x=vec3(p.x*uAspect,p.y,p.z);
+  vec2 ink=vec2(0);near=0.;mat=vec3(0);
+  for(int j=0;j<24;j++){
+    if(j>=gCount)break;
+    int i=gList[j];
+    vec4 A=texelFetch(uHeads,ivec2(i,0),0);
+    vec3 q=x-A.xyz;float R=A.w;
+    // (Only near its own depth: most of the ray passes in front of it or behind.)
+    if(abs(q.z)>3.8*R)continue;
+    vec4 B=texelFetch(uHeads,ivec2(i,1),0);
+    float reach=headReach(x.xy,A,B);
+    if(reach>=1.)continue;
+    vec4 C=texelFetch(uHeads,ivec2(i,2),0),D=texelFetch(uHeads,ivec2(i,3),0),E=texelFetch(uHeads,ivec2(i,4),0);
+    float a=B.w;
+    vec4 F=texelFetch(uHeads,ivec2(i,5),0),G=texelFetch(uHeads,ivec2(i,6),0); // its phases, as cos and sin
+    vec3 n=B.xyz,e1=normalize(cross(n,abs(n.z)<.9?vec3(0,0,1):vec3(1,0,0))),e2=cross(n,e1);
+    float s=dot(q,n);vec3 rv=q-s*n;
+    // (Behind it, its stem wanders as a real one does, and is never thinner than a thread: the study's stem,
+    // revolved, would lie exactly on the axis, a ruled line.)
+    float behind=smoothstep(-.3*R,-1.2*R,s);
+    if(behind>0.)rv-=behind*R*(.22*sin(4.1*s/R+D.w)*e1+.16*sin(2.7*s/R-1.3*D.w)*e2);
+    float r=sqrt(dot(rv,rv)+.004*R*R*behind);
+    // (Its azimuth, as a complex number, and its powers: every lobe below without a sine.)
+    vec2 z=vec2(dot(rv,e1),dot(rv,e2))/max(r,1e-5),z2=cmul(z,z),z3=cmul(z2,z),z4=cmul(z2,z2),z5=cmul(z4,z),z8=cmul(z4,z4);
+    // (Its Widnall wave: the ring's radius and its place along its way, lobed round it.)
+    float wave=C.z*(z5.x*G.z-z5.y*G.w);
+    float u=r-R*(1.+wave),w=s-.8*R*C.z*sinOf(z5,G.zw),rho2=u*u+w*w,a2=a*a;
+    // It rolls: its ink streams round each core, the core fastest (a Lamb–Oseen vortex), read in two phases
+    // half a cycle apart, each started over where its weight is nothing, and each azimuth at its own moment:
+    // the photograph flows round the rim and never winds up into rings, and nothing pulses.
+    float roll=C.x*a2/max(rho2,1e-7)*(1.-exp(-rho2/a2));
+    float cyc=E.z+.15*sinOf(z,F.xy),f0=fract(cyc),f1=fract(cyc+.5),w0=sin(3.14159265*f0);w0*=w0;
+    float a0=roll*f0,a1=roll*f1,c0=cos(a0),s0=sin(a0),c1=cos(a1),s1=sin(a1);
+    vec2 m=vec2(u*c0-w*s0,u*s0+w*c0),m1=vec2(u*c1-w*s1,u*s1+w*c1);
+    // Read from a photograph: the plume study's own head (data/ink-density.webp, its tile E.y), revolved
+    // about its axis, so the ring's cross-section is the study's at every azimuth and its rolled cores are
+    // the study's own cauliflower lobes, at (.5 ± .225, .80) of the tile for a ring of radius R; the
+    // photograph's stem and tendrils trail behind it.
+    float lob=.16*sinOf(z3,F.xy)+.09*sinOf(z5,F.zw)+.05*sinOf(z8,G.xy),tvShift=.04*sinOf(z4,F.xy);
+    float variant=E.y,right=.5+.5*dot(rv,vec3(1,0,0))/max(r,1e-5),inside,inside1;
+    float dark=w0*studyDark(m,lob,tvShift,R,variant,right,inside)+(1.-w0)*studyDark(m1,lob,tvShift,R,variant,right,inside1);
+    inside=max(inside,inside1);
+    // (A ring is hollow at its axis, its ink in its rolled rim: only its stem, behind it, runs down the axis.)
+    // (Behind it, the photograph's own stem would revolve to a hairline on the axis, which the march would
+    // catch only now and then: it is let go, and the wisps round it are the trail.)
+    float hollow=mix(.25,1.,smoothstep(.15*R,.75*R,r)),stemOnly=smoothstep(-.2*R,-.7*R,s)*smoothstep(.05*R,.3*R,r);
+    float d=D.y*pow(max(dark,0.),1.4)*max(hollow*(1.-smoothstep(-.2*R,-.7*R,s)),stemOnly)*(1.+.25*z5.x);
+    // (Its axis is the clear eye of the torus, and the one line where its azimuth means nothing: a soft
+    // tube along it is let go, so no hairline of chance reads is ever drawn there.)
+    d*=smoothstep(.04*R,.3*R,r)*(1.-smoothstep(.72,1.,reach));
+    float hold=inside;
+    ink+=d*vec2(1.-D.x,D.x);
+    // (Its texture is the noise's where its ink is, only; where two overlap, theirs blend by their ink,
+    // so the texture never jumps from one to the other.)
+    float k=clamp(2.*d,0.,1.)*hold;
+    near+=k;mat+=k*(vec3(m.x/a,m.y/a,z.x*R/a)*.1+D.w);
+  }
+  mat/=max(near,1e-4);near=min(near,1.);
+  return ink;
+}
+vec2 headInk(vec3 p,out vec3 mat,out float near){return headInkAt(p,mat,near);}
+// The ink at p: the bake's, or the vortex ink's across its span (h: the heads' there, already read).
+vec2 inkAt(vec3 p,vec2 h){
+  if(uVortex>=1.)return h;
+  return density(p)+h;
+}
 vec2 density(vec3 p){
   if(uOrbit[0].w<.5 && uOrbit[1].w<.5)return mix(readVolume(p,floor(uKey)),readVolume(p,ceil(uKey)),fract(uKey));
   return mix(readVolume(vec3(orbitKey(p.xy,false),p.z),floor(uKey)),readVolume(vec3(orbitKey(p.xy,true),p.z),ceil(uKey)),fract(uKey));
@@ -208,26 +386,40 @@ void main(){
   vec2 rolling=flicker*vec2(.028*sin(.76*uFlowPhase+uv.y*4.),.023*cos(.59*uFlowPhase+uv.x*5.));
   // The mist's fine detail drifts on, steadily, with the event's clock: it streams, it does not pulse.
   float boil=uSpin;
-  // The live mist moves the bake's: where the bake has a column here, its own is scaled to the live one's;
-  // what the live flow has carried where the bake has none is laid in at the live mist's own depth. Its
-  // fine detail is read where the flow carried it from.
-  vec2 gain=vec2(1),extra=vec2(0),zLive=vec2(.5),carried=vec2(0);
+  // The live mist moves the bake's. It says how much mist is here (its ratio to the bake's column, or where
+  // the bake has none, to a plume's core); the mist's own noise says where its edges are. So where the live
+  // mist gathers, the bake's is denser and whole; where it thins, the bake's thins too and breaks up into
+  // shreds along its own noise (a threshold on it that rises as the mist thins), so thin mist is torn wisps,
+  // never an even grey veil, and the live field's smooth contours are never drawn. What the flow has carried
+  // where the bake has none is laid in at the live mist's own depth, and breaks up alike. Its texture is
+  // read where the flow carried it from, in its two phases, blended: it travels with the water.
+  if(uHeadCount>0)findHeads(uv);
+  vec2 gain=vec2(1),cut=vec2(-1),extra=vec2(0),zLive=vec2(.5),carried=vec2(0),carried2=vec2(0);
+  float wa=1.,wb=0.;
   if(uLive>0.){
-    vec4 L=texture(uLiveMist,uv),B=bakedColumn(uv);
-    // (The vents' ink is live mist too, at the live mist's depth.)
-    vec2 hot=texture(uLiveVent,uv).rg;
-    L.zw+=hot*mix(vec2(.5),clamp(L.zw/max(L.xy,vec2(1e-4)),.05,.95),step(vec2(1e-3),L.xy));L.xy+=hot;
+    // (Its larger scales only: live-ink.js smooths it, so the flow's own striations never draw.)
+    vec4 L=texture(uLiveMist,uv);
+    vec4 B=bakedColumn(uv);
     vec2 cover=smoothstep(.0015,.012,B.xy);
-    gain=mix(vec2(1),cover*min(L.xy/max(B.xy,vec2(1e-4)),vec2(2.5)),uLive);
+    vec2 ratio=clamp(mix(L.xy/.06,L.xy/max(B.xy,vec2(1e-4)),cover),0.,3.);
+    vec2 dense=mix(sqrt(min(ratio,1.)),pow(max(ratio,1.),vec2(.7)),step(1.,ratio));
+    gain=mix(vec2(1),cover*dense,uLive);
+    cut=mix(vec2(-1),.8-smoothstep(0.,1.,ratio),uLive);
     // (Only what reads: a trace of live mist where the bake has none would fill empty samples for nothing.)
-    extra=uLive*(1.-cover)*max(L.xy-.004,vec2(0));
+    extra=uLive*(1.-cover)*min(max(L.xy-.004,vec2(0)),vec2(.07));
     zLive=clamp(L.zw/max(L.xy,vec2(1e-4)),.05,.95);
-    carried=uLive*texture(uLiveDetail,uv).xy;
+    vec4 E=uLive*texture(uLivePhases,uv);
+    carried=E.xy;carried2=E.zw;
+    wa=sin(3.14159265*fract(phaseAt(uv,uPhase)));wa*=wa;wb=1.-wa;
+    // (Where one phase is all but gone, the other alone: half the noise to read.)
+    if(wa<.02){carried=carried2;wa=1.;wb=0.;}else if(wb<.02){wa=1.;wb=0.;}
   }
   // Front to back (from the observer toward the far wall), each half kept by its own transmittance, which is
   // the same picture as compositing back to front; once both are spent nothing behind can show, so stop.
   float Tf=1.,Tr=1.;
   float pzLow=min(min(pz.x>0.?pz.x:2.,pz.y>0.?pz.y:2.),min(pz.z>0.?pz.z:2.,pz.w>0.?pz.w:2.));
+  // (The heads, smooth in depth, are read on every other step and held for the one between.)
+  vec2 headsHeld=vec2(0);float nhHeld=0.;
   for(int i=35;i>=0;i--){
     float z=(float(i)+.5+.10*stagger)/36.;
     if(Tr<.004 && (Tf<.004 || pieceZ<=0. || z<pzLow))break;
@@ -235,24 +427,35 @@ void main(){
     vec3 p=vec3(uv-drift,z);
 
     // (A live column with no bake under it: spread over depth round the live mist's own, σ .08.)
-    vec2 laid=extra*exp(-.5*pow((z-zLive)/.08,vec2(2)))*4.99;
-    vec2 coarse=density(p)*gain+laid;
+    vec2 dz=(z-zLive)/.08,laid=extra*exp(-.5*dz*dz)*4.99;
+    // (The heads here, once: their ink, and where it began, for the noise: the texture is wound with it.)
+    vec3 mh;float nh=nhHeld;
+    vec2 heads=headsHeld;
+    if(gCount>0 && (i&1)==1){heads=1.-exp(-headInk(p,mh,nh));headsHeld=heads;nhHeld=nh;}
+    vec2 coarse=inkAt(p,heads)*gain+laid;
     if(max(coarse.x,coarse.y)<.003)continue;
-    vec3 material=vec3((p.x-carried.x)*uAspect,p.y-carried.y,p.z*.67);
-    vec3 v=texture(uNoise,material*.91+vec3(rolling,.023*uBreath)+vec3(.0025*boil,.044*uProgress+.006*boil,.003*boil)).rgb-.5;
-    vec3 f=texture(uNoise,material*2.7+v*.81+vec3(-.002*boil,-.13*uProgress-.009*boil,.027*uBreath+.005*boil)).rgb-.5;
-    vec3 warp=v*.104+f*.045;
-    vec3 g=texture(uNoise,material*5.5+v*1.24+f*.89).rgb-.5;
-    warp+=g*.022;
-    vec2 dye=density(p+warp/vec3(uAspect,1,1))*gain+laid;
-    vec3 fold=texture(uNoise,material*5.1+v*1.45+f*.54).rgb;
-    vec4 fine=texture(uNoise,material*8.4+1.8*v+.94*f+.75*g);
-    vec3 curl=texture(uNoise,material*12.+2.4*v+1.5*f+1.2*g).rgb;
+    // (The noise's fine detail in the water's own coordinates: the heads carry their own structure, from
+    // the photograph; two heads' coordinates blended would squeeze the noise into stripes where they meet.)
+    vec3 place=vec3((p.x-carried.x)*uAspect,p.y-carried.y,p.z*.67);
+    Grain q=grainAt(place,rolling,boil);
+    if(wb>0.)q=blendGrain(q,grainAt(vec3((p.x-carried2.x)*uAspect,p.y-carried2.y,p.z*.67),rolling,boil),wa,wb);
+    vec3 v=q.v,f=q.f,g=q.g;
+    vec3 warp=v*.104+f*.045+g*.022;
+    // (Where the live mist thins, only its noise's crests are left: torn shreds of it.)
+    float n=.5+2.5*(.7*f.g+.3*g.b);
+    vec2 keep=smoothstep(cut-.18,cut+.18,vec2(n));
+    float cavity=q.cavity;
+    // (Mist the flow has carried off its plume is drawn as wisps along the noise's ridges, tendrils of
+    // smoke: never a flat, even cloud.)
+    float strand=.5+2.2*(f.r+.35*g.g);
+    laid*=.2+1.8*pow(max(0.,1.-abs(2.*strand-1.)),3.);
+    vec2 dye=(inkAt(p+warp/vec3(uAspect,1,1),heads)*gain+laid)*keep;
+    vec3 fold=q.fold,curl=q.curl;
+    vec4 fine=q.fine;
     float grain=fine.g+.24*(curl.r-.5);
     // Ridged turbulence (the valleys of |2n − 1|): thin wisps and threads instead of grey haze; the far
     // water softer than the near (aerial depth).
-    float ridge=pow(1.-abs(2.*fine.g-1.),4.)*mix(.55,1.,z);
-    float cavity=texture(uNoise,material*2.65+1.1*v+.48*f).a;
+    float ridge=pow(max(0.,1.-abs(2.*fine.g-1.)),4.)*mix(.55,1.,z);
     float lip=exp(-17.*abs(cavity+.21*fine.a-.61));
     float foldPhase=fold.r+.37*grain+.15*f.y;
     float sheets=.24+1.24*smoothstep(.42,.80,foldPhase)+.72*exp(-28.*abs(foldPhase-.66));
@@ -263,10 +466,16 @@ void main(){
     float membrane=exp(-25.*abs(pleat-.70));
     sheets*=.52+.87*smoothstep(.48,.80,pleat)+1.15*membrane;
     sheets*=.78+.62*ridge;
+    // (A ring's head is ink rolled, not the bake's folded lamellae: its body billows, its layers are its own.)
+    sheets=mix(sheets,1.,.75*nh);
     float black=dye.x*sheets*(.15+1.4*carved), white=dye.y*sheets*(.25+1.3*carved),total=black+white;
-    vec2 light=density(p+vec3(-.026,.036,.092)+warp*.6)*gain+laid;
+    // (Toward the light. The heads' own shading is in their photograph: a share of their ink here stands for
+    // what lies toward the light, so they are not read twice.)
+    vec3 lp=p+vec3(-.026,.036,.092)+warp*.6;
+    vec2 light=(inkAt(lp,.55*heads)*gain+laid)*keep;
     float transmission=exp(-2.65*(light.x+.56*light.y));
-    float edge=clamp((coarse.x+coarse.y-light.x-light.y)*2.8,0.,1.);
+    vec2 held=coarse*keep;
+    float edge=clamp((held.x+held.y-light.x-light.y)*2.8,0.,1.);
     float incidence=clamp(.46+1.7*(fold.r-fine.g)+.62*(curl.b-curl.g),.08,1.);
     vec3 soot=mix(vec3(.010,.010,.012),vec3(.158,.152,.148),transmission*.39+edge*.66);
     vec3 steam=mix(vec3(.17,.19,.22),vec3(.85,.84,.79),transmission);
@@ -279,7 +488,7 @@ void main(){
               +vec3(.12,.052,.035)*edge*(1.-z*.65)*ivoryShare+vec3(.14,.14,.15)*lip*transmission+.10*membrane*edge
               +vec3(.21,.2,.19)*backlight*edge*(1.-.6*(1.-transmission))*mix(.45,1.,ivoryShare);
     emission*=.72+.34*incidence;
-    float envelope=smoothstep(.003,.10,max(coarse.x,coarse.y));
+    float envelope=smoothstep(.003,.10,max(held.x,held.y));
     float a=1.-exp(-total*.55*envelope);
     vec4 sampleLight=vec4(emission*a,a);
     // (In front of what stands here in how many of the four taps.)
@@ -342,13 +551,13 @@ void main(){
  float angle=6.2831853*cloth.x;
  p.xy+=swing*(.0045+.0025*cos(angle*2.))*vec2(sin(6.*cloth.y+angle+seed+uBreath)*uSize.y/uSize.x,cos(5.*cloth.y-angle+seed+uBreath));
  p.xy+=suspendedDrift(p.xy,p.z,uSize.x/uSize.y,uProgress,uFlowPhase);
- // (Its large scales only (live-ink.js smooths them): a sheet bends with the flow; the fine detail is the
- // mist's.)
+ // (Its large scales only, never bent sharper than a sheet can bend (live-ink.js smooths and eases them): a
+ // sheet bends with the flow; the fine detail is the mist's.)
  if(uLive>0.)p.xy+=uLive*textureLod(uLiveDetail,p.xy,0.).xy;
  position=vec3(p.xy*vec2(uSize.x/uSize.y,1.),p.z);
  gl_Position=vec4(2.*p.xy-1.,0.,1.);
  // (Thinner while the live ink runs: the screen cleared for it, its trunks less of a wall of falling lines.)
- amount=data.w*(1.-.75*uLive);
+ amount=data.w*(1.-.75*.55*uLive);
 }`;
 export const INK_SHEET_FRAGMENT=/* glsl */`#version 300 es
 precision highp float;
@@ -366,7 +575,6 @@ float inkFold(float X,float A,float k,float ph){
 }
 ${LATE_GLSL}
 uniform sampler2D uFigures,uFigureDepth,uMist,uPigment,uKnightPigment,uFigurePigment;
-uniform sampler2D uBodies; // the live ink's glossy bodies (live-ink.js): they hide what is behind them as a piece does
 uniform bool uDepthOnly;
 uniform vec2 uSize;uniform float uProgress,uBreath,uFlowPhase;
 uniform float uRollUp; // how far the plume heads' caps have rolled up (ink-swirl.js rollUp): 0 … 1, never back
@@ -384,8 +592,6 @@ void main(){
    visible=1.-texture(uFigures,uv).a;
    if(visible<.002)discard;
  }
- // (The live ink's bodies lie over the veils: a plume's trunk runs in behind the body at its head.)
- if(!uDepthOnly){visible*=1.-texture(uBodies,uv).a;if(visible<.002)discard;}
  if(section<3.5){
    float layer=(section-1.5)/1.75,v=cloth.y;
    float phase=seed+uClockP*5.4+.22*uBreath;

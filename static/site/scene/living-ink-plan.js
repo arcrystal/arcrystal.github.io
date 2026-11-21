@@ -4,6 +4,7 @@ import { DROPS, PRECIPITATION, PIGMENT_TOTALS, LATE, tankCamera, projectTank, se
 import { ORBIT, orbitAt } from './ink-swirl.js';
 import { clockP, FORMS, formSchedule } from './living-forms.js';
 import { HOLD } from '../lerp.js';
+import { bakeRings } from './vortex-plan.js';
 
 export const KEYS=80, END=1.146, ease=smooth;
 const TAU=2*Math.PI;
@@ -682,5 +683,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
     for(let n=0;n<field.length;n++)if(field[n]>0)density[n]=lut[Math.min(2048,Math.round(field[n]*256))];
     emit({frame,density,mesh});
   }
-  emit({ledger,massBook,tracks});
+  // The vortex rings' choreography (vortex-plan.js), for the live ink (vortex-ink.js).
+  const rings=bakeRings(aspect,sites);
+  emit({ledger,massBook,tracks,rings});
 }
