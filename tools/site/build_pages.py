@@ -873,6 +873,7 @@ def home_page(packages):
     <p class="hero-fact" data-fact aria-live="polite"><span class="hero-fact-k" data-fact-k>{esc(HOME_FACT[0])}</span> <span data-fact-t>{esc(HOME_FACT[1])}</span></p>
   </div>
   <div class="crystal" data-crystal aria-hidden="true">{crystal_svg()}</div>
+  <button type="button" class="control hero-play" data-autoscroll aria-pressed="false" hidden><span class="hero-play-icon" aria-hidden="true"></span><span data-autoscroll-label>Play the page</span></button>
   <p class="hero-cue" aria-hidden="true"><span>Scroll</span><i></i></p>
 </section>
 <!-- Old homepage fragments land on the bands. -->

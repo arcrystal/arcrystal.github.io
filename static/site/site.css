@@ -131,6 +131,11 @@ html.gl .crystal { opacity: 0; }
 .hero-cue i { width: 1px; height: 36px; background: linear-gradient(currentColor, transparent); transform-origin: top; }
 .js:not(.motion-paused) .hero-cue i { animation: cue 2.2s var(--ease-in-out) infinite; }
 @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+/* Play the page (home.js): above the cue; while it plays it waits in the corner, to be paused. */
+.hero-play { position: absolute; left: 50%; bottom: 104px; translate: -50% 0; color: var(--c-fg); background: color-mix(in oklab, var(--c-bg) 70%, transparent); }
+.hero-play.is-playing { position: fixed; left: auto; right: var(--gutter); bottom: 22px; translate: none; z-index: 60; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.hero-play-icon { width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 8px; border-color: transparent transparent transparent currentColor; }
+.hero-play.is-playing .hero-play-icon { width: 8px; height: 10px; border: 0; border-inline: 2.5px solid currentColor; }
 
 /* ---- The scene canvas (scene/scene.js) and the letters ---------------------------------------- */
 

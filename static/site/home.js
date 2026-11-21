@@ -37,6 +37,30 @@ export function mount(main, ctx) {
   const restK = factK?.textContent, restT = factT?.textContent;
   const apis = [];
 
+  // ---- Play the page: scrolls it at a steady pace (AUTOSCROLL screens a second), so every
+  // transition plays through evenly; any wheel, touch or key of the visitor's own stops it, as does
+  // the end of the page.
+  const play = hero?.querySelector('[data-autoscroll]');
+  if (play) {
+    const AUTOSCROLL = .6, label = play.querySelector('[data-autoscroll-label]');
+    let raf = 0, last = 0, carry = 0;
+    const set = on => { play.classList.toggle('is-playing', on); play.setAttribute('aria-pressed', String(on)); label.textContent = on ? 'Pause' : 'Play the page'; };
+    const stop = () => { if (!raf) return; cancelAnimationFrame(raf); raf = 0; set(false); };
+    const step = t => {
+      // (Whole pixels, the fraction carried: an even pace at any frame rate.)
+      const dt = last ? Math.min(.05, (t - last) / 1000) : 0; last = t;
+      carry += AUTOSCROLL * innerHeight * dt;
+      const px = Math.floor(carry); carry -= px;
+      if (px) scrollBy({ top: px, behavior: 'instant' });
+      if (scrollY + innerHeight >= document.documentElement.scrollHeight - 2) { stop(); return; }
+      raf = requestAnimationFrame(step);
+    };
+    play.hidden = false;
+    scope.on(play, 'click', () => { if (raf) { stop(); return; } last = 0; carry = 0; set(true); raf = requestAnimationFrame(step); });
+    for (const type of ['wheel', 'touchstart', 'keydown']) scope.on(window, type, e => { if (e.target !== play) stop(); }, { passive: true });
+    scope.add(stop);
+  }
+
   // ---- layout, measured on resize -------------------------------------------------------------
   let vw = 1, vh = 1, heroTop = 0, heroH = 0, headH = 64, crystal = [0, 0, 0], sections = [];
   const coarse = matchMedia('(pointer: coarse)');
