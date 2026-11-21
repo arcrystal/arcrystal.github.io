@@ -16,16 +16,12 @@ const { values: o } = parseArgs({ options: {
   out: { type: 'string', default: '/tmp/seam-shots' },
   base: { type: 'string', default: 'http://127.0.0.1:8100' },
   wait: { type: 'string', default: '450' },
-  // Scripts run before the page's (e.g. "window.__inkSim={off:true}"); --live replays Chess's live ink
-  // (scene/live-ink.js) from the event's start along the standard scroll and shoots once it has caught up.
-  init: { type: 'string', multiple: true, default: [] },
-  live: { type: 'boolean', default: false },
 } });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(o.out, { recursive: true });
 const browser = await launch({ preset: 'gpu' });
 try {
-  const page = await browser.newPage({ ...parseSize(o.size), init: [...(o.live ? ['window.__inkSim = Object.assign(window.__inkSim || {}, { fixed: true });'] : []), ...o.init] });
+  const page = await browser.newPage(parseSize(o.size));
   await page.goto(`${o.base}/`, { waitUntil: 'load', timeout: 30000 });
   await page.waitFor(() => /\bgl\b/.test(document.documentElement.className), { timeout: 20000 });
   await page.waitFor(() => !document.documentElement.classList.contains('site-loading'), { timeout: 125000 });
@@ -52,7 +48,6 @@ try {
     const P = Number(s);
     await page.eval(P => window.__seek(P), P);
     await sleep(Number(o.wait));
-    if (o.live) await page.waitFor(() => { const s = window.__inkSim?.stats?.(); return !s || !s.catching; }, { timeout: 120000 });
     const info = await page.eval(style => { const b = document.querySelector(`.band[data-style="${style}"]`); return b ? { held: b.classList.contains('is-held'), surface: b.style.getPropertyValue('--surface') } : null; }, o.seam === 'ink' ? 'ink' : o.seam);
     await page.screenshot(`${o.out}/P${s}.png`);
     console.log(`P ${s}`, JSON.stringify(info));

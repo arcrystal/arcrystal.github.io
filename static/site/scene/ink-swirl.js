@@ -32,13 +32,12 @@ export function rollUp(P) {
   return CUMULATIVE[i] + (CUMULATIVE[i + 1] - CUMULATIVE[i]) * (x - i);
 }
 // The caps' breath at P (time: seconds, for a slow breath at rest): its depth, and the phases of the l = 0,
-// 2 and 3 modes, their frequencies Rayleigh's (l = 0 slower still); one slow breath per .14 of the event's
-// clock (living-forms.js clockP: about seven screens), its fastest mode once per three and a half.
-export const BREATH = Object.freeze({ window: [.585, .63, .70, .745], period: .14 });
-// (Its depth follows P; its phase the event's clock, clock: living-forms.js clockP.)
-export function breath(P, time = 0, clock = P) {
+// 2 and 3 modes, their frequencies Rayleigh's (l = 0 slower still); about one slow breath per .09 of P
+// (four screens of scroll or so): nothing here may pulse.
+export const BREATH = Object.freeze({ window: [.585, .63, .70, .745], period: .09 });
+export function breath(P, time = 0) {
   const [a, b, c, d] = BREATH.window, depth = smooth(a, b, P) * (1 - smooth(c, d, P));
-  const t = 2 * Math.PI * clock / BREATH.period + .3 * time;
+  const t = 2 * Math.PI * P / BREATH.period + .3 * time;
   return [depth, .8 * t, RAYLEIGH[0] * t, RAYLEIGH[1] * t];
 }
 // The cap's swell at angle ϑ round its centre (shader mirror): l = 0, plus l = 2 and l = 3 on turning axes.

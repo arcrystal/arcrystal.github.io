@@ -23,7 +23,6 @@ import { drainUniforms, boxCamera } from './ink-drain.js';
 import { INK_IMPACT_VERTEX, INK_IMPACT_FRAGMENT, INK_RIPPLE_VERTEX, INK_RIPPLE_FRAGMENT, INK_EMERGE_VERTEX } from './glsl/ink-impact.js';
 import { INK_VOLUME, INK_PIECE, INK_SHEET_VERTEX, INK_SHEET_FRAGMENT, INK_THREAD_FRAGMENT, INK_WAKE_VERTEX } from './glsl/living-ink.js';
 import { VERTEX } from './glsl/index.js';
-import { SIM_PASSES } from './glsl/ink-sim.js';
 import { UNIT_PROGRAMS } from './glsl/units.js';
 import { transitP, carveMaze, vortexPlan, vortexPlanTexels } from '../lerp.js';
 import { SPOTS, FREEZE, CLICK } from './dew-plan.js';
@@ -123,8 +122,6 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     { name: 'inkSheet', vs: INK_SHEET_VERTEX, fs: INK_SHEET_FRAGMENT },
     { name: 'inkRipple', vs: INK_RIPPLE_VERTEX, fs: INK_RIPPLE_FRAGMENT },
     { name: 'inkEmerge', vs: INK_EMERGE_VERTEX, fs: INK_RIPPLE_FRAGMENT },
-    // The live ink's fluid (glsl/ink-sim.js).
-    ...Object.entries(SIM_PASSES).map(([k, fs]) => ({ name: `sim${k[0].toUpperCase()}${k.slice(1)}`, vs: VERTEX, fs })),
   ];
   const later = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 600 }) : cb => setTimeout(cb, 40);
   if (ext) {
@@ -401,8 +398,8 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
     if (!inkB.box) return;
     liquid.prepare(W,H,inkB.box,b3);
   }
-  function unmixPass(s,f,dt) {
-    return liquid.draw(transitP(s.p),s.region[2],s.region[3],s.board?.rect || inkB.box,f.time,board3d?.(),s,{dt});
+  function unmixPass(s,f) {
+    return liquid.draw(transitP(s.p),s.region[2],s.region[3],s.board?.rect || inkB.box,f.time,board3d?.(),s);
   }
 
   let frame = 0;
@@ -527,7 +524,7 @@ export function createTransit(gl, { renderWorld, renderPane, coarse, board3d }) 
       const whole = can && (fresh || was.whole);
       tiers.set(K.id, { whole, seen: f.now });
       if (!whole) return false;
-      if (K.id === 'unmix') return unmixPass(s, f, dt);
+      if (K.id === 'unmix') return unmixPass(s, f);
       if (K.live) return true;
       // The dew is seen through drops and frost: its worlds' snapshots can be coarser on big screens.
       const ts = (K.id === 'dew' ? (w > 1800 ? 0.36 : coarse ? 0.45 : 0.5) : coarse || w > 1800 ? 0.5 : 0.6) * Math.max(0.5, f.scale);

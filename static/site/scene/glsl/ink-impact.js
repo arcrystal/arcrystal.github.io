@@ -107,8 +107,10 @@ void main(){
    // dimple, crown and submerged wake inherit exactly the same point.
    pivot=contact;
    lo=vec2(-3.5,-3.95);hi=vec2(3.5,2.9);
-   // (As the camera goes under the surface the crown fades: below it no drop is drawn, only the mist's plume.)
+   // (Once the camera is under the surface the entry is seen from below, hanging from the waterline:
+   // ink-impact's fourth look.)
    below=smoothstep(.55,.85,cam.w);
+   pivot.y=mix(pivot.y,min(pivot.y,cam.x-.5*cam.y),below);
  }
  p=mix(lo,hi,uv);
  gl_Position=vec4(2.*(pivot+p*outlet.w/scale)-1.,0.,1.);
@@ -175,14 +177,49 @@ vec4 wetLip(vec2 uv){
  col*=1.-.30*smoothstep(.60,1.26,h);
  return vec4(col*coverage,coverage);
 }
+// Seen from under the surface, a bead punches through it trailing a cavity of air. The cavity's skin
+// mirrors the lit ceiling of the water (total internal reflection), so it is silver; it stretches,
+// pinches (the varicose Rayleigh–Plateau mode, a wavelength about nine of its radii) and lets go of a few
+// bubbles that rise back to the ceiling, while the bead itself goes on down into its plume.
+vec4 entryFromBelow(float white,float aa,float past,float seed){
+ float t=clamp(past/.05,0.,1.),go=1.-smoothstep(.7,1.,t);
+ if(past<0.)return vec4(0);
+ // The cavity: a soft silver sheath, brightest at its rim, pinching as it stretches.
+ vec2 q=(p-vec2(.08*sin(seed),-1.05-1.9*t))/vec2(.62+.25*(1.-t),1.15+1.5*t*(1.-t));
+ float r=length(q),pinch=smoothstep(.45,.75,t)*(.5+.5*cos(6.2832*(q.y*.5+.5)*1.6));
+ float cav=(1.-smoothstep(.7,1.,r))*(1.-pinch*.85);
+ float rim=exp(-pow((r-.9)/.12,2.))*(1.-pinch*.85);
+ vec3 silver=mix(vec3(.66,.68,.70),vec3(.95,.94,.90),.5+.5*q.y);
+ vec4 c=vec4(silver*(.28*cav+.55*rim),.28*cav+.5*rim)*go;
+ // The bead going on down below it: a lacquered sphere.
+ vec2 b=(p-vec2(0.,-2.1-1.6*t))/.78;
+ float bead=1.-smoothstep(1.-aa*3.,1.,length(b));
+ if(bead>0.){
+   vec3 n=normalize(vec3(b,sqrt(max(.001,1.-dot(b,b)))));
+   vec3 ink=lacquer(n,white,seed);
+   c=vec4(ink*bead+c.rgb*(1.-bead),bead+c.a*(1.-bead));
+ }
+ // Bubbles: let go at the pinch, rising, each a bright ring with a glint.
+ for(int k=0;k<3;k++){
+   float fk=float(k),rise=max(0.,t-.55)*(2.6+.9*fk);
+   vec2 bp=(p-vec2((fk-1.)*.55+.12*sin(seed+fk),-1.6+rise))/(.16+.05*fk);
+   float ring=exp(-pow((length(bp)-.82)/.16,2.))*step(.55,t)*go;
+   float glint=exp(-dot(bp-vec2(-.35,.35),bp-vec2(-.35,.35))*18.)*step(.55,t)*go;
+   c=vec4(c.rgb+vec3(.9)*(ring*.55+glint*.6)*(1.-c.a),c.a+(ring*.5+glint*.4)*(1.-c.a));
+ }
+ return c*go;
+}
 void main(){
  if(part==0){o=wetLip(p);return;}
  float white=material.x,rad=material.y,seed=material.z;
  float fed=life.x,age=life.y,f=life.z,past=life.w;
  float aa=clamp(.78/rad,.012,.55),alpha=0.;
  vec3 col=vec3(0);
- // (Once the camera is under the surface no drop is seen in the water: the plume begins there, in the mist.)
- if(part==3 && below>.999)discard;
+ if(part==3 && below>0.){
+   vec4 e=entryFromBelow(white,aa,past,seed)*below;
+   if(below>.999){o=e;if(o.a<.002)discard;return;}
+   o=e;
+ }
  if(part==3){
    // Before impact the reflected silhouette and its glint tighten under the
    // approaching belly. After crossing, a raised wet collar falls back.
@@ -200,11 +237,17 @@ void main(){
    float tooth=exp(-pow((length(vec2(p.x,(p.y-.46*fingers*eject)/.42))-crownR)/(.14+aa),2.))
       *fingers*eject*slip;
    float hollow=exp(-dot(rim,rim)/(.34+2.1*t))*slip*(1.-t);
+   // A tiny falling head can be seen through the dimple before the pigment
+   // enters the worker's underwater volume. Keep this glimpse subordinate.
+   float wetAge=clamp(past/.065,0.,1.);
+   vec2 under=(p-vec2(.09*sin(wetAge*4.+seed)*wetAge,-.25-2.25*wetAge))/vec2(.36+.48*wetAge,.40+.74*wetAge);
+   float below=exp(-dot(under,under)*1.5)*slip*(1.-smoothstep(.14,1.,wetAge))*.21;
    col=mix(vec3(.048,.021,.025),vec3(.65,.56,.51),white);
-   alpha=mirror+.32*hollow;
+   alpha=mirror+.32*hollow+below;
    vec3 light=vec3(.81,.72,.64)*(.56+.44*max(0.,-rim.x/max(.0001,length(rim))));
    float shine=clamp(.57*lip+.40*tooth,0.,.87);
-   o=vec4(col*alpha*(1.-shine)+light*shine,alpha*(1.-shine)+shine)*(1.-below);
+   vec4 crown=vec4(col*alpha*(1.-shine)+light*shine,alpha*(1.-shine)+shine)*(1.-below);
+   o=below>0.?o+crown*(1.-o.a):crown;
    if(o.a<.002)discard;
    return;
  }

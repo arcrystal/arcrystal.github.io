@@ -8,11 +8,6 @@ import { CLEAR, waterPlane, emergence, boxCamera, toScreen } from './ink-drain.j
 import { DRAIN, tankCamera } from './ink-tank.js';
 import { startSlots } from './staunton.js';
 import { rollUp, breath as capBreath, spinAt, orbitAt } from './ink-swirl.js';
-import { clockP } from './living-forms.js';
-import { HOLD } from '../lerp.js';
-import { createLiveInk, LIVE_PROGRAMS } from './live-ink.js';
-import { createVortexInk } from './vortex-ink.js';
-import { SIM } from './ink-sim.js';
 
 // Workers have their own module map. Send the versioned planner URL from
 // the document so a cached pre-sheet bake cannot reach the new GPU layout.
@@ -35,11 +30,8 @@ function waterUnder(x,y,cam,aspect){
   return [.5+(x-.5-(z-.5)*.072*cam[3]/Math.max(1,aspect))*w/(1+.22*(1-cam[3])),z];
 }
 export function createLivingInk(gl,coarse,programs){
-  // The live ink (live-ink.js): the event's fluid, stepped on the clock; it moves the mist.
-  const liveInk=createLiveInk(gl,programs,{coarse});
-  const vortexInk=createVortexInk(gl,programs,{coarse});
   const orbitData=new Float32Array(8),orbitTurn=new Float32Array(4);
-  let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,tracks=null,ringPlan=null,queue=[],uploaded=0,failed=false;
+  let worker=null,plannedAspect=0,plannedMobile=null,meta=null,ledger=null,queue=[],uploaded=0,failed=false;
   let pigment=null,knightPigment=null,figurePigment=null,bathRoom=null,plates=null,sheetDepth=null,interiorCount=0,sheetCount=0;
   let registration=null,volume=null,mesh=null,grid=null,indices=null,ripples=null,noise=null,noiseData=null,cam=null,camAspect=0;
   let layers=null,figures=null,threads=null,air=null,warmFence=null,warmed=false,sheetLayout=null;
@@ -137,7 +129,7 @@ export function createLivingInk(gl,coarse,programs){
     for(const t of [volume,mesh,registration])if(t)gl.deleteTexture(t);
     if(grid)gl.deleteVertexArray(grid);
     if(indices)gl.deleteBuffer(indices);
-    grid=indices=volume=mesh=registration=meta=ledger=tracks=ringPlan=noiseData=sheetLayout=null;queue=[];uploaded=0;failed=false;
+    grid=indices=volume=mesh=registration=meta=ledger=noiseData=sheetLayout=null;queue=[];uploaded=0;failed=false;
   }
   function prepare(w,h,box,board){
     const aspect=w/h,mobile=coarse||w<700;
@@ -162,7 +154,7 @@ export function createLivingInk(gl,coarse,programs){
             }
             meta=data.meta;noiseData=data.noise;
           }
-          else if(data.ledger){ledger=data.ledger;tracks=data.tracks;ringPlan=data.rings;job.terminate();worker=null;}
+          else if(data.ledger){ledger=data.ledger;job.terminate();worker=null;}
           else queue.push(data);
         };
         job.onerror=()=>{if(worker===job){stop();failed=true;}};
@@ -210,11 +202,8 @@ export function createLivingInk(gl,coarse,programs){
       }
     }
     if(!queue.length){
-      // (The live ink's programs need only to have settled: one that failed to build leaves the bake's mist.)
-      if(uploaded===KEYS && volume)liveInk.buildMoments(volume,nx,ny,nz);
-      if(uploaded===KEYS && ledger && tracks && !warmed && board?.ready() &&
-          programs.inkImpact && programs.inkFigure && programs.unmixSeen && programs.inkWake && programs.inkSheet && programs.inkRipple && programs.inkEmerge &&
-          (!liveInk.usable || LIVE_PROGRAMS.every(n=>programs[n]!==undefined))){
+      if(uploaded===KEYS && ledger && !warmed && board?.ready() &&
+          programs.inkImpact && programs.inkFigure && programs.unmixSeen && programs.inkWake && programs.inkSheet && programs.inkRipple && programs.inkEmerge){
         if(!warmFence){
           // Compile the actual attachment/depth/blend variants under the loader.
           draw(.156,w,h,box,0,board,{});
@@ -250,13 +239,13 @@ export function createLivingInk(gl,coarse,programs){
     if(target.depth)gl.deleteRenderbuffer(target.depth);
     if(target.depthTexture)gl.deleteTexture(target.depthTexture);
   }
-  function resize(target,w,h,count,depth=false,format=gl.RGBA8){
+  function resize(target,w,h,count,depth=false){
     if(target?.w===w && target.h===h)return target;
     release(target);const fb=gl.createFramebuffer(), textures=[],attachments=[];
     gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
     for(let i=0;i<count;i++){
       const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
-      gl.texStorage2D(gl.TEXTURE_2D,1,format,w,h);texParams(gl.TEXTURE_2D,gl.LINEAR);
+      gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA8,w,h);texParams(gl.TEXTURE_2D,gl.LINEAR);
       gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0+i,gl.TEXTURE_2D,t,0);
       textures.push(t);attachments.push(gl.COLOR_ATTACHMENT0+i);
     }
@@ -274,7 +263,7 @@ export function createLivingInk(gl,coarse,programs){
   }
   function bind(unit,type,tex,loc){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(type,tex);gl.uniform1i(loc,unit);}
   function target(t){gl.bindFramebuffer(gl.FRAMEBUFFER,t.fb);gl.viewport(0,0,t.w,t.h);}
-  function draw(P,w,h,box,time,board,s,frame={}){
+  function draw(P,w,h,box,time,board,s){
     if(!meta||!ledger||uploaded!==KEYS||!board?.ready())return false;
     const aspect=box[2]/box[3];
     if(camAspect!==aspect){cam=frameCamera(aspect);camAspect=aspect;}
@@ -293,20 +282,6 @@ export function createLivingInk(gl,coarse,programs){
     figures=resize(figures,W,H,1,'sample');threads=resize(threads,WT,HT,1);
     const low=Math.min(.83,Math.sqrt((coarse?178000:355000)/(w*h)));
     layers=resize(layers,Math.max(1,Math.round(w*low)),Math.max(1,Math.round(h*low)),2);
-    const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
-    // The pairs' turn between this P's two keys (living-ink-plan.js orbitCentres), so the mist's keys meet.
-    orbitData.fill(0);orbitTurn.fill(0);
-    const k0=Math.floor(key),k1=Math.min(KEYS-1,k0+1),P0=k0*END/(KEYS-1),P1=k1*END/(KEYS-1);
-    if(orbitAt(P1)>orbitAt(P0))orbitCentres(P,plannedAspect||w/h).forEach((o,i)=>{
-      orbitData.set([o.centre[0],o.centre[1],Math.max(.02,o.half),1],4*i);
-      orbitTurn.set([o.sense*(orbitAt(P)-orbitAt(P0)),o.sense*(orbitAt(P1)-orbitAt(P))],2*i);
-    });
-    // The live ink steps here, on the clock (live-ink.js), before the pieces and the mist it moves.
-    // The vortex rings (vortex-ink.js) draw the plumes from the first drop to the last piece; without their
-    // plan (or under __vortex.off) the bake's mist and the 2D fluid do.
-    vortexInk.frame({P,dt:frame.dt??0,aspect:w/h,plan:ringPlan,sites:meta.sites});
-    if(!vortexInk.active)liveInk.frame({P,dt:frame.dt??0,vel:s.vel??0,w,h,mobile:coarse||w<700,tracks,forms:meta.forms,aspect:w/h,
-      keyOf:p=>Math.max(0,Math.min(KEYS-1,p/END*(KEYS-1))),orbit:orbitData,orbitTurn});
     gl.disable(gl.BLEND);gl.disable(gl.SCISSOR_TEST);target(figures);
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearColor(0,0,0,0);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
@@ -317,9 +292,7 @@ export function createLivingInk(gl,coarse,programs){
     bind(4,gl.TEXTURE_2D,knightPigment,piece.U.uKnightPigment);
     bind(5,gl.TEXTURE_2D,figurePigment,piece.U.uFigurePigment);
     for(const [id,pose] of poses.entries()){
-      // (Its ink stage: the vortex ink unmixed into it (vortex-ink.js inkStage), before and while it fills.)
-      const stage=vortexInk.inkStage(meta.sites[id],P,pose.set);
-      if((pose.growth<=.001 && stage<=.001) || pose.flight===1)continue;
+      if(pose.growth<=.001 || pose.flight===1)continue;
       const {x,y,pixels,tall,distance,roll,spin,elev,growth,type,black,z,slopeX,slopeY}=pose;
       const radius=Math.ceil(pixels*scale*(1.2+Math.abs(slopeX)+Math.abs(slopeY)));
       gl.scissor(Math.floor(x*scale-radius),Math.floor(y*scale-radius),2*radius+2,2*radius+2);
@@ -327,12 +300,13 @@ export function createLivingInk(gl,coarse,programs){
       gl.uniform4f(piece.U.uTurn,spin,roll,elev,growth);gl.uniform4f(piece.U.uModel,type,Number(black),tall,z);
       gl.uniform2f(piece.U.uInkOrientation,id,meta.sites[id].piece.spin+meta.sites[id].turn);
       gl.uniform3fv(piece.U.uNuclei,pose.nuclei);gl.uniform1f(piece.U.uSeed,pose.slot);
-      gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.uniform1f(piece.U.uInkStage,stage);gl.drawArrays(gl.TRIANGLES,0,3);
+      gl.uniform2f(piece.U.uSlope,slopeX,slopeY);gl.uniform2f(piece.U.uCure,pose.fill,pose.set);gl.drawArrays(gl.TRIANGLES,0,3);
     }
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.SCISSOR_TEST);
+    const key=Math.max(0,Math.min(KEYS-1,P/END*(KEYS-1)));
     const breath=Math.sin(time*.43);
-    const flowPhase=time*.69,spin=spinAt(P,time),Pc=clockP(P,coarse||w<700?HOLD.pinTouch:HOLD.pin);
-    const sheetsLive=P>.127 && P<END && !vortexInk.active;
+    const flowPhase=time*.69,spin=spinAt(P,time);
+    const sheetsLive=P>.127 && P<END;
     function drawSheets(depthOnly){
       const sheet=programs.inkSheet;gl.useProgram(sheet.p);
       bind(0,gl.TEXTURE_2D_ARRAY,mesh,sheet.U.uMesh);
@@ -341,7 +315,7 @@ export function createLivingInk(gl,coarse,programs){
       bind(2,gl.TEXTURE_2D,layers.textures[0],sheet.U.uMist);
       gl.uniform2f(sheet.U.uSize,WT,HT);gl.uniform1f(sheet.U.uKey,key);
       gl.uniform1f(sheet.U.uProgress,P);gl.uniform1f(sheet.U.uBreath,breath);
-      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time,Pc));gl.uniform1f(sheet.U.uClockP,Pc);
+      gl.uniform1f(sheet.U.uFlowPhase,flowPhase);gl.uniform1f(sheet.U.uRollUp,rollUp(P));gl.uniform4fv(sheet.U.uBreathe,capBreath(P,time));
       if(sheetLayout!==meta){
         gl.uniform4fv(sheet.U.uVaporFigure,meta.vaporFigures);
         gl.uniform1iv(sheet.U.uOrder,meta.order);
@@ -352,7 +326,6 @@ export function createLivingInk(gl,coarse,programs){
       bind(4,gl.TEXTURE_2D,knightPigment,sheet.U.uKnightPigment);
       bind(5,gl.TEXTURE_2D,figurePigment,sheet.U.uFigurePigment);
       gl.uniform1i(sheet.U.uDepthOnly,depthOnly?1:0);
-      liveInk.bindSheets(sheet.U,6);
       gl.bindVertexArray(grid);
       gl.drawElementsInstanced(gl.TRIANGLES,depthOnly?interiorCount:sheetCount,gl.UNSIGNED_SHORT,0,meta.order.length);
       gl.bindVertexArray(null);
@@ -360,18 +333,21 @@ export function createLivingInk(gl,coarse,programs){
     sheetDepth=resize(sheetDepth,layers.w,layers.h,1,true);
     target(sheetDepth);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     if(sheetsLive){
-      // (Not while the live ink holds the screen: its veils are thinned there, the mist's split round them
-      // hardly shows, and their geometry is the dearest thing drawn; the frames go to the fluid instead.)
-      if(!(P>SIM.sheetDepthOff[0] && P<SIM.sheetDepthOff[1])){gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);}
+      gl.enable(gl.DEPTH_TEST);drawSheets(true);gl.disable(gl.DEPTH_TEST);
     }
+    // The pairs' turn between this P's two keys (living-ink-plan.js orbitCentres), so the mist's keys meet.
+    orbitData.fill(0);orbitTurn.fill(0);
+    const k0=Math.floor(key),k1=Math.min(KEYS-1,k0+1),P0=k0*END/(KEYS-1),P1=k1*END/(KEYS-1);
+    if(orbitAt(P1)>orbitAt(P0))orbitCentres(P,plannedAspect||w/h).forEach((o,i)=>{
+      orbitData.set([o.centre[0],o.centre[1],Math.max(.02,o.half),1],4*i);
+      orbitTurn.set([o.sense*(orbitAt(P)-orbitAt(P0)),o.sense*(orbitAt(P1)-orbitAt(P))],2*i);
+    });
     const view=programs.unmixSeen;
     target(layers);gl.useProgram(view.p);gl.uniform1f(view.U.uSpin,spin);
     gl.uniform4fv(view.U.uOrbit,orbitData);gl.uniform2fv(view.U.uOrbitTurn,orbitTurn);
     bind(0,gl.TEXTURE_2D_ARRAY,volume,view.U.uVolume);
     bind(1,gl.TEXTURE_3D,noise,view.U.uNoise);bind(2,gl.TEXTURE_2D,figures.depthTexture,view.U.uFigureDepth);
     bind(3,gl.TEXTURE_2D,sheetDepth.textures[0],view.U.uSheetDepth);
-    if(vortexInk.active)gl.uniform1f(view.U.uLive,0);else liveInk.bindVolume(view.U,[4,5,6]);
-    vortexInk.bindVolume(view.U,[7,11]);bind(12,gl.TEXTURE_2D,pigment,view.U.uStudy);
     gl.uniform2f(view.U.uSize,layers.w,layers.h);gl.uniform3f(view.U.uCells,meta.nx,meta.ny,meta.nz);
     gl.uniform1f(view.U.uAspect,w/h);gl.uniform1f(view.U.uProgress,P);gl.uniform1f(view.U.uKey,key);
     gl.uniform1f(view.U.uBreath,breath);gl.uniform1f(view.U.uFlowPhase,flowPhase);gl.drawArrays(gl.TRIANGLES,0,3);
@@ -446,7 +422,7 @@ export function createLivingInk(gl,coarse,programs){
   return {prepare,draw,ready:()=>warmed,progress:()=>uploaded/KEYS,failed:()=>failed,
     get textures(){return [layers.textures[0],layers.textures[1],figures.textures[0],threads.textures[0],ripples.textures[0],air.textures[0],bathRoom];},
     dispose(){
-      stop();liveInk.dispose();vortexInk.dispose();
+      stop();
       for(const target of [ripples,sheetDepth,layers,figures,threads,air])release(target);
       for(const tex of [pigment,knightPigment,figurePigment,bathRoom,noise])if(tex)gl.deleteTexture(tex);
       gl.deleteVertexArray(dripGeometry);gl.deleteBuffer(dripEvents);gl.deleteBuffer(dripCorners);

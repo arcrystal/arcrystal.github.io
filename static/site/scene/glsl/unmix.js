@@ -285,11 +285,10 @@ vec3 groundUnmix(vec2 q, vec2 px, float P) {
     for(int k=1;k<=10;k++){
       vec2 t=uv+step*(float(k)-.5+.5*hash(q+float(k)));
       if(t.y>.995)break;
-      lit*=1.-.6*texture(uFlow,t).a;
+      lit*=1.-.5*texture(uFlow,t).a;
     }
     float beams=.62+.38*noise(vec2(uv.x*7.+uv.y*1.5,.04*T+P*3.));
-    // (A little stronger while the live ink holds the screen: its clear water between the plumes is lit.)
-    col+=vec3(.088,.080,.074)*(1.+.3*smoothstep(.57,.61,P)*(1.-smoothstep(.72,.78,P)))*on*lit*beams*smoothstep(-.1,.85,uv.y);
+    col+=vec3(.088,.080,.074)*on*lit*beams*smoothstep(-.1,.85,uv.y);
   }
   if (P>.875 && uB3On>.5) {
     vec4 board=umBoard(uRegion.xy+q);

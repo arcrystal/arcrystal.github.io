@@ -1,10 +1,7 @@
 import { startSlots, frameCamera, project, TYPES, TALL, bodyOf, headOf, halfWidth, crossings, fromY, toR } from './staunton.js';
 import { buildInkRegistration, modelSection, registrationRank } from './ink-registration.js';
 import { DROPS, PRECIPITATION, PIGMENT_TOTALS, LATE, tankCamera, projectTank, seeded, mix, smooth } from './ink-tank.js';
-import { ORBIT, orbitAt } from './ink-swirl.js';
-import { clockP, FORMS, formSchedule } from './living-forms.js';
-import { HOLD } from '../lerp.js';
-import { bakeRings } from './vortex-plan.js';
+import { ORBIT, orbitAt, DISCHARGES, dischargePath, dischargeAt } from './ink-swirl.js';
 
 export const KEYS=80, END=1.146, ease=smooth;
 const TAU=2*Math.PI;
@@ -408,21 +405,13 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
     g.mass*=PIGMENT_TOTALS[g.id]/assigned[g.id];
     total[g.owner]+=g.mass;
   }
-  // The living forms (living-forms.js): their schedule, sent with the meta so the renderer keeps the same
-  // one, and their tracks: per key, each form's centroid (screen x, y up, depth) and spread, from its
-  // plume's final rail positions near the head.
-  const forms=sourceCount===DROPS.length?formSchedule(sites):[],formOf=new Map(forms.map((f,k)=>[f.id,k]));
-  const tracks=new Float32Array(KEYS*FORMS.length*4),trackSums=new Float64Array(FORMS.length*6);
-  emit({meta:{nx,ny,nz,rows,cols,order,sites,registration,vaporFigures:packVaporFigures(sites),depositedMass:total,forms}});
+  emit({meta:{nx,ny,nz,rows,cols,order,sites,registration,vaporFigures:packVaporFigures(sites),depositedMass:total}});
   const field=new Float32Array(nx*ny*nz*2),dt=END/(KEYS-1);
   const lut=Uint8Array.from({length:2049},(_,i)=>Math.round(255*(1-Math.exp(-i/256))));
-
-  // The waves keep the event's clock (living-forms.js): through the event they turn with this device's
-  // scroll, not with P, so they neither crawl nor throb.
-  const holdPin=mobile?HOLD.pinTouch:HOLD.pin;
+  const jets=new Map();
   for(let frame=0;frame<KEYS;frame++){
-    const P=dt*frame,Pc=clockP(P,holdPin),cam=tankCamera(P),mesh=new Uint16Array(width*height*4);
-    field.fill(0);trackSums.fill(0);
+    const P=dt*frame,cam=tankCamera(P),mesh=new Uint16Array(width*height*4);
+    field.fill(0);
     const available=drops.map(drop=>drop.volume);
     feedPlumes(P,aspect,cam,extras,available,massBook.subarray(frame*6,frame*6+6),field,nx,ny,nz);
     // The foreground pairs circle one another (ink-swirl.js ORBIT): each pair's middle, from its heads.
@@ -441,18 +430,15 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
       const life=1-Math.exp(-age*(id<2?5.4:6.6));
       const column=columns[id],under=ease(.342,.545,P);
       const plunge=mix(s.plunge,column.depth,under)*life,bulk=mix(s.bulk,column.bulk,under);
-      const reach=1-Math.exp(-age*8.3),ageC=Math.max(0,Pc-s.hit);
+      const reach=1-Math.exp(-age*8.3);
       // A countercurrent rises along the rim while its weighted core continues
       // down. As the wave overtakes each row the rim first wets, then pinches
       // into a horn, then sheds a veil. Random phases keep adjoining jets apart.
-      const currentTime=(Pc-.475)*32+.79*Math.sin(seed);
+      const currentTime=(P-.475)*32+.79*Math.sin(seed);
       const live=under*(1-ease(.735,.91,P)),gesture=live*column.weight;
       const approach=live*ease(.495,.603,P)*(1-ease(.635,.736,P));
       const born=ease(s.hit,s.hit+.017,P);
       const late=LATE_BY_ID.get(id),shown=late?lateShown(s,P):0;
-      // (Its form's track: the live ink (ink-sim.js) rides it. The baked mist stays whole: it is the live
-      // mist's target.)
-      const formK=formOf.get(id);
       if(P<s.hit-dt){
         // Invisible stations still carry a valid water crossing on direct seeks.
         const p=projectTank(s.x,0,s.z,cam,aspect),packed=p.map(encode);
@@ -507,7 +493,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
         // loop. Its local angular speed stays bounded at the vortex core.
         const core=s.bulk*.32,ringR=s.bulk*(.19+.50*roll);
         const omega=1.48*core*core*(-Math.expm1(-ringR*ringR/(2*core*core)))/(ringR*ringR);
-        const theta=roll*(4.5+.96*Math.sin(6*ageC+seed))+ageC*(2.35+3.4*omega)+.62*Math.sin(seed);
+        const theta=roll*(4.5+.96*Math.sin(6*age+seed))+age*(2.35+3.4*omega)+.62*Math.sin(seed);
         const bell=Math.exp(-(((v-.49)/.108)**2));
         const radial=v<.61?.027+.49*body**2+.50*bell+.110*Math.sin(13*v+seed)*Math.sin(Math.PI*body)
           :.58+.42*Math.sin(theta)-.13*roll;
@@ -523,16 +509,16 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
         // A traveling compression shifts suspended pigment into a dense
         // knot, then tears off a cloudy tail. Adjacent rings encounter it
         // at different times. Density and the sheet share this material clock.
-        const pulse=Math.sin(23*ageC-8.3*v+seed+.52*Math.sin(5*v+seed));
+        const pulse=Math.sin(23*age-8.3*v+seed+.52*Math.sin(5*v+seed));
         const breathing=ease(.12,.27,age)*(1-ease(.64,.91,P));
         // A shear pulse entrains part of the head and carries it back up its
         // flanks. Its optical sections read the same material clock.
-        const lift=live*head*ease(-.35,.88,Math.cos((Pc-.622)*69+id*.86+(v-.78)*5.4));
+        const lift=live*head*ease(-.35,.88,Math.cos((P-.622)*69+id*.86+(v-.78)*5.4));
         for(let k=0;k<cols;k++){
           const n=(b*rows+j)*cols+k,g=vertex[n],{a,lip,owner,target}=g;
-          const twist=a+seed+1.5*v+.47*Math.sin(ageC*9-4*v+seed);
-          const lobe=.34*Math.sin(2*twist+1.1*v+seed)+.23*Math.sin(3*twist-4*v+ageC*3-seed);
-          const fold=.19*Math.sin(5*twist+v*11+ageC*6)+.084*Math.sin(9*twist-v*21+.6*Math.sin(twist));
+          const twist=a+seed+1.5*v+.47*Math.sin(age*9-4*v+seed);
+          const lobe=.34*Math.sin(2*twist+1.1*v+seed)+.23*Math.sin(3*twist-4*v+age*3-seed);
+          const fold=.19*Math.sin(5*twist+v*11+age*6)+.084*Math.sin(9*twist-v*21+.6*Math.sin(twist));
           const fluke=Math.max(0,Math.cos(twist-v*6-seed))**4;
           const flutter=(.54+.46*Math.sin(4*twist+seed+13*v));
           // A secondary roll blossoms at different material heights on each
@@ -553,9 +539,9 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const throwZ=bulk*tongue*.55*Math.cos(turn+seed);
           const lipDepth=s.bulk*reach*(lip*(.40*Math.cos(2*twist+seed)+.24*Math.sin(3*twist+v*7-seed))+
             .15*Math.sin(4*twist+v*14+seed));
-          const sway=Math.sin(Math.PI*v)*Math.sin(v*7.4+Pc*9+seed);
+          const sway=Math.sin(Math.PI*v)*Math.sin(v*7.4+P*9+seed);
           const current=(id<2?.052:.018+.035*flutter)*reach;
-          let lateral=axial.x+current*sway+.05*reach*Math.sin(4*v+seed)*Math.sin(ageC*7);
+          let lateral=axial.x+current*sway+.05*reach*Math.sin(4*v+seed)*Math.sin(age*7);
           // Fast near-side lobes turn outward into the countercurrent. The
           // lighter skirt can fold OVER the heavy head as it sweeps sideways.
           const lean=(id===0?-.43:Math.sin(seed*2.1))*.43*reach;
@@ -565,7 +551,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const d=plunge*depth+driftD+throwD+axial.d+lipDepth+s.radius*(1-reach)*v+bulk*reach*
             (.58*Math.sin(twist*3+v*18-seed)*bell+.32*Math.cos(twist+v*25)*fluke-
             sleeve*(.70+.50*flutter))-.15*current*sway+lean*radius*.64*Math.cos(spiral);
-          const z=s.z+axial.z+throwZ+radius*1.18*Math.sin(spiral)+.045*reach*Math.sin(v*8+seed+ageC*6);
+          const z=s.z+axial.z+throwZ+radius*1.18*Math.sin(spiral)+.045*reach*Math.sin(v*8+seed+age*6);
           const pos=projectTank(x,d,z,cam,aspect);
           circle(pos,orbits.get(id),v);
           if(anatomical){
@@ -588,7 +574,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           pos[1]=mix(pos[1],target[1],follow)+slack*.027*Math.cos(a+7*follow);
           pos[2]=mix(pos[2],target[2],follow)+slack*.013*Math.sin(twist);
           const transfer=ease(g.capture,g.end,P),free=born*(1-transfer);
-          const exchange=breathing*(.12*pulse+.066*Math.sin(twist+pulse+ageC*11));
+          const exchange=breathing*(.12*pulse+.066*Math.sin(twist+pulse+age*11));
           const shed=live*(.36*tear*(1-wetRoll)+.16*tongue-.14*wetRoll*head)+.34*lift;
           const mist=clamp(.11+.19*(1-lip)+.13*reach+.09*Math.sin(g.phase+6*v)+exchange+shed,.045,.79);
           const offset=4*((b*rows+j)*width+k);
@@ -605,7 +591,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
             const softness=(.010+spread*(.79+.20*breathing*pulse+.52*lift))*Math.min(1,aspect)*(1-.45*condense);
             const amount=free*(bulk/.065)*(.035+.17*lip+.085*sleeve+.21*tongue+.19*lift)*(.26+.74*fluke)*(1+.5*condense);
             const loft=gesture*(1-wetRoll)*(.022+.064*tongue)+lift*(.028+.095*fluke);
-            splat(field,nx,ny,nz,pos[0]+(shear*.033+lift*bulk*.43)*Math.sin(twist+ageC*8)/Math.max(1,aspect),
+            splat(field,nx,ny,nz,pos[0]+(shear*.033+lift*bulk*.43)*Math.sin(twist+age*8)/Math.max(1,aspect),
               pos[1]+loft+shear*.050*Math.cos(twist+v*5),pos[2],softness,amount*mist,s.white);
           }
         }
@@ -615,7 +601,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
         for(let rail=0;rail<4;rail++){
           const side=[-1,1,0,0][rail],deep=[0,0,-1,1][rail];
           const g=vertex[(b*rows+j)*cols+Math.floor(sectors*[.55,.04,.76,.27][rail])];
-          const billow=.92+.13*Math.sin(v*10+Pc*5+seed)+.08*Math.cos(2*seed-v*16);
+          const billow=.92+.13*Math.sin(v*10+P*5+seed)+.08*Math.cos(2*seed-v*16);
           // Entrainment lengthens the thin stem. The overturning cap spreads
           // laterally and travels as a compact packet with the same end points.
           const cap=under*ease(.38,.80,v);
@@ -624,7 +610,7 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const halfWidth=(s.radius*(1-reach)+bulk*(id<2?1.94:1.64)*reach*billow*bulge*spread)*portraitWidth;
           const slope=(id===0?-.19:.42*Math.sin(seed*2.1))*reach;
           const collar=Math.exp(-((v-.38)**2)/.062),advection=breathing*collar*pulse;
-          const spine=axial.x*.57+slope*plunge*(v-.3)+reach*.021*Math.sin(8*v+ageC*7+seed)
+          const spine=axial.x*.57+slope*plunge*(v-.3)+reach*.021*Math.sin(8*v+age*7+seed)
             +s.bulk*advection*(.62+.22*side);
           const roll=branches*bulk*(.49+.51*side)*Math.sin(2.35*tear+1.92*v+.27*currentTime);
           const sheetX=spine+driftX+roll+side*halfWidth+deep*.013*reach*Math.sin(4*v+seed);
@@ -653,12 +639,24 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
           const offset=4*((b*rows+j)*width+cols+rail);
           for(let axis=0;axis<3;axis++)mesh[offset+axis]=encode(mix(pos[axis],g.target[axis],follow));
           mesh[offset+3]=Math.round(65535*wet);
-          if(formK!==undefined && v>=.72){
-            const t=6*formK,x=mix(pos[0],g.target[0],follow),y=mix(pos[1],g.target[1],follow);
-            trackSums[t]+=x;trackSums[t+1]+=y;trackSums[t+2]+=mix(pos[2],g.target[2],follow);
-            trackSums[t+3]+=x*x;trackSums[t+4]+=y*y;trackSums[t+5]++;
-          }
         }
+      }
+    }
+    // The heads' discharges (ink-swirl.js): each jet lays its trail from where its head was when it left,
+    // densest at its running tip, the trail behind spreading and thinning into mist.
+    for(const d of DISCHARGES){
+      if(d.id>=drops.length)continue;
+      const at=dischargeAt(d,P);
+      if(!at)continue;
+      if(!jets.has(d))jets.set(d,{from:headAt(d.id,d.start,aspect),path:dischargePath(d)});
+      const {from,path}=jets.get(d),n=path.length,white=drops[d.id].white,narrow=Math.min(1,aspect);
+      for(let i=0;i<n;i++){
+        const f=i/(n-1);
+        if(f>at.run)break;
+        const tip=Math.exp(-(((at.run-f)/.16)**2));
+        const r=(d.width*(.7+.7*tip)+.02*at.age*(1-tip))*narrow;
+        const amount=at.fade*(.16+.42*tip)*(1-.3*(1-f)*(1-tip));
+        splat(field,nx,ny,nz,(from[0]+path[i][0])/aspect,from[1]+path[i][1],Math.min(.97,from[2]+.025*Math.sin(d.seed+4*f)),r,amount,white);
       }
     }
     // As each solid sets, the last of its solvent leaves it: curls of steam (ivory) or soot (black) rise
@@ -672,18 +670,9 @@ export function bakeLivingInk(aspect,mobile,emit,sourceCount=DROPS.length){
         splat(field,nx,ny,nz,site.x+sway/Math.max(1,aspect),site.y+rise,site.z-.01*k,(.014+.006*k)*Math.min(1,aspect),.11*steam*(1-.18*k),white);
       }
     }
-    for(let k=0;k<forms.length;k++){
-      const [x,y,z,xx,yy,n]=trackSums.subarray(6*k,6*k+6),o=4*(frame*FORMS.length+k);
-      if(!n)continue;
-      const mx=x/n,my=y/n;
-      tracks[o]=mx;tracks[o+1]=my;tracks[o+2]=z/n;
-      tracks[o+3]=Math.max(.02,Math.sqrt(Math.max(0,xx/n-mx*mx)*aspect*aspect+Math.max(0,yy/n-my*my)));
-    }
     const density=new Uint8Array(field.length);
     for(let n=0;n<field.length;n++)if(field[n]>0)density[n]=lut[Math.min(2048,Math.round(field[n]*256))];
     emit({frame,density,mesh});
   }
-  // The vortex rings' choreography (vortex-plan.js), for the live ink (vortex-ink.js).
-  const rings=bakeRings(aspect,sites);
-  emit({ledger,massBook,tracks,rings});
+  emit({ledger,massBook});
 }
